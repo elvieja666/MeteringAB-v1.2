@@ -48,6 +48,9 @@ public:
     Channels getChannels() const               { return channels; }
 
     void setShowGrid (bool shouldShow)         { showGrid = shouldShow; repaint(); }
+
+    // LINK: cada columna muestra la onda que sonaba cuando se dibujó.
+    void setLinked (bool shouldLink)           { linked = shouldLink; repaint(); }
     bool getShowGrid() const                   { return showGrid; }
 
     bool isFrozen() const { return frozen; }
@@ -95,21 +98,33 @@ public:
             const auto& pre  = traces[(size_t) (lane * 2)];
             const auto& post = traces[(size_t) (lane * 2 + 1)];
 
-            auto drawSignal = [&] (const TraceCopy& t, juce::Colour colour, Style style)
+            auto drawSignal = [&] (const TraceCopy& t, juce::Colour colour, Style style, Mask mask)
             {
                 switch (style)
                 {
-                    case Style::contour:  drawEnvelope (g, area, t.min, t.max, yFor, colour, true);  break;
-                    case Style::lines:    drawEnvelope (g, area, t.min, t.max, yFor, colour, false); break;
-                    case Style::detailed: drawDetailed (g, area, t.min, t.max, t.sq, yFor, midY, colour); break;
+                    case Style::contour:  drawEnvelope (g, area, t.min, t.max, yFor, colour, true, mask);  break;
+                    case Style::lines:    drawEnvelope (g, area, t.min, t.max, yFor, colour, false, mask); break;
+                    case Style::detailed: drawDetailed (g, area, t.min, t.max, t.sq, yFor, midY, colour, mask); break;
                 }
             };
 
-            if (showPre)
-                drawSignal (pre, preColour, stylePre);
+            // Con LINK (y una sola onda elegida), cada columna muestra lo que
+            // sonaba: PRE donde escuchabas PRE y POST donde escuchabas POST.
+            const bool followListen = linked && showPre != showPost;
 
-            if (showPost)
-                drawSignal (post, postColour, stylePost);    // POST encima
+            if (followListen)
+            {
+                drawSignal (pre,  preColour,  stylePre,  Mask { &showPreAt, 1 });
+                drawSignal (post, postColour, stylePost, Mask { &showPreAt, 0 });
+            }
+            else
+            {
+                if (showPre)
+                    drawSignal (pre, preColour, stylePre, {});
+
+                if (showPost)
+                    drawSignal (post, postColour, stylePost, {});    // POST encima
+            }
 
             // Etiqueta del canal (L / R) cuando no es la suma.
             if (channels != Channels::sum)
@@ -173,6 +188,7 @@ private:
 
         for (int b = 0; b < MeteringABProcessor::scopeBins; ++b)
         {
+            showPreAt[(size_t) b] = processor.scopeShowPreAt[(size_t) b].load (std::memory_order_relaxed);
             const float count = (float) juce::jmax (1, processor.scopeCount[(size_t) b].load (std::memory_order_relaxed));
 
             for (int t = 0; t < used; ++t)
@@ -278,40 +294,59 @@ private:
 
     using Bins = std::array<float, MeteringABProcessor::scopeBins>;
 
+    // Máscara opcional: con LINK, qué columnas dibujar de cada onda.
+    using Flags = std::array<std::uint8_t, MeteringABProcessor::scopeBins>;
+    struct Mask { const Flags* flags = nullptr; std::uint8_t wanted = 0;
+                  bool includes (int b) const { return flags == nullptr || (*flags)[(size_t) b] == wanted; } };
+
     // Contorno (con relleno) o solo líneas: el pico de cada columna, suavizado.
+    // Las columnas fuera de la máscara quedan vacías (cada tramo se dibuja aparte).
     template <typename YFunc>
     static void drawEnvelope (juce::Graphics& g, juce::Rectangle<float> plot, const Bins& mins, const Bins& maxs,
-                              YFunc yFor, juce::Colour colour, bool filled)
+                              YFunc yFor, juce::Colour colour, bool filled, Mask mask = {})
     {
         const int bins = MeteringABProcessor::scopeBins;
-        juce::Path fill, top, bottom;
+        juce::Path fill, lines;
 
-        // Cada columna toma el pico de sus vecinas: así el contorno no se ve
-        // "dentado" cuando una columna dura menos que un ciclo de la onda.
+        // Cada columna toma el pico de sus vecinas (del mismo tramo): así el
+        // contorno no se ve "dentado" cuando una columna dura menos que un ciclo.
         constexpr int radius = 4;
-        auto peakMax = [&] (int b) { float v = -1.0f; for (int j = juce::jmax (0, b - radius); j <= juce::jmin (bins - 1, b + radius); ++j) v = juce::jmax (v, maxs[(size_t) j]); return v; };
-        auto peakMin = [&] (int b) { float v =  1.0f; for (int j = juce::jmax (0, b - radius); j <= juce::jmin (bins - 1, b + radius); ++j) v = juce::jmin (v, mins[(size_t) j]); return v; };
+        auto xFor = [&] (int b) { return plot.getX() + ((float) b + 0.5f) / (float) bins * plot.getWidth(); };
 
-        for (int b = 0; b < bins; ++b)
+        int b = 0;
+        while (b < bins)
         {
-            const float x = plot.getX() + ((float) b + 0.5f) / (float) bins * plot.getWidth();
-            const float yHi = yFor (peakMax (b));
+            if (! mask.includes (b)) { ++b; continue; }
 
-            if (b == 0) { fill.startNewSubPath (x, yHi); top.startNewSubPath (x, yHi); }
-            else        { fill.lineTo (x, yHi);          top.lineTo (x, yHi); }
+            int end = b;                                   // tramo [b, end)
+            while (end < bins && mask.includes (end))
+                ++end;
+
+            auto peakMax = [&] (int i) { float v = -1.0f; for (int j = juce::jmax (b, i - radius); j <= juce::jmin (end - 1, i + radius); ++j) v = juce::jmax (v, maxs[(size_t) j]); return v; };
+            auto peakMin = [&] (int i) { float v =  1.0f; for (int j = juce::jmax (b, i - radius); j <= juce::jmin (end - 1, i + radius); ++j) v = juce::jmin (v, mins[(size_t) j]); return v; };
+
+            juce::Path top, bottom;
+
+            for (int i = b; i < end; ++i)
+            {
+                const float yHi = yFor (peakMax (i));
+                if (i == b) { fill.startNewSubPath (xFor (i), yHi); top.startNewSubPath (xFor (i), yHi); }
+                else        { fill.lineTo (xFor (i), yHi);          top.lineTo (xFor (i), yHi); }
+            }
+
+            for (int i = end - 1; i >= b; --i)
+            {
+                const float yLo = yFor (peakMin (i));
+                fill.lineTo (xFor (i), yLo);
+                if (i == end - 1) bottom.startNewSubPath (xFor (i), yLo);
+                else              bottom.lineTo (xFor (i), yLo);
+            }
+
+            fill.closeSubPath();
+            lines.addPath (top);
+            lines.addPath (bottom);
+            b = end;
         }
-
-        for (int b = bins - 1; b >= 0; --b)
-        {
-            const float x = plot.getX() + ((float) b + 0.5f) / (float) bins * plot.getWidth();
-            const float yLo = yFor (peakMin (b));
-            fill.lineTo (x, yLo);
-
-            if (b == bins - 1) bottom.startNewSubPath (x, yLo);
-            else               bottom.lineTo (x, yLo);
-        }
-
-        fill.closeSubPath();
 
         if (filled)
         {
@@ -320,15 +355,14 @@ private:
         }
 
         g.setColour (colour);
-        g.strokePath (top, juce::PathStrokeType (filled ? 1.2f : 1.5f));
-        g.strokePath (bottom, juce::PathStrokeType (filled ? 1.2f : 1.5f));
+        g.strokePath (lines, juce::PathStrokeType (filled ? 1.2f : 1.5f));
     }
 
     // Detallado: cada medio píxel muestra el pico real (sin suavizar, se ven
     // los ciclos de los graves) y, encima, el RMS en un tono más claro.
     template <typename YFunc>
     static void drawDetailed (juce::Graphics& g, juce::Rectangle<float> plot, const Bins& mins, const Bins& maxs,
-                              const Bins& meanSquares, YFunc yFor, float midY, juce::Colour colour)
+                              const Bins& meanSquares, YFunc yFor, float midY, juce::Colour colour, Mask mask = {})
     {
         const int bins = MeteringABProcessor::scopeBins;
         const int columns = juce::jmax (1, (int) plot.getWidth() * 2);
@@ -341,22 +375,27 @@ private:
             const int to   = juce::jmax (from + 1, (c + 1) * bins / columns);
             float lo = 1.0f, hi = -1.0f;
             double sq = 0.0;
+            int included = 0;
 
             for (int b = from; b < to; ++b)
             {
+                if (! mask.includes (b))
+                    continue;
+
                 lo = juce::jmin (lo, mins[(size_t) b]);
                 hi = juce::jmax (hi, maxs[(size_t) b]);
                 sq += meanSquares[(size_t) b];
+                ++included;
             }
 
-            if (hi < lo)
+            if (included == 0 || hi < lo)
                 continue;
 
             const float x = plot.getX() + (float) c * columnWidth;
             const float yHi = yFor (hi), yLo = yFor (lo);
             peaks.addWithoutMerging ({ x, yHi, columnWidth + 0.35f, juce::jmax (0.6f, yLo - yHi) });
 
-            const float r = (float) std::sqrt (sq / (to - from));
+            const float r = (float) std::sqrt (sq / included);
             const float rTop = yFor (juce::jmin (r, hi > 0.0f ? hi : r)), rBottom = yFor (-juce::jmin (r, lo < 0.0f ? -lo : r));
             if (rBottom > rTop)
                 rms.addWithoutMerging ({ x, rTop, columnWidth + 0.35f, rBottom - rTop });
@@ -373,6 +412,8 @@ private:
     struct TraceCopy { Bins min {}, max {}, sq {}; };
     std::array<TraceCopy, 4> traces;                  // [PRE, POST] de la franja de arriba, [PRE, POST] de abajo
     Channels channels = Channels::sum;
+    Flags showPreAt {};
+    bool linked = true;
     Style stylePre = Style::contour, stylePost = Style::contour;
     juce::Colour preColour { palettes[0].pre }, postColour { palettes[0].post };
     bool showGrid = true;

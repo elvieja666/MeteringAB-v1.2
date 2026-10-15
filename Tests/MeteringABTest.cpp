@@ -276,9 +276,9 @@ int main (int argc, char** argv)
     if (argc > 1) // Metering A/BTests <carpeta>: guarda capturas de la interfaz
     {
         const char* names[] = { "/send.png", "/receive.png", "/receive-long.png", "/receive-closed.png",
-                                "/estilo-detallado.png", "/estilo-lineas.png", "/estilo-contorno.png" };
+                                "/estilo-detallado.png", "/estilo-lineas.png", "/estilo-contorno.png", "/link-cambio.png" };
 
-        for (int shot = 0; shot < 7; ++shot)
+        for (int shot = 0; shot < 8; ++shot)
         {
             std::unique_ptr<Chain> chain;
             std::unique_ptr<MeteringABProcessor> lone;
@@ -311,7 +311,15 @@ int main (int argc, char** argv)
                     if (shot == 6) a->apvts.state.setProperty ("scopeChannels", 3, nullptr);   // L y R separados
                     if (shot == 6) a->apvts.state.setProperty ("scopeStylePost", 2, nullptr);  // PRE contorno, POST solo líneas
                 }
-                chain->run (shot == 2 ? 5.3 : 3.3);
+                if (shot == 7)   // LINK: escuchando POST, cambio a PRE en la mitad del compás
+                {
+                    a->apvts.state.setProperty ("scopeLength", 2, nullptr); a->scopeLengthIndex = 2;
+                    a->apvts.state.setProperty ("scopeShowPre", true, nullptr);
+                    a->apvts.state.setProperty ("scopeShowPost", false, nullptr);
+                    chain->run (3.0); setParam (*a, ParamIDs::pre, 1); chain->run (0.5);
+                }
+                else
+                    chain->run (shot == 2 ? 5.3 : 3.3);
             }
 
             std::unique_ptr<juce::AudioProcessorEditor> ed (a->createEditor());
@@ -847,6 +855,18 @@ int main (int argc, char** argv)
         }
         check (std::abs (maxR / maxL - 0.8f) < 0.02f && std::abs (maxSum / maxL - 0.9f) < 0.02f,
                "Canales: R = 0,8 x L y L+R = promedio (relación R/L)", maxR / maxL);
+    }
+
+    {
+        // LINK: al cambiar la escucha, del cabezal en adelante pasa a la nueva
+        // onda y lo de atrás queda como estaba (120 BPM: 1 compás = 2 s).
+        Chain c (10, -3.0f, 0);
+        c.run (3.0);                               // 1,5 compases escuchando POST: cabezal en la mitad
+        setParam (c.recv, ParamIDs::pre, 1);       // cambio a PRE
+        c.run (0.5);                               // cabezal en 3/4 del compás
+        auto flagAt = [&] (double barFraction) { return (int) c.recv.scopeShowPreAt[(size_t) (barFraction * MeteringABProcessor::scopeBins)].load(); };
+        check (flagAt (0.25) == 0 && flagAt (0.6) == 1 && flagAt (0.9) == 1,
+               "LINK: atrás queda POST, del cabezal en adelante PRE", flagAt (0.25) * 100 + flagAt (0.6) * 10 + flagAt (0.9));
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;

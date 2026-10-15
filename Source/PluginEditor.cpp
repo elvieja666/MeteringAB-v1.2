@@ -289,6 +289,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     linkButton.onClick = [this] { setScopeLinked (! scopeLinked); };
     addAndMakeVisible (linkButton);
     scopeLinked = (bool) apvts.state.getProperty ("scopeLink", true);
+    scope.setLinked (scopeLinked);
 
     updateWaveButtons();
 
@@ -498,6 +499,7 @@ void MeteringABEditor::updateWaveButtons()
 void MeteringABEditor::setScopeLinked (bool linked)
 {
     scopeLinked = linked;
+    scope.setLinked (linked);
     processor.apvts.state.setProperty ("scopeLink", linked, nullptr);
 
     if (linked)

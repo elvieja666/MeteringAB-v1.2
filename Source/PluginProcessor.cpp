@@ -522,6 +522,21 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     const double loopQuarters = getScopeLengthBars() * timeSigNum.load() * 4.0 / timeSigDen.load();
     const double quartersPerSample = hostBpm.load() / 60.0 / currentSampleRate;
 
+    // Cambió la escucha PRE/POST: del cabezal en adelante, mostrar la nueva onda.
+    {
+        const int listenPre = pre ? 1 : 0;
+
+        if (lastScopeListenPre >= 0 && listenPre != lastScopeListenPre)
+        {
+            const int fromBin = juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins));
+
+            for (int b = fromBin; b < scopeBins; ++b)
+                scopeShowPreAt[(size_t) b].store ((std::uint8_t) listenPre, std::memory_order_relaxed);
+        }
+
+        lastScopeListenPre = listenPre;
+    }
+
     // Logic ya compensa la latencia de los efectos (lee el audio adelantado),
     // así que la posición que informa coincide con el audio que llega acá:
     // no hay que restar nada.
@@ -613,6 +628,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
             }
 
             scopeCount[k].store (newBin ? 1 : scopeCount[k].load (std::memory_order_relaxed) + 1, std::memory_order_relaxed);
+            scopeShowPreAt[k].store (pre ? 1 : 0, std::memory_order_relaxed);   // lo que sonaba al dibujarla
             lastScopeBin = bin;
         }
 
@@ -667,6 +683,7 @@ void MeteringABProcessor::clearScope()
         }
 
         scopeCount[(size_t) b] = 0;
+        scopeShowPreAt[(size_t) b] = (std::uint8_t) (pPre->load() > 0.5f ? 1 : 0);
     }
 
     lastScopeBin = -1;
