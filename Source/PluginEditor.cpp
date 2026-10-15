@@ -97,6 +97,13 @@ juce::Font MeteringABLookAndFeel::getTextButtonFont (juce::TextButton& button, i
     return Theme::font (juce::jmin (14.0f, (float) buttonHeight * 0.5f), 400);
 }
 
+// Zona que ocupa el botón en relieve (deja lugar a la sombra). El texto se
+// centra en esta zona, no en todo el componente.
+static juce::Rectangle<float> raisedShape (juce::Rectangle<float> bounds)
+{
+    return bounds.reduced (5.0f, 2.0f).withTrimmedBottom (4.0f);
+}
+
 void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& button, const juce::Colour&, bool over, bool down)
 {
     const auto kind = button.getProperties()["kind"].toString();
@@ -128,7 +135,7 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
 
     // raised (por defecto)
     const float radius = button.getProperties().contains ("big") ? 18.0f : (r.getHeight() - 6.0f) * 0.5f;
-    Theme::drawRaised (g, r.reduced (5.0f, 2.0f).withTrimmedBottom (4.0f), radius, over, down || button.getToggleState());
+    Theme::drawRaised (g, raisedShape (r), radius, over, down || button.getToggleState());
 }
 
 void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& button, bool, bool)
@@ -163,8 +170,11 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
 
     g.setColour (colour);
     g.setFont (getTextButtonFont (button, button.getHeight()));
-    const bool down = button.isDown() && kind == "raised";
-    g.drawFittedText (button.getButtonText(), r.translated (0, down ? 1 : 0),
+    const bool raised = kind.isEmpty() || kind == "raised";
+    if (raised)
+        r = raisedShape (r.toFloat()).toNearestInt().translated (0, button.isDown() ? 1 : 0);
+
+    g.drawFittedText (button.getButtonText(), r,
                       kind == "plain" && button.getProperties().contains ("open") ? juce::Justification::centredLeft
                                                                                   : juce::Justification::centred, 1);
 }
