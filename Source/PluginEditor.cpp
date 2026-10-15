@@ -367,8 +367,13 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     windowSlider.setDoubleClickReturnValue (true, 3000.0);
 
     // Ventana: el valor va a la derecha de la perilla (ocupa menos alto).
+    // (El estilo se fija en cada perilla, así el casillero sale con el diseño nuevo
+    // aunque la perilla todavía no esté puesta en el plugin.)
     for (auto* ws : { &windowSlider, &windowSyncSlider })
+    {
+        ws->setLookAndFeel (&lnf);
         ws->setTextBoxStyle (juce::Slider::TextBoxRight, false, 104, 26);
+    }
 
     // Ventana en compases (modo Sync): misma perilla, valores musicales.
     addAndMakeVisible (windowSyncSlider);

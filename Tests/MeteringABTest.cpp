@@ -319,6 +319,13 @@ int main (int argc, char** argv)
             };
             save (*ed, names[shot]);
 
+            if (shot == 3)   // ventana en modo Sync (compases)
+            {
+                setParam (*a, ParamIDs::sync, 1);
+                dynamic_cast<MeteringABEditor*> (ed.get())->refreshNow();
+                save (*ed, "/receive-sync.png");
+            }
+
             if (shot == 2)   // osciloscopio en ventana aparte
             {
                 auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
