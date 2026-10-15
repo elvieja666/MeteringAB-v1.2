@@ -301,7 +301,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     scopeToggleButton.setTooltip ("Mostrar u ocultar el osciloscopio");
     scopeToggleButton.onClick = [this] { setScopeOpen (! scopeOpen); };
     addAndMakeVisible (scopeToggleButton);
-    scopeOpen = (bool) apvts.state.getProperty ("scopeOpen", true);
+    scopeOpen = (bool) apvts.state.getProperty ("scopeOpen", false);   // arranca cerrado
 
     // Estilo: forma de dibujar, colores y grilla (se guardan con el proyecto).
     scopeStyleButton.setTooltip ("Forma, colores y grilla del osciloscopio");

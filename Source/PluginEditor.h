@@ -78,7 +78,7 @@ private:
     void showStyleMenu();
     void applyScopeLook();                            // lee estilo y colores guardados
     void pickCustomColour (bool forPre);
-    bool scopeOpen = true;
+    bool scopeOpen = false;
     void setScopeOpen (bool open);
     void updateScopeSection();
 

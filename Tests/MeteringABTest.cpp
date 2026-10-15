@@ -293,7 +293,7 @@ int main (int argc, char** argv)
             else
             {
                 chain = std::make_unique<Chain> (40 + shot, 0.0f, 64);
-                if (shot == 3) chain->recv.apvts.state.setProperty ("scopeOpen", false, nullptr);   // FX con 64 muestras de latencia
+                chain->recv.apvts.state.setProperty ("scopeOpen", shot != 3, nullptr);   // capturas con el osciloscopio abierto (salvo la 3)   // FX con 64 muestras de latencia
                 setParam (chain->recv, ParamIDs::latency, 64.0f);
                 chain->recv.latencyMeasurer.setState (LatencyMeasurer::State::done);
                 if (shot == 1) setParam (chain->recv, ParamIDs::polarity, 1);   // para ver "Ø invertida" en la captura
@@ -387,6 +387,12 @@ int main (int argc, char** argv)
                "Osciloscopio: ocultar POST FX se guarda con el proyecto", 1);
     }
     {
+        // Por defecto el osciloscopio arranca cerrado.
+        {
+            MeteringABProcessor d; setParam (d, ParamIDs::mode, 1);
+            std::unique_ptr<juce::AudioProcessorEditor> edDefault (d.createEditor());
+            check (edDefault->getHeight() == 378 + 44, "Por defecto el osciloscopio arranca cerrado (alto px)", edDefault->getHeight());
+        }
         // Osciloscopio oculto: la ventana se achica; en Send no aparece.
         MeteringABProcessor a; a.apvts.state.setProperty ("scopeOpen", false, nullptr); setParam (a, ParamIDs::mode, 1);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
@@ -477,6 +483,7 @@ int main (int argc, char** argv)
     {
         // El editor se puede crear y destruir sin problemas (Receive, osciloscopio abierto).
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
+        a.apvts.state.setProperty ("scopeOpen", true, nullptr);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
         check (ed != nullptr && ed->getWidth() == 640 && ed->getHeight() == 738, "Editor Receive con osciloscopio abierto (alto px)", ed->getHeight());
     }

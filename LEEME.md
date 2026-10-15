@@ -71,7 +71,7 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 ### Osciloscopio
 
-Está abajo de todo, separado por una línea. Tocá **▾ Osciloscopio** para ocultarlo (la ventana del plugin se achica) y **▸ Osciloscopio** para volver a mostrarlo; queda guardado con el proyecto.
+Está abajo de todo, separado por una línea, y arranca cerrado: tocá **▸ Osciloscopio** para abrirlo. Tocá **▾ Osciloscopio** para ocultarlo (la ventana del plugin se achica); queda guardado con el proyecto.
 
 Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivelado al volumen del original, así ves solo lo que cambió.
 
