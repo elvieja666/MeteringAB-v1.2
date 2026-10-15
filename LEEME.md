@@ -71,6 +71,8 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 ### Osciloscopio
 
+Está abajo de todo, separado por una línea. Tocá **▾ Osciloscopio** para ocultarlo (la ventana del plugin se achica) y **▸ Osciloscopio** para volver a mostrarlo; queda guardado con el proyecto.
+
 Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivelado al volumen del original, así ves solo lo que cambió.
 
 - Está **sincronizado al tempo del proyecto**: el ancho es un largo musical que elegís arriba a la derecha (1/4 bar, 1/2 bar, 1 bar, 2 bars o 4 bars). Arriba tiene la grilla de tiempos (0, 1/4, 2/4, 3/4, 4/4) con subdivisiones.

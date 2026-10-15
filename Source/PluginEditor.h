@@ -64,6 +64,16 @@ private:
     juce::ComboBox zoomBox;
     juce::TextButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };
     juce::TextButton waveSwapButton;                  // alterna: ver solo PRE <-> ver solo POST
+    juce::TextButton scopeToggleButton;               // ▾ / ▸ mostrar u ocultar el osciloscopio
+    bool scopeOpen = true;
+    void setScopeOpen (bool open);
+    void updateScopeSection();
+
+    // Medidas de la ventana: parte principal + sección del osciloscopio.
+    static constexpr int editorWidth = 640;
+    static constexpr int mainHeight = 476;            // hasta la línea que separa el osciloscopio
+    static constexpr int scopeHeaderHeight = 44;      // barra "Osciloscopio" (siempre visible)
+    static constexpr int scopeBodyHeight = 316;       // el osciloscopio en sí, más margen
     void setWaves (bool pre, bool post);
     void updateWaveButtons();
 

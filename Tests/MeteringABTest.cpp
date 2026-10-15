@@ -258,9 +258,9 @@ int main (int argc, char** argv)
 
     if (argc > 1) // Metering A/BTests <carpeta>: guarda capturas de la interfaz
     {
-        const char* names[] = { "/send.png", "/receive.png", "/receive-long.png" };
+        const char* names[] = { "/send.png", "/receive.png", "/receive-long.png", "/receive-closed.png" };
 
-        for (int shot = 0; shot < 3; ++shot)
+        for (int shot = 0; shot < 4; ++shot)
         {
             std::unique_ptr<Chain> chain;
             std::unique_ptr<MeteringABProcessor> lone;
@@ -274,15 +274,16 @@ int main (int argc, char** argv)
             }
             else
             {
-                chain = std::make_unique<Chain> (40 + shot, 0.0f, 64);   // FX con 64 muestras de latencia
+                chain = std::make_unique<Chain> (40 + shot, 0.0f, 64);
+                if (shot == 3) chain->recv.apvts.state.setProperty ("scopeOpen", false, nullptr);   // FX con 64 muestras de latencia
                 setParam (chain->recv, ParamIDs::latency, 64.0f);
                 chain->recv.latencyMeasurer.setState (LatencyMeasurer::State::done);
                 chain->saturate = true; chain->pulsing = true;
                 a = &chain->recv;
-                a->apvts.state.setProperty ("scopeLength", shot == 1 ? 2 : 3, nullptr);   // 1 bar / 2 bars
-                a->scopeLengthIndex = shot == 1 ? 2 : 3;
+                a->apvts.state.setProperty ("scopeLength", shot == 2 ? 3 : 2, nullptr);   // 1 bar / 2 bars
+                a->scopeLengthIndex = shot == 2 ? 3 : 2;
                 if (shot == 2) a->apvts.state.setProperty ("scopeShowPre", false, nullptr);   // captura con solo POST
-                chain->run (shot == 1 ? 3.3 : 5.3);
+                chain->run (shot == 2 ? 5.3 : 3.3);
             }
 
             std::unique_ptr<juce::AudioProcessorEditor> ed (a->createEditor());
@@ -345,6 +346,15 @@ int main (int argc, char** argv)
                "Osciloscopio: ocultar POST FX se guarda con el proyecto", 1);
     }
     {
+        // Osciloscopio oculto: la ventana se achica; en Send no aparece.
+        MeteringABProcessor a; a.apvts.state.setProperty ("scopeOpen", false, nullptr); setParam (a, ParamIDs::mode, 1);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+        check (ed->getHeight() == 476 + 44, "Osciloscopio oculto: ventana más chica (alto px)", ed->getHeight());
+        MeteringABProcessor sendP;
+        std::unique_ptr<juce::AudioProcessorEditor> ed2 (sendP.createEditor());
+        check (ed2->getHeight() == 476, "Modo Send: sin sección de osciloscopio (alto px)", ed2->getHeight());
+    }
+    {
         MeteringABProcessor fresh;
         check (fresh.apvts.getParameter (ParamIDs::pre)->getCurrentValueAsText() == "PRE FX", "Por defecto arranca en PRE FX", 1);
     }
@@ -391,10 +401,10 @@ int main (int argc, char** argv)
                "Estado guardado y recuperado (latencia 128.37 y polaridad)", b2.apvts.getRawParameterValue (ParamIDs::latency)->load());
     }
     {
-        // El editor se puede crear y destruir sin problemas.
-        MeteringABProcessor a;
+        // El editor se puede crear y destruir sin problemas (Receive, osciloscopio abierto).
+        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        check (ed != nullptr && ed->getWidth() == 640 && ed->getHeight() == 710, "Editor se crea (ancho px)", ed->getWidth());
+        check (ed != nullptr && ed->getWidth() == 640 && ed->getHeight() == 836, "Editor Receive con osciloscopio abierto (alto px)", ed->getHeight());
     }
 
 
