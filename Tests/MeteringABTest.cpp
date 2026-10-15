@@ -410,8 +410,9 @@ int main (int argc, char** argv)
         check (ed->getWidth() == MeteringABEditor::wideWidth && ed->getHeight() == MeteringABEditor::wideHeight
                && ed->getWidth() <= 1512 && ed->getHeight() <= 982 - 37 - 60,
                "Modo grande: entra en la pantalla de una MacBook Pro 14 (px)", ed->getWidth());
-        check (e->getScopeForTests().isVisible() && sb.getX() >= 640 && sb.getHeight() > 700 && sb.getWidth() > 760,
-               "Modo grande: el osciloscopio ocupa la derecha (alto px)", sb.getHeight());
+        check (ed->getHeight() == MeteringABEditor::mainHeight, "Modo ancho: el panel gris mantiene su tamaño (alto px)", ed->getHeight());
+        check (e->getScopeForTests().isVisible() && sb.getX() >= 640 && sb.getRight() > 1450 && sb.getHeight() > 260,
+               "Modo ancho: el osciloscopio va a la derecha hasta el borde (ancho px)", sb.getWidth());
         check ((bool) a.apvts.state.getProperty ("scopeWide", false), "Modo grande: se guarda con el proyecto", 1);
 
         // Se puede reabrir: el editor nuevo arranca grande.

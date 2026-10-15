@@ -69,10 +69,9 @@ public:
     void setScopeWideForTests (bool on)           { setScopeWide (on); }
     bool isScopeWide() const                      { return scopeWide; }
 
-    // Modo grande: el panel gris a la izquierda y el osciloscopio a la derecha,
-    // del tamaño de la pantalla de una MacBook Pro de 14" (1512 x 982 puntos,
-    // menos la barra de menú y la barra de la ventana de Logic).
-    static constexpr int wideWidth = 1500, wideHeight = 860;
+    // Modo ancho: el panel gris igual que siempre y, a su derecha, el osciloscopio
+    // estirado hasta el otro borde de la pantalla de una MacBook Pro de 14" (1512 puntos).
+    static constexpr int wideWidth = 1500, wideHeight = mainHeight;
 
 private:
     void timerCallback() override;
@@ -126,7 +125,7 @@ private:
     bool scopeWide = false;
     void setScopeWide (bool wide);
     bool isWideLayout() const                         { return scopeWide && ! isSendMode; }
-    int contentOffsetY() const;                       // en modo grande el panel gris va centrado en alto
+    int contentOffsetY() const;                       // (0: el panel gris queda arriba)
     juce::Component* scopeParts[6] = { &scope, &zoomBox, &scopeStyleButton, &linkButton, &showPreButton, &showPostButton };
 
     static constexpr int editorWidth = 640;

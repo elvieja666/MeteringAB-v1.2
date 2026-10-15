@@ -502,7 +502,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     scopeOpen = (bool) apvts.state.getProperty ("scopeOpen", false);   // arranca cerrado
 
     // ⤢ Osciloscopio grande a la derecha (se guarda con el proyecto).
-    wideButton.setTooltip ("Osciloscopio grande, a la derecha (pantalla completa)");
+    wideButton.setTooltip ("Osciloscopio a la derecha, a lo ancho de la pantalla");
     wideButton.onClick = [this] { setScopeWide (! scopeWide); };
     addAndMakeVisible (wideButton);
     scopeWide = (bool) apvts.state.getProperty ("scopeWide", false);
@@ -568,7 +568,7 @@ void MeteringABEditor::setScopeWide (bool wide)
 {
     scopeWide = wide;
     wideButton.on = wide;
-    wideButton.setTooltip (wide ? "Volver al tamaño normal" : "Osciloscopio grande, a la derecha (pantalla completa)");
+    wideButton.setTooltip (wide ? "Volver al tamaño normal" : "Osciloscopio a la derecha, a lo ancho de la pantalla");
     processor.apvts.state.setProperty ("scopeWide", wide, nullptr);
 
     if (! wide)
@@ -582,7 +582,7 @@ void MeteringABEditor::setScopeWide (bool wide)
 
 int MeteringABEditor::contentOffsetY() const
 {
-    return isWideLayout() ? (getHeight() - mainHeight) / 2 : 0;
+    return 0;
 }
 
 void MeteringABEditor::setupKnob (PreciseSlider& s, juce::Label& label, const juce::String& text)
@@ -1140,9 +1140,6 @@ void MeteringABEditor::resized()
     auto section = wide ? juce::Rectangle<int> (editorWidth, 0, getWidth() - editorWidth, getHeight()).reduced (20, 0)
                         : getLocalBounds().withTrimmedTop (mainHeight + 1).reduced (20, 0);
 
-    if (wide)
-        section.removeFromTop (6);
-
     auto scopeHeader = section.removeFromTop (scopeHeaderHeight - 1).withSizeKeepingCentre (section.getWidth(), 28);
     scopeToggleButton.setBounds (scopeHeader.removeFromLeft (128).translated (-8, 0));
     wideButton.setBounds (scopeHeader.removeFromRight (34));
@@ -1159,5 +1156,5 @@ void MeteringABEditor::resized()
     scopeStyleButton.setBounds (scopeHeader.removeFromRight (60));
     scopeLabel.setBounds (scopeHeader);
 
-    scope.setBounds (wide ? section.withTrimmedBottom (20) : section.removeFromTop (scopeBodyHeight - 16));
+    scope.setBounds (wide ? section.withTrimmedBottom (16) : section.removeFromTop (scopeBodyHeight - 16));
 }
