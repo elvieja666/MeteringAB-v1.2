@@ -138,12 +138,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     };
 
     addCombo (modeBox, ParamIDs::mode, modeAtt);
-    addCombo (measureBox, ParamIDs::measure, measureAtt);
 
-    measureLabel.setColour (juce::Label::textColourId, Colours::dim);
-    measureLabel.setFont (juce::FontOptions (12.0f));
-    measureLabel.setText ("Medición"_u, juce::dontSendNotification);
-    addAndMakeVisible (measureLabel);
 
     // Link ID: flechitas + número editable.
     linkSlider.setSliderStyle (juce::Slider::IncDecButtons);
@@ -212,6 +207,12 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     abButton.onClick = [this] { toggleAB(); };
     addAndMakeVisible (abButton);
 
+    matchInfoLabel.setText ("Nivelado en LUFS (filtro K)"_u, juce::dontSendNotification);
+    matchInfoLabel.setJustificationType (juce::Justification::centred);
+    matchInfoLabel.setColour (juce::Label::textColourId, Colours::dim);
+    matchInfoLabel.setFont (juce::FontOptions (11.0f));
+    addAndMakeVisible (matchInfoLabel);
+
     listenLabel.setText ("Escuchar  ·  clic para alternar"_u, juce::dontSendNotification);
     listenLabel.setColour (juce::Label::textColourId, Colours::dim);
     listenLabel.setFont (juce::FontOptions (12.0f));
@@ -234,8 +235,6 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     latencyInfoLabel.setFont (juce::FontOptions (11.0f));
     addAndMakeVisible (latencyInfoLabel);
 
-    addAndMakeVisible (holdButton);
-    holdAtt = std::make_unique<ButtonAttachment> (apvts, ParamIDs::hold, holdButton);
 
     // Osciloscopio sincronizado + largo en compases (se guarda con el proyecto).
     addAndMakeVisible (scope);
@@ -723,8 +722,8 @@ void MeteringABEditor::timerCallback()
         isSendMode = sendMode;
 
         for (juce::Component* c : std::initializer_list<juce::Component*> {
-                 &measureBox, &measureLabel, &windowSlider, &windowLabel, &latencyLabel, &polarityButton, &latencyValueLabel, &latencyMsLabel,
-                 &abButton, &listenLabel, &measureButton, &latencyInfoLabel, &holdButton,
+                 &windowSlider, &windowLabel, &latencyLabel, &polarityButton, &latencyValueLabel, &latencyMsLabel,
+                 &abButton, &listenLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel,
 
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
             c->setVisible (! isSendMode);
@@ -867,7 +866,7 @@ void MeteringABEditor::paint (juce::Graphics& g)
     g.setColour (Colours::panel);
     g.fillRoundedRectangle (meterArea.toFloat(), 8.0f);
 
-    const auto unit = (int) processor.apvts.getRawParameterValue (ParamIDs::measure)->load() == 1 ? " LUFS" : " dB";
+    const auto unit = " LUFS";
 
     auto formatLevel = [unit] (float db)
     {
@@ -933,17 +932,14 @@ void MeteringABEditor::resized()
     auto right = columns.removeFromRight (sideWidth);
     auto middle = columns.reduced (10, 0);
 
-    // Escuchar: PRE FX / POST FX grande; debajo, la medición (LUFS/RMS) y Congelar.
+    // Escuchar: el botón grande PRE FX / POST FX y, debajo, cómo se nivela.
     {
         auto k = left;
         listenLabel.setBounds (k.removeFromTop (22));
         k.removeFromTop (4);
-        abButton.setBounds (k.removeFromTop (46));
-        k.removeFromTop (14);
-        measureLabel.setBounds ({});                   // el combo ya dice qué mide
-        measureBox.setBounds (k.removeFromTop (30));
+        abButton.setBounds (k.removeFromTop (80));
         k.removeFromTop (8);
-        holdButton.setBounds (k.removeFromTop (24));
+        matchInfoLabel.setBounds (k.removeFromTop (16));
     }
 
     // Ventana: botones ms|Sync arriba, perilla con el valor, equivalencia abajo.

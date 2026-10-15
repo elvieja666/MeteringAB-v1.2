@@ -10,7 +10,6 @@ namespace ParamIDs
     inline constexpr auto mode     = "mode";      // Send / Receive
     inline constexpr auto link     = "link";      // Link ID 1..16
     inline constexpr auto pre      = "pre";       // botón PRE FX (on) / POST FX (off)
-    inline constexpr auto measure  = "measure";   // RMS / LUFS
     inline constexpr auto windowMs   = "windowMs";   // ventana en milisegundos
     inline constexpr auto sync       = "sync";       // ventana: ms (off) / Sync (on)
     inline constexpr auto windowSync = "windowSync"; // ventana en compases
@@ -145,13 +144,11 @@ private:
     std::atomic<float>* pMode    = nullptr;
     std::atomic<float>* pLink    = nullptr;
     std::atomic<float>* pPre     = nullptr;
-    std::atomic<float>* pMeasure = nullptr;
     std::atomic<float>* pWindowMs   = nullptr;
     std::atomic<float>* pSync       = nullptr;
     std::atomic<float>* pWindowSync = nullptr;
     std::atomic<float>* pLatency = nullptr;
     std::atomic<float>* pPolarity = nullptr;
-    std::atomic<float>* pHold    = nullptr;
 
     LoudnessMeter preMeter, postMeter;
     juce::AudioBuffer<float> dryBuffer;               // original alineado (muestras enteras, para PRE FX)

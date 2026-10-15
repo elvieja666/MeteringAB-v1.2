@@ -20,8 +20,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout MeteringABProcessor::createL
                                                           .withStringFromValueFunction ([] (bool on, int) { return on ? String ("PRE FX") : String ("POST FX"); })));
 
 
-    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::measure, 1 }, "Medición"_u,
-                                                        StringArray { "RMS", "LUFS (filtro K)" }, 1));
 
     // Ventana en ms: acepta "1850", "1850 ms" o "1,85 s".
     NormalisableRange<float> windowRange (minWindowMs, maxWindowMs, 1.0f);
@@ -67,7 +65,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout MeteringABProcessor::createL
 
     layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::polarity, 1 }, "Polaridad invertida", false));
 
-    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::hold, 1 }, "Congelar", false));
 
     return layout;
 }
@@ -81,13 +78,11 @@ MeteringABProcessor::MeteringABProcessor()
     pMode    = apvts.getRawParameterValue (ParamIDs::mode);
     pLink    = apvts.getRawParameterValue (ParamIDs::link);
     pPre     = apvts.getRawParameterValue (ParamIDs::pre);
-    pMeasure = apvts.getRawParameterValue (ParamIDs::measure);
     pWindowMs   = apvts.getRawParameterValue (ParamIDs::windowMs);
     pSync       = apvts.getRawParameterValue (ParamIDs::sync);
     pWindowSync = apvts.getRawParameterValue (ParamIDs::windowSync);
     pLatency = apvts.getRawParameterValue (ParamIDs::latency);
     pPolarity = apvts.getRawParameterValue (ParamIDs::polarity);
-    pHold    = apvts.getRawParameterValue (ParamIDs::hold);
 
     syncStateHandled = pSync->load() > 0.5f;
     apvts.addParameterListener (ParamIDs::sync, this);
@@ -178,7 +173,7 @@ void MeteringABProcessor::readHostTempo()
 
 void MeteringABProcessor::configureMeter (LoudnessMeter& meter) const
 {
-    meter.setMode ((LoudnessMeter::Mode) (int) pMeasure->load());
+    meter.setMode (LoudnessMeter::Mode::lufs);       // siempre LUFS con filtro K
 
     if (pSync->load() > 0.5f)
     {
@@ -482,7 +477,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         const double postMs = postMeter.getMeanSquare();
         constexpr double gate = 1.0e-6;                  // -60 dB: no matchear silencio
 
-        if (pHold->load() < 0.5f && preMs > gate && postMs > 1.0e-12)
+        if (preMs > gate && postMs > 1.0e-12)
             autoGainDb = juce::jlimit (-autoLimitDb, autoLimitDb, (float) (10.0 * std::log10 (preMs / postMs)));
     }
 

@@ -61,10 +61,8 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 | Control | Qué hace |
 |---|---|
-| **PRE FX / POST FX** | Un solo botón: cada clic alterna. Arranca en **PRE FX**. **POST FX** (ámbar) = con tus efectos, al mismo volumen que el original. **PRE FX** (verde agua) = la señal antes de los efectos. Es un parámetro de Logic, así que lo podés asignar a una tecla o control MIDI. Al cambiar hace un crossfade de 10 ms, imperceptible, para que no haya clicks. |
-| **Medición** | *LUFS* se parece más a cómo escucha el oído (recomendado). *RMS* es energía pura. |
+| **PRE FX / POST FX** | Un solo botón: cada clic alterna. Arranca en **PRE FX**. **POST FX** (ámbar) = con tus efectos, al mismo volumen que el original. **PRE FX** (verde agua) = la señal antes de los efectos. Es un parámetro de Logic, así que lo podés asignar a una tecla o control MIDI. Al cambiar hace un crossfade de 10 ms, imperceptible, para que no haya clicks. El volumen se iguala siempre solo, midiendo en **LUFS (filtro K)**, con un máximo de 24 dB para arriba o para abajo. |
 | **Ventana (ms / Sync)** | Cuánto tiempo promedia la medición. En **ms** elegís milisegundos. En **Sync** elegís compases (1/4 bar a 8 bars) según el tempo y el compás del proyecto, y el promedio toma compases exactos, así la lectura de un loop queda quieta. Al pasar de Sync a ms se convierte al tiempo equivalente; al volver a Sync se acomoda al valor musical más cercano. Debajo de la perilla ves la equivalencia. |
-| **Congelar** | Deja fija la corrección de volumen actual (el matcheo es siempre automático, con un máximo de 24 dB para arriba o para abajo). |
 | **Latencia + Medir** | Compensa efectos que retrasan el audio (EQ de fase lineal, oversampling, limitadores con lookahead). Dale play y tocá **Medir**: en unos 3 segundos el plugin encuentra el retraso exacto, **con decimales** (por ejemplo 64,50 muestras, porque muchos plugins retrasan "medio sample"), y lo muestra en grande con su equivalente en ms. Si el sonido procesado no se parece lo suficiente al original (por ejemplo, una reverb 100% wet), te avisa en vez de poner un valor dudoso. Si cambiás los efectos de la cadena, volvé a medir. |
 | **Ø (polaridad)** | Se enciende solo si **Medir** detecta que algún plugin invierte la polaridad. También lo podés activar a mano. |
 
@@ -107,7 +105,7 @@ Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivela
 ## Para curiosos: cómo está armado
 
 - `Source/PluginProcessor.cpp` · el procesamiento de audio (Send y Receive).
-- `Source/LoudnessMeter.h` · el medidor RMS / LUFS (filtro K de la norma ITU-R BS.1770).
+- `Source/LoudnessMeter.h` · el medidor LUFS (filtro K de la norma ITU-R BS.1770).
 - `Source/SharedBus.h` · el "cable invisible" que conecta el Send con el Receive.
 - `Source/LatencyMeasurer.h` · la medición automática de latencia (botón Medir).
 - `Source/PluginEditor.cpp` · la interfaz (perillas, botones, colores).

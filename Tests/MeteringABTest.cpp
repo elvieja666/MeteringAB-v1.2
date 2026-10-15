@@ -351,9 +351,10 @@ int main (int argc, char** argv)
     }
     {
         Chain c (2, 4.5f, 0);
-        setParam (c.recv, ParamIDs::measure, 0);
         c.run (12.0);
-        check (std::abs (c.recv.displayGain.load() + 4.5f) < 0.1f, "Auto (RMS): FX +4.5 dB -> ganancia ~ -4.5 dB", c.recv.displayGain.load());
+        check (std::abs (c.recv.displayGain.load() + 4.5f) < 0.1f, "Auto (LUFS): FX +4.5 dB -> ganancia ~ -4.5 dB", c.recv.displayGain.load());
+        check (c.recv.apvts.getParameter ("measure") == nullptr && c.recv.apvts.getParameter ("hold") == nullptr,
+               "Sin selector RMS/LUFS ni Congelar (siempre LUFS)", 1);
     }
     {
         Chain c (3, -3.0f, 300);
