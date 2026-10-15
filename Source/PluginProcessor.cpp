@@ -15,7 +15,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MeteringABProcessor::createL
 
     layout.add (std::make_unique<AudioParameterInt> (ParameterID { ParamIDs::link, 1 }, "Link ID", 1, SharedBus::numLinks, 1));
 
-    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::pre, 1 }, "PRE/POST FX", false,
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::pre, 1 }, "PRE/POST FX", true,   // arranca en PRE FX
                                                       AudioParameterBoolAttributes()
                                                           .withStringFromValueFunction ([] (bool on, int) { return on ? String ("PRE FX") : String ("POST FX"); })));
 
@@ -158,6 +158,14 @@ void MeteringABProcessor::readHostTempo()
                 if (*bpm > 0.0)
                     hostBpm = *bpm;
 
+            hostPlaying = position->getIsPlaying();
+            const auto ppq = position->getPpqPosition();
+            const auto barStart = position->getPpqPositionOfLastBarStart();
+            const auto barCount = position->getBarCount();
+            hostHasPpq = ppq.hasValue();             if (ppq)      hostPpq = *ppq;
+            hostHasBarStart = barStart.hasValue();   if (barStart) hostBarStart = *barStart;
+            hostHasBarCount = barCount.hasValue();   if (barCount) hostBarCount = *barCount;
+
             if (const auto sig = position->getTimeSignature())
             {
                 if (sig->numerator > 0 && sig->denominator > 0)
@@ -269,15 +277,7 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     dryMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
     postMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
     latencyMeasurer.prepare();
-
-    // Osciloscopio: ~5,5 s de historia (potencia de 2 para el buffer circular).
-    const int scopeSize = (int) juce::nextPowerOfTwo ((int) (sampleRate * 5.5));
-    scopePre.assign ((size_t) scopeSize, 0.0f);
-    scopePost.assign ((size_t) scopeSize, 0.0f);
-    scopeMask = scopeSize - 1;
-    scopeWritePos = 0;
-    scopePreBlock.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
-    scopePostBlock.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
+    lastScopeLength = -1;                            // el osciloscopio arranca limpio
     gainSmoother.reset (sampleRate, 0.05);           // 50 ms de suavizado
     gainSmoother.setCurrentAndTargetValue (1.0f);
     blocksWithoutHeartbeat = 0;
@@ -504,7 +504,10 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         deltaDry = &deltaDryBuffer;
     }
 
-    const bool scopeFits = (int) scopePreBlock.size() >= n;
+    // Osciloscopio: dónde arranca este bloque dentro del loop y cuánto avanza por muestra.
+    double scopeQuarters = scopeBlockStartQuarters (n);
+    const double loopQuarters = getScopeLengthBars() * timeSigNum.load() * 4.0 / timeSigDen.load();
+    const double quartersPerSample = hostBpm.load() / 60.0 / currentSampleRate;
 
     for (int i = 0; i < n; ++i)
     {
@@ -523,36 +526,95 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
             else            out[i] = out[i] * g;         // POST FX: procesado y nivelado
         }
 
-        if (scopeFits)
+        // Osciloscopio: columna que corresponde a este momento del compás.
         {
-            scopePreBlock[(size_t) i]  = preSum / (float) numCh;
-            scopePostBlock[(size_t) i] = postSum / (float) numCh;
+            const float preValue  = preSum / (float) numCh;
+            const float postValue = postSum / (float) numCh;
+            const int bin = juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins));
+
+            if (bin != lastScopeBin)                    // columna nueva: reemplaza la del loop anterior
+            {
+                scopePreMin[(size_t) bin].store (preValue, std::memory_order_relaxed);
+                scopePreMax[(size_t) bin].store (preValue, std::memory_order_relaxed);
+                scopePostMin[(size_t) bin].store (postValue, std::memory_order_relaxed);
+                scopePostMax[(size_t) bin].store (postValue, std::memory_order_relaxed);
+                lastScopeBin = bin;
+            }
+            else
+            {
+                auto& a = scopePreMin[(size_t) bin];   if (preValue  < a.load (std::memory_order_relaxed)) a.store (preValue,  std::memory_order_relaxed);
+                auto& b = scopePreMax[(size_t) bin];   if (preValue  > b.load (std::memory_order_relaxed)) b.store (preValue,  std::memory_order_relaxed);
+                auto& c = scopePostMin[(size_t) bin];  if (postValue < c.load (std::memory_order_relaxed)) c.store (postValue, std::memory_order_relaxed);
+                auto& d = scopePostMax[(size_t) bin];  if (postValue > d.load (std::memory_order_relaxed)) d.store (postValue, std::memory_order_relaxed);
+            }
+
+            scopeQuarters += quartersPerSample;
+            if (scopeQuarters >= loopQuarters)
+                scopeQuarters -= loopQuarters;
         }
     }
 
-    if (scopeFits)
-        writeScope (scopePreBlock.data(), scopePostBlock.data(), n);
+    scopePhaseQuarters = scopeQuarters;
+    scopeCurrentBin.store (juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins)), std::memory_order_relaxed);
 
     displayPre  = (float) preMeter.getDecibels();
     displayPost = (float) postMeter.getDecibels();
     displayGain = targetDb;
 }
 
-void MeteringABProcessor::writeScope (const float* preBlock, const float* postBlock, int n)
+// Dónde arranca el bloque dentro del loop del osciloscopio (en negras).
+// Con la canción sonando sigue la posición de Logic (alineada a los compases);
+// detenida, el barrido sigue corriendo solo al tempo del proyecto.
+double MeteringABProcessor::scopeBlockStartQuarters (int n)
 {
-    if (scopePre.empty())
-        return;
+    const int lengthIndex = scopeLengthIndex.load();
+    const double lengthBars = getScopeLengthBars();
+    const double barQuarters = timeSigNum.load() * 4.0 / timeSigDen.load();
+    const double loopQuarters = lengthBars * barQuarters;
 
-    const auto start = scopeWritePos.load (std::memory_order_relaxed);
-
-    for (int i = 0; i < n; ++i)
+    if (lengthIndex != lastScopeLength)                 // cambió el largo: empezar limpio
     {
-        const auto index = (size_t) ((start + i) & scopeMask);
-        scopePre[index]  = preBlock[i];
-        scopePost[index] = postBlock[i];
+        for (int b = 0; b < scopeBins; ++b)
+        {
+            scopePreMin[(size_t) b] = 0.0f;  scopePreMax[(size_t) b] = 0.0f;
+            scopePostMin[(size_t) b] = 0.0f; scopePostMax[(size_t) b] = 0.0f;
+        }
+        lastScopeLength = lengthIndex;
+        lastScopeBin = -1;
     }
 
-    scopeWritePos.store (start + n, std::memory_order_release);
+    double phase = scopePhaseQuarters;
+
+    if (hostPlaying && hostHasPpq)
+    {
+        if (hostHasBarStart)
+        {
+            const double intoBar = juce::jmax (0.0, hostPpq - hostBarStart);
+
+            if (lengthBars >= 1.0)
+            {
+                const auto barIndex = hostHasBarCount ? hostBarCount
+                                                      : (juce::int64) std::floor (hostBarStart / barQuarters + 0.5);
+                const auto barsInLoop = (juce::int64) lengthBars;
+                phase = (double) (((barIndex % barsInLoop) + barsInLoop) % barsInLoop) * barQuarters + intoBar;
+            }
+            else
+            {
+                phase = std::fmod (intoBar, loopQuarters);
+            }
+        }
+        else
+        {
+            phase = std::fmod (hostPpq, loopQuarters);
+        }
+    }
+
+    phase = std::fmod (phase, loopQuarters);
+    if (phase < 0.0)
+        phase += loopQuarters;
+
+    juce::ignoreUnused (n);
+    return phase;
 }
 
 // ---------------------------------------------------------------------------

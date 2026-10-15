@@ -4,13 +4,14 @@
 #include "Text.h"
 
 // ---------------------------------------------------------------------------
-//  Osciloscopio: PRE FX (verde agua) y encima POST FX (ámbar, ya nivelado).
+//  Osciloscopio sincronizado al tempo del proyecto.
 //
-//  - Con zoom corto (hasta 100 ms) se ve la forma de onda; el dibujo se
-//    "engancha" en un cruce por cero del PRE para que quede quieto.
-//  - Con zoom largo se ve el contorno (picos) de los últimos segundos:
-//    ideal para ver qué hace un compresor con los transientes.
-//  - La altura se ajusta sola al nivel de la pista (indicador "x4", etc.).
+//  - El ancho es un largo musical (1/4 bar a 4 bars). Arriba, la grilla de
+//    tiempos (0, 1/4, 2/4, 3/4, 4/4...) con subdivisiones.
+//  - Barre de izquierda a derecha siguiendo la canción y, al llegar al final,
+//    vuelve a empezar reemplazando lo del compás anterior.
+//  - Escala vertical fija en dB: 0 arriba y abajo, -∞ en el centro.
+//  - PRE FX (verde agua) y encima POST FX (ámbar, ya nivelado).
 //  - Clic: congelar / descongelar.
 // ---------------------------------------------------------------------------
 class ScopeView : public juce::Component
@@ -19,155 +20,48 @@ public:
     static inline const juce::Colour preColour  { 0xff5dcaa5 };
     static inline const juce::Colour postColour { 0xfff2b544 };
 
-    static constexpr std::array<int, 9> zoomMs { 10, 25, 50, 100, 250, 500, 1000, 2000, 5000 };
+    explicit ScopeView (MeteringABProcessor& p) : processor (p) { capture(); }
 
-    explicit ScopeView (MeteringABProcessor& p) : processor (p) {}
-
-    void setZoomIndex (int index)  { zoomIndex = juce::jlimit (0, (int) zoomMs.size() - 1, index); repaint(); }
-    int getZoomIndex() const       { return zoomIndex; }
-    bool isFrozen() const          { return frozen; }
+    bool isFrozen() const { return frozen; }
 
     void mouseDown (const juce::MouseEvent&) override
     {
         frozen = ! frozen;
-        frozenEnd = processor.scopeWritePos.load (std::memory_order_acquire);
         repaint();
     }
 
     void paint (juce::Graphics& g) override
     {
+        if (! frozen)
+            capture();
+
         const auto bounds = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (0xff20232b));
+        g.setColour (juce::Colour (0xff121316));
         g.fillRoundedRectangle (bounds, 8.0f);
 
-        auto plot = bounds.reduced (10.0f, 8.0f);
+        const auto plot = bounds.withTrimmedLeft (38.0f).withTrimmedTop (20.0f).withTrimmedRight (10.0f).withTrimmedBottom (8.0f);
         const float midY = plot.getCentreY();
+        const float half = plot.getHeight() * 0.5f;
 
-        // Línea del cero
-        g.setColour (juce::Colour (0xff2e323c));
-        g.drawHorizontalLine ((int) midY, plot.getX(), plot.getRight());
+        drawTimeGrid (g, plot);
+        drawLevelGrid (g, plot, midY, half);
 
-        const auto& pre  = processor.scopePre;
-        const auto& post = processor.scopePost;
+        auto yFor = [&] (float v) { return midY - juce::jlimit (-1.0f, 1.0f, v) * half; };
 
-        if (pre.empty())
+        drawEnvelope (g, plot, preMin, preMax, yFor, preColour);
+        drawEnvelope (g, plot, postMin, postMax, yFor, postColour);    // POST encima
+
+        // Cabezal del barrido
+        if (! frozen)
         {
-            drawLabels (g, plot, 1.0f);
-            return;
+            const float x = plot.getX() + (float) currentBin / (float) MeteringABProcessor::scopeBins * plot.getWidth();
+            g.setColour (juce::Colours::white.withAlpha (0.55f));
+            g.drawVerticalLine ((int) x, plot.getY(), plot.getBottom());
         }
 
-        const int mask = processor.scopeMask;
-        const double sampleRate = juce::jmax (1.0, processor.getCurrentSampleRate());
-        const int span = juce::jlimit (16, mask - 1, (int) (zoomMs[(size_t) zoomIndex] * sampleRate / 1000.0));
-        juce::int64 end = frozen ? frozenEnd : processor.scopeWritePos.load (std::memory_order_acquire);
-
-        // Disparo: con zoom corto, empezar en un cruce por cero (subiendo) del PRE.
-        juce::int64 start = end - span;
-
-        if (zoomMs[(size_t) zoomIndex] <= 100)
-        {
-            for (juce::int64 t = end - span; t > end - 2 * span && t > 1; --t)
-            {
-                const float a = pre[(size_t) ((t - 1) & mask)];
-                const float b = pre[(size_t) (t & mask)];
-
-                if (a < 0.0f && b >= 0.0f)
-                {
-                    start = t;
-                    break;
-                }
-            }
-        }
-
-        if (start < 0)
-            start = 0;
-
-        // Autoescala: que el pico más alto ocupe ~90% de la altura (máx. x32).
-        float peak = 1.0e-6f;
-        for (juce::int64 t = start; t < start + span; ++t)
-        {
-            peak = juce::jmax (peak, std::abs (pre[(size_t) (t & mask)]));
-            peak = juce::jmax (peak, std::abs (post[(size_t) (t & mask)]));
-        }
-
-        const float targetScale = juce::jlimit (1.0f, 32.0f, 0.9f / peak);
-        scale = frozen ? scale : scale + (targetScale - scale) * (targetScale < scale ? 0.6f : 0.15f);
-
-        const float halfHeight = plot.getHeight() * 0.5f;
-        auto yFor = [&] (float v) { return midY - juce::jlimit (-1.0f, 1.0f, v * scale) * halfHeight; };
-
-        drawTrace (g, pre,  mask, start, span, plot, yFor, preColour,  0.45f);
-        drawTrace (g, post, mask, start, span, plot, yFor, postColour, 0.45f);   // POST encima
-
-        drawLabels (g, plot, scale);
-    }
-
-private:
-    template <typename YFunc>
-    static void drawTrace (juce::Graphics& g, const std::vector<float>& data, int mask, juce::int64 start, int span,
-                           juce::Rectangle<float> plot, YFunc yFor, juce::Colour colour, float fillAlpha)
-    {
-        const int columns = juce::jmax (1, (int) plot.getWidth());
-        const double samplesPerColumn = (double) span / columns;
-
-        if (samplesPerColumn <= 3.0)
-        {
-            // Pocas muestras por píxel: se dibuja la onda como línea.
-            juce::Path line;
-            for (int i = 0; i < span; ++i)
-            {
-                const float x = plot.getX() + (float) i / (float) (span - 1) * plot.getWidth();
-                const float y = yFor (data[(size_t) ((start + i) & mask)]);
-                if (i == 0) line.startNewSubPath (x, y); else line.lineTo (x, y);
-            }
-            g.setColour (colour);
-            g.strokePath (line, juce::PathStrokeType (1.6f));
-            return;
-        }
-
-        // Muchas muestras por píxel: contorno (mínimo y máximo de cada columna).
-        juce::Path fill, top, bottom;
-        std::vector<juce::Point<float>> lows ((size_t) columns);
-
-        for (int c = 0; c < columns; ++c)
-        {
-            const auto from = start + (juce::int64) (c * samplesPerColumn);
-            const auto to   = start + (juce::int64) ((c + 1) * samplesPerColumn);
-            float lo = 1.0e9f, hi = -1.0e9f;
-
-            for (auto t = from; t < juce::jmax (from + 1, to); ++t)
-            {
-                const float v = data[(size_t) (t & mask)];
-                lo = juce::jmin (lo, v);
-                hi = juce::jmax (hi, v);
-            }
-
-            const float x = plot.getX() + (float) c;
-            const float yHi = yFor (hi), yLo = yFor (lo);
-
-            if (c == 0) { fill.startNewSubPath (x, yHi); top.startNewSubPath (x, yHi); bottom.startNewSubPath (x, yLo); }
-            else        { fill.lineTo (x, yHi);          top.lineTo (x, yHi);          bottom.lineTo (x, yLo); }
-
-            lows[(size_t) c] = { x, yLo };
-        }
-
-        for (int c = columns - 1; c >= 0; --c)
-            fill.lineTo (lows[(size_t) c]);
-
-        fill.closeSubPath();
-        g.setColour (colour.withAlpha (fillAlpha));
-        g.fillPath (fill);
-        g.setColour (colour);
-        g.strokePath (top, juce::PathStrokeType (1.2f));
-        g.strokePath (bottom, juce::PathStrokeType (1.2f));
-    }
-
-    void drawLabels (juce::Graphics& g, juce::Rectangle<float> plot, float currentScale) const
-    {
+        // Leyenda y estado
         g.setFont (juce::FontOptions (11.0f));
-
-        // Leyenda
-        auto legend = plot.withHeight (14.0f).toNearestInt();
+        auto legend = juce::Rectangle<float> (plot.getX() + 8.0f, plot.getY() + 6.0f, 200.0f, 14.0f).toNearestInt();
         g.setColour (preColour);
         g.fillEllipse ((float) legend.getX(), (float) legend.getY() + 3.0f, 8.0f, 8.0f);
         g.drawText ("PRE FX", legend.withTrimmedLeft (12).withWidth (50), juce::Justification::centredLeft);
@@ -175,21 +69,155 @@ private:
         g.fillEllipse ((float) legend.getX() + 64.0f, (float) legend.getY() + 3.0f, 8.0f, 8.0f);
         g.drawText ("POST FX", legend.withTrimmedLeft (76).withWidth (60), juce::Justification::centredLeft);
 
-        // Escala, zoom y estado
-        g.setColour (juce::Colour (0xff8a8f98));
-        juce::String info = "x" + juce::String (currentScale, currentScale < 10.0f ? 1 : 0);
         if (frozen)
-            info = "CONGELADO  ·  "_u + info;
-        g.drawText (info, plot.withHeight (14.0f).toNearestInt(), juce::Justification::centredRight);
+        {
+            g.setColour (juce::Colour (0xffe8e6e3));
+            g.drawText ("CONGELADO", juce::Rectangle<float> (plot.getRight() - 110.0f, plot.getY() + 6.0f, 104.0f, 14.0f).toNearestInt(),
+                        juce::Justification::centredRight);
+        }
+    }
 
-        const int ms = zoomMs[(size_t) zoomIndex];
-        g.drawText (ms >= 1000 ? juce::String (ms / 1000.0, ms % 1000 == 0 ? 0 : 1) + " s" : juce::String (ms) + " ms",
-                    plot.withTrimmedTop (plot.getHeight() - 14.0f).toNearestInt(), juce::Justification::centredRight);
+private:
+    void capture()
+    {
+        for (int b = 0; b < MeteringABProcessor::scopeBins; ++b)
+        {
+            preMin[(size_t) b]  = processor.scopePreMin[(size_t) b].load (std::memory_order_relaxed);
+            preMax[(size_t) b]  = processor.scopePreMax[(size_t) b].load (std::memory_order_relaxed);
+            postMin[(size_t) b] = processor.scopePostMin[(size_t) b].load (std::memory_order_relaxed);
+            postMax[(size_t) b] = processor.scopePostMax[(size_t) b].load (std::memory_order_relaxed);
+        }
+
+        currentBin = processor.scopeCurrentBin.load (std::memory_order_relaxed);
+        lengthBars = processor.getScopeLengthBars();
+        beatsPerBar = juce::jlimit (1, 32, processor.timeSigNum.load());
+    }
+
+    // Grilla de tiempos: líneas por tiempo y subdivisiones, con etiquetas k/n.
+    void drawTimeGrid (juce::Graphics& g, juce::Rectangle<float> plot) const
+    {
+        const double totalBeats = lengthBars * beatsPerBar;
+        const int subdivisions = totalBeats <= 8.0 ? 4 : 1;             // 16avos si hay lugar
+        const int totalLines = juce::roundToInt (totalBeats * subdivisions);
+        const bool labelSubdivisions = totalBeats < 2.0;
+        const float minLabelGap = 34.0f;
+        float lastLabelX = -1000.0f;
+
+        g.setFont (juce::FontOptions (11.0f));
+
+        for (int k = 0; k <= totalLines; ++k)
+        {
+            const float x = plot.getX() + (float) k / (float) totalLines * plot.getWidth();
+            const bool isBeat = k % subdivisions == 0;
+            const bool isBar  = isBeat && (k / subdivisions) % beatsPerBar == 0;
+
+            g.setColour (juce::Colour (isBar ? 0xff4a4f5a : isBeat ? 0xff383c45 : 0xff24272e));
+            g.drawVerticalLine (juce::roundToInt (x), plot.getY(), plot.getBottom());
+
+            const bool wantsLabel = labelSubdivisions ? true : isBeat;
+
+            if (wantsLabel && x - lastLabelX >= minLabelGap)
+            {
+                juce::String text;
+                if (k == 0)                 text = "0";
+                else if (labelSubdivisions) text = juce::String (k) + "/" + juce::String (beatsPerBar * subdivisions);
+                else                        text = juce::String (k / subdivisions) + "/" + juce::String (beatsPerBar);
+
+                g.setColour (juce::Colour (0xff8a8f98));
+                const auto labelArea = k == 0          ? juce::Rectangle<float> (x - 2.0f,  plot.getY() - 18.0f, 44.0f, 14.0f)
+                                     : k == totalLines ? juce::Rectangle<float> (x - 42.0f, plot.getY() - 18.0f, 44.0f, 14.0f)
+                                                       : juce::Rectangle<float> (x - 22.0f, plot.getY() - 18.0f, 44.0f, 14.0f);
+                g.drawText (text, labelArea.toNearestInt(),
+                            k == 0 ? juce::Justification::centredLeft
+                                   : k == totalLines ? juce::Justification::centredRight : juce::Justification::centred);
+                lastLabelX = x;
+            }
+        }
+    }
+
+    // Escala en dB: 0, -6, -12, -18 arriba y abajo, -∞ en el centro.
+    static void drawLevelGrid (juce::Graphics& g, juce::Rectangle<float> plot, float midY, float half)
+    {
+        g.setFont (juce::FontOptions (11.0f));
+        float lastLabelOffset = 1.0e9f;                   // distancia al centro de la última etiqueta
+
+        for (int db : { 0, -6, -12, -18 })
+        {
+            const float amplitude = juce::Decibels::decibelsToGain ((float) db);
+            const float offset = amplitude * half;
+            const bool roomForLabel = lastLabelOffset - offset >= 13.0f && offset >= 13.0f;   // que no se pisen
+
+            for (int side : { -1, 1 })
+            {
+                const float y = midY + (float) side * offset;
+                g.setColour (juce::Colour (0xff24272e));
+                g.drawHorizontalLine (juce::roundToInt (y), plot.getX(), plot.getRight());
+
+                if (roomForLabel)
+                {
+                    g.setColour (juce::Colour (0xff8a8f98));
+                    g.drawText (juce::String (db), juce::Rectangle<float> (plot.getX() - 36.0f, y - 7.0f, 32.0f, 14.0f).toNearestInt(),
+                                juce::Justification::centredRight);
+                }
+            }
+
+            if (roomForLabel)
+                lastLabelOffset = offset;
+        }
+
+        g.setColour (juce::Colour (0xff6b707a));
+        g.drawHorizontalLine (juce::roundToInt (midY), plot.getX(), plot.getRight());
+        g.setColour (juce::Colour (0xff8a8f98));
+        g.drawText ("-" + juce::String::fromUTF8 ("\xe2\x88\x9e"),
+                    juce::Rectangle<float> (plot.getX() - 36.0f, midY - 7.0f, 32.0f, 14.0f).toNearestInt(), juce::Justification::centredRight);
+    }
+
+    template <typename YFunc>
+    static void drawEnvelope (juce::Graphics& g, juce::Rectangle<float> plot,
+                              const std::array<float, MeteringABProcessor::scopeBins>& mins,
+                              const std::array<float, MeteringABProcessor::scopeBins>& maxs,
+                              YFunc yFor, juce::Colour colour)
+    {
+        const int bins = MeteringABProcessor::scopeBins;
+        juce::Path fill, top, bottom;
+
+        // Cada columna toma el pico de sus vecinas: así el contorno no se ve
+        // "dentado" cuando una columna dura menos que un ciclo de la onda.
+        constexpr int radius = 2;
+        auto peakMax = [&] (int b) { float v = -1.0f; for (int j = juce::jmax (0, b - radius); j <= juce::jmin (bins - 1, b + radius); ++j) v = juce::jmax (v, maxs[(size_t) j]); return v; };
+        auto peakMin = [&] (int b) { float v =  1.0f; for (int j = juce::jmax (0, b - radius); j <= juce::jmin (bins - 1, b + radius); ++j) v = juce::jmin (v, mins[(size_t) j]); return v; };
+
+        for (int b = 0; b < bins; ++b)
+        {
+            const float x = plot.getX() + ((float) b + 0.5f) / (float) bins * plot.getWidth();
+            const float yHi = yFor (peakMax (b));
+
+            if (b == 0) { fill.startNewSubPath (x, yHi); top.startNewSubPath (x, yHi); }
+            else        { fill.lineTo (x, yHi);          top.lineTo (x, yHi); }
+        }
+
+        for (int b = bins - 1; b >= 0; --b)
+        {
+            const float x = plot.getX() + ((float) b + 0.5f) / (float) bins * plot.getWidth();
+            const float yLo = yFor (peakMin (b));
+            fill.lineTo (x, yLo);
+
+            if (b == bins - 1) bottom.startNewSubPath (x, yLo);
+            else               bottom.lineTo (x, yLo);
+        }
+
+        fill.closeSubPath();
+        g.setColour (colour.withAlpha (0.42f));
+        g.fillPath (fill);
+        g.setColour (colour);
+        g.strokePath (top, juce::PathStrokeType (1.2f));
+        g.strokePath (bottom, juce::PathStrokeType (1.2f));
     }
 
     MeteringABProcessor& processor;
-    int zoomIndex = 3;                  // 100 ms
+    std::array<float, MeteringABProcessor::scopeBins> preMin {}, preMax {}, postMin {}, postMax {};
+    int currentBin = 0;
+    double lengthBars = 1.0;
+    int beatsPerBar = 4;
     bool frozen = false;
-    juce::int64 frozenEnd = 0;
-    float scale = 1.0f;
 };

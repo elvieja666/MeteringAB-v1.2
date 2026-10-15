@@ -61,7 +61,7 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 | Control | Qué hace |
 |---|---|
-| **PRE FX / POST FX** | Un solo botón: cada clic alterna. **POST FX** (ámbar) = con tus efectos, al mismo volumen que el original. **PRE FX** (verde agua) = la señal antes de los efectos. Es un parámetro de Logic, así que lo podés asignar a una tecla o control MIDI. |
+| **PRE FX / POST FX** | Un solo botón: cada clic alterna. Arranca en **PRE FX**. **POST FX** (ámbar) = con tus efectos, al mismo volumen que el original. **PRE FX** (verde agua) = la señal antes de los efectos. Es un parámetro de Logic, así que lo podés asignar a una tecla o control MIDI. |
 | **DELTA** | Escuchás solo lo que tus efectos le cambiaron al sonido. Mientras está activo, el botón PRE/POST se apaga; si lo tocás, sale de DELTA y vuelve a la última versión. |
 | **Medición** | *LUFS* se parece más a cómo escucha el oído (recomendado). *RMS* es energía pura. |
 | **Ventana (ms / Sync)** | Cuánto tiempo promedia la medición. En **ms** elegís milisegundos. En **Sync** elegís compases (1/4 bar a 8 bars) según el tempo y el compás del proyecto, y el promedio toma compases exactos, así la lectura de un loop queda quieta. Al pasar de Sync a ms se convierte al tiempo equivalente; al volver a Sync se acomoda al valor musical más cercano. Debajo de la perilla ves la equivalencia. |
@@ -71,12 +71,13 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 ### Osciloscopio
 
-Muestra la onda del **PRE FX** (verde agua) y, encima, la del **POST FX** (ámbar), ya nivelada al volumen del original, así ves solo lo que cambió la forma.
+Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivelado al volumen del original, así ves solo lo que cambió.
 
-- **Zoom** (arriba a la derecha): de 10 ms a 5 s. Con zoom corto ves la forma de onda (por ejemplo, cómo una saturación redondea los picos); con zoom largo ves el contorno de los golpes (por ejemplo, cuánto achica un compresor los transientes).
-- **Clic sobre el osciloscopio** para congelarlo y mirarlo con calma. Otro clic lo descongela.
-- La altura se ajusta sola al nivel de la pista; el número arriba a la derecha (por ejemplo "x4") indica cuánto está ampliado.
-- También sirve para chequear la latencia: si las dos ondas aparecen corridas en el zoom corto, tocá **Medir**.
+- Está **sincronizado al tempo del proyecto**: el ancho es un largo musical que elegís arriba a la derecha (1/4 bar, 1/2 bar, 1 bar, 2 bars o 4 bars). Arriba tiene la grilla de tiempos (0, 1/4, 2/4, 3/4, 4/4) con subdivisiones.
+- **Barre de izquierda a derecha** siguiendo la canción (la línea blanca es el cabezal). Al llegar al final vuelve a empezar y va reemplazando lo del compás anterior, así cada compás va cambiando. Con Logic detenido sigue barriendo al tempo del proyecto.
+- **Escala fija en dB**: 0 arriba y abajo, −6, −12, −18 y −∞ en el centro.
+- **Clic sobre el osciloscopio** para congelarlo; otro clic lo descongela.
+- Sirve para ver, por ejemplo, cuánto achica un compresor o un saturador los golpes: los picos verdes que sobresalen por encima de los ámbar son lo que el efecto recortó.
 
 ### Valores exactos
 

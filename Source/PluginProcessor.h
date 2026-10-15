@@ -28,6 +28,14 @@ namespace SyncDivisions
     inline constexpr int defaultIndex = 2;   // 1 bar
 }
 
+// Largos del osciloscopio, en compases.
+namespace ScopeLengths
+{
+    inline constexpr std::array<double, 5> bars { 0.25, 0.5, 1.0, 2.0, 4.0 };
+    inline const juce::StringArray names { "1/4 bar", "1/2 bar", "1 bar", "2 bars", "4 bars" };
+    inline constexpr int defaultIndex = 2;   // 1 bar
+}
+
 class MeteringABProcessor : public juce::AudioProcessor,
                             private juce::AudioProcessorValueTreeState::Listener,
                             private juce::AsyncUpdater
@@ -87,11 +95,15 @@ public:
     // Para los tests: aplica ya una conversión ms <-> Sync pendiente.
     void processPendingConversion() { handleUpdateNowIfNeeded(); }
 
-    // Osciloscopio: últimos segundos de PRE FX (original alineado) y POST FX
-    // (procesado y nivelado), en mono. Los escribe el audio, los lee la interfaz.
-    std::vector<float> scopePre, scopePost;
-    std::atomic<juce::int64> scopeWritePos { 0 };
-    int scopeMask = 0;
+    // Osciloscopio sincronizado al tempo: el ancho es un largo musical (ej. 1
+    // compás) dividido en "columnas". Cada columna guarda el mínimo y máximo
+    // de PRE FX y POST FX en ese momento del compás. Se va sobrescribiendo a
+    // medida que avanza la canción, así cada compás reemplaza al anterior.
+    static constexpr int scopeBins = 1024;
+    std::array<std::atomic<float>, scopeBins> scopePreMin, scopePreMax, scopePostMin, scopePostMax;
+    std::atomic<int> scopeCurrentBin { 0 };
+    std::atomic<int> scopeLengthIndex { ScopeLengths::defaultIndex };
+    double getScopeLengthBars() const { return ScopeLengths::bars[(size_t) juce::jlimit (0, (int) ScopeLengths::bars.size() - 1, scopeLengthIndex.load())]; }
 
     // Medición automática de latencia (botón "Medir").
     LatencyMeasurer latencyMeasurer;
@@ -112,7 +124,7 @@ private:
     void processSend (juce::AudioBuffer<float>& buffer, LinkSlot& slot);
     void processReceive (juce::AudioBuffer<float>& buffer, LinkSlot& slot);
     void readDryFractional (const LinkSlot& slot, juce::int64 end, int n, int numCh, double latency);
-    void writeScope (const float* preBlock, const float* postBlock, int n);
+    double scopeBlockStartQuarters (int n);          // posición en el loop del osciloscopio
 
     // Punteros rápidos a los parámetros (leer esto en el audio es seguro).
     std::atomic<float>* pMode    = nullptr;
@@ -131,7 +143,12 @@ private:
     juce::AudioBuffer<float> dryBuffer;               // original alineado (muestras enteras, para PRE FX)
     juce::AudioBuffer<float> deltaDryBuffer;          // original alineado con decimales (para DELTA)
     std::vector<float> dryMono, postMono;             // para medir la latencia
-    std::vector<float> scopePreBlock, scopePostBlock; // un bloque para el osciloscopio
+    // Posición de la canción (la informa Logic en cada bloque).
+    bool   hostPlaying = false, hostHasPpq = false, hostHasBarStart = false, hostHasBarCount = false;
+    double hostPpq = 0.0, hostBarStart = 0.0;
+    juce::int64 hostBarCount = 0;
+    double scopePhaseQuarters = 0.0;                  // dónde va el barrido (en negras)
+    int    lastScopeBin = -1, lastScopeLength = -1;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> gainSmoother;
 
     float autoGainDb = 0.0f;

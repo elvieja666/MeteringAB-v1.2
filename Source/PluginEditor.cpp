@@ -208,26 +208,23 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     addAndMakeVisible (holdButton);
     holdAtt = std::make_unique<ButtonAttachment> (apvts, ParamIDs::hold, holdButton);
 
-    // Osciloscopio + zoom (el zoom se guarda con el proyecto).
+    // Osciloscopio sincronizado + largo en compases (se guarda con el proyecto).
     addAndMakeVisible (scope);
-    scopeLabel.setText ("Osciloscopio  ·  clic para congelar"_u, juce::dontSendNotification);
+    scopeLabel.setText ("Osciloscopio  ·  sincronizado al tempo  ·  clic para congelar"_u, juce::dontSendNotification);
     scopeLabel.setColour (juce::Label::textColourId, Colours::dim);
     scopeLabel.setFont (juce::FontOptions (12.0f));
     addAndMakeVisible (scopeLabel);
 
-    for (int i = 0; i < (int) ScopeView::zoomMs.size(); ++i)
-    {
-        const int ms = ScopeView::zoomMs[(size_t) i];
-        zoomBox.addItem (ms >= 1000 ? juce::String (ms / 1000.0, ms % 1000 == 0 ? 0 : 1) + " s" : juce::String (ms) + " ms", i + 1);
-    }
-
-    const int savedZoom = (int) apvts.state.getProperty ("scopeZoom", 3);
-    scope.setZoomIndex (savedZoom);
-    zoomBox.setSelectedId (scope.getZoomIndex() + 1, juce::dontSendNotification);
+    zoomBox.addItemList (ScopeLengths::names, 1);
+    const int savedLength = juce::jlimit (0, (int) ScopeLengths::bars.size() - 1,
+                                          (int) apvts.state.getProperty ("scopeLength", ScopeLengths::defaultIndex));
+    processor.scopeLengthIndex = savedLength;
+    zoomBox.setSelectedId (savedLength + 1, juce::dontSendNotification);
     zoomBox.onChange = [this]
     {
-        scope.setZoomIndex (zoomBox.getSelectedId() - 1);
-        processor.apvts.state.setProperty ("scopeZoom", scope.getZoomIndex(), nullptr);
+        const int index = zoomBox.getSelectedId() - 1;
+        processor.scopeLengthIndex = index;
+        processor.apvts.state.setProperty ("scopeLength", index, nullptr);
     };
     addAndMakeVisible (zoomBox);
 
@@ -239,7 +236,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     shownPost = processor.displayPost.load();
     shownGain = processor.displayGain.load();
 
-    setSize (640, 630);
+    setSize (640, 710);
     timerCallback();
     startTimerHz (30);
 }
@@ -513,9 +510,9 @@ void MeteringABEditor::resized()
 
     // Osciloscopio
     auto scopeHeader = area.removeFromTop (26);
-    zoomBox.setBounds (scopeHeader.removeFromRight (90).withTrimmedBottom (4));
+    zoomBox.setBounds (scopeHeader.removeFromRight (100).withTrimmedBottom (4));
     scopeLabel.setBounds (scopeHeader);
-    scope.setBounds (area.removeFromTop (130));
+    scope.setBounds (area.removeFromTop (210));
     area.removeFromTop (14);
 
     // Fila de escucha: PRE/POST | DELTA | Medición | Congelar

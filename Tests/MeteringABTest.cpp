@@ -60,6 +60,7 @@ struct Chain
     {
         setParam (send, ParamIDs::mode, 0); setParam (send, ParamIDs::link, (float) link);
         setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, (float) link);
+        setParam (recv, ParamIDs::pre, 0);   // los tests escuchan POST FX salvo que digan otra cosa
         send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
         fxDelayL.assign ((size_t) juce::jmax (1, latency), 0); fxDelayR.assign ((size_t) juce::jmax (1, latency), 0);
     }
@@ -278,8 +279,9 @@ int main (int argc, char** argv)
                 chain->recv.latencyMeasurer.setState (LatencyMeasurer::State::done);
                 chain->saturate = true; chain->pulsing = true;
                 a = &chain->recv;
-                chain->run (shot == 1 ? 3.07 : 4.0);
-                a->apvts.state.setProperty ("scopeZoom", shot == 1 ? 1 : 7, nullptr);   // 25 ms / 2 s
+                a->apvts.state.setProperty ("scopeLength", shot == 1 ? 2 : 3, nullptr);   // 1 bar / 2 bars
+                a->scopeLengthIndex = shot == 1 ? 2 : 3;
+                chain->run (shot == 1 ? 3.3 : 5.3);
             }
 
             std::unique_ptr<juce::AudioProcessorEditor> ed (a->createEditor());
@@ -333,6 +335,10 @@ int main (int argc, char** argv)
         check (rmsDb (out) > -40, "Latencia sin compensar: Delta NO es silencio (dB)", rmsDb (out));
     }
     {
+        MeteringABProcessor fresh;
+        check (fresh.apvts.getParameter (ParamIDs::pre)->getCurrentValueAsText() == "PRE FX", "Por defecto arranca en PRE FX", 1);
+    }
+    {
         // Latencia con decimales escrita a mano.
         MeteringABProcessor q; auto* p = q.apvts.getParameter (ParamIDs::latency);
         const auto r = p->getNormalisableRange();
@@ -378,7 +384,7 @@ int main (int argc, char** argv)
         // El editor se puede crear y destruir sin problemas.
         MeteringABProcessor a;
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        check (ed != nullptr && ed->getWidth() == 640 && ed->getHeight() == 630, "Editor se crea (ancho px)", ed->getWidth());
+        check (ed != nullptr && ed->getWidth() == 640 && ed->getHeight() == 710, "Editor se crea (ancho px)", ed->getWidth());
     }
 
 
@@ -540,6 +546,37 @@ int main (int argc, char** argv)
         check (r.inverted && r.deltaDb < -90, "Polaridad invertida: se detecta y DELTA da silencio (dB)", r.deltaDb);
         r = runDeltaCase (26, std::make_unique<Peaking>(), std::make_unique<Peaking>());
         check (! r.inverted && std::abs (r.deltaDb - r.idealDb) < 2.0, "EQ común: DELTA muestra lo que cambió el EQ (dB vs ideal)", r.deltaDb - r.idealDb);
+    }
+
+    {
+        // Osciloscopio sincronizado: con la canción sonando, el barrido sigue la
+        // posición de Logic dentro del compás (120 BPM 4/4, 1 compás = 4 negras).
+        MeteringABProcessor send, recv; juce::MidiBuffer m;
+        setParam (send, ParamIDs::link, 9); setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 9);
+        struct PlayingHead : juce::AudioPlayHead
+        {
+            double ppq = 0.0;
+            juce::Optional<PositionInfo> getPosition() const override
+            {
+                PositionInfo p; p.setBpm (120.0); p.setTimeSignature (TimeSignature { 4, 4 }); p.setIsPlaying (true);
+                p.setPpqPosition (ppq); p.setPpqPositionOfLastBarStart (std::floor (ppq / 4.0) * 4.0);
+                p.setBarCount ((juce::int64) std::floor (ppq / 4.0));
+                return p;
+            }
+        } head;
+        send.setPlayHead (&head); recv.setPlayHead (&head);
+        send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
+        juce::AudioBuffer<float> b (2, 512);
+        auto step = [&] (double ppq) { head.ppq = ppq; b.clear(); b.setSample (0, 0, 0.5f); send.processBlock (b, m); recv.processBlock (b, m); };
+        for (int k = 0; k < 20; ++k) step (k * 0.0533);              // conectar
+        step (17.0);                                               // compás 5, tiempo 2 (1/4 del compás)
+        const double expected = (1.0 + 512.0 * 120.0 / 60.0 / 48000.0) / 4.0 * MeteringABProcessor::scopeBins;
+        check (std::abs (recv.scopeCurrentBin.load() - expected) <= 1.0, "Osciloscopio: el barrido sigue la canción (columna)", recv.scopeCurrentBin.load());
+        recv.scopeLengthIndex = 3;                                 // 2 bars: el compás 6 (índice 5, impar) va en la 2a mitad
+        step (21.0);
+        const double expected2 = (4.0 + 1.0 + 512.0 * 120.0 / 60.0 / 48000.0) / 8.0 * MeteringABProcessor::scopeBins;
+        check (std::abs (recv.scopeCurrentBin.load() - expected2) <= 1.0, "Osciloscopio 2 bars: el compás 6 va en la segunda mitad", recv.scopeCurrentBin.load());
+        send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;
