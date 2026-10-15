@@ -445,21 +445,21 @@ void MeteringABEditor::setScopeDetached (bool detached)
     updateScopeSection();
 }
 
-// Ventana grande: osciloscopio arriba, controles abajo.
+// Ventana grande: controles arriba (en el mismo orden que en el plugin) y el osciloscopio debajo.
 void MeteringABEditor::layoutDetached (juce::Rectangle<int> area)
 {
-    auto bar = area.removeFromBottom (52).reduced (14, 10);
-    scope.setBounds (area.reduced (12, 0).withTrimmedTop (12));
+    auto bar = area.removeFromTop (52).reduced (14, 10);
+    scope.setBounds (area.reduced (12, 0).withTrimmedBottom (12));
 
-    zoomBox.setBounds (bar.removeFromLeft (110));
-    bar.removeFromLeft (8);
-    scopeStyleButton.setBounds (bar.removeFromLeft (72));
-
-    showPostButton.setBounds (bar.removeFromRight (84));
+    zoomBox.setBounds (bar.removeFromRight (96));
+    bar.removeFromRight (8);
+    showPostButton.setBounds (bar.removeFromRight (74));
     bar.removeFromRight (6);
-    showPreButton.setBounds (bar.removeFromRight (76));
+    showPreButton.setBounds (bar.removeFromRight (66));
     bar.removeFromRight (6);
-    linkButton.setBounds (bar.removeFromRight (70));
+    linkButton.setBounds (bar.removeFromRight (60));
+    bar.removeFromRight (6);
+    scopeStyleButton.setBounds (bar.removeFromRight (60));
 }
 
 void MeteringABEditor::setupKnob (PreciseSlider& s, juce::Label& label, const juce::String& text)
