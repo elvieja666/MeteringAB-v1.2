@@ -63,12 +63,17 @@ private:
     juce::ToggleButton holdButton { "Congelar" };
     juce::Label statusLabel;
 
+    juce::TooltipWindow tooltipWindow { this, 700 };
     ScopeView scope { processor };
     juce::Label scopeLabel;
     juce::ComboBox zoomBox;
     juce::TextButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };
     juce::TextButton waveSwapButton;                  // alterna: ver solo PRE <-> ver solo POST
     juce::TextButton scopeToggleButton;               // ▾ / ▸ mostrar u ocultar el osciloscopio
+    juce::TextButton scopeStyleButton { "Estilo" };   // menú de opciones gráficas
+    void showStyleMenu();
+    void applyScopeLook();                            // lee estilo y colores guardados
+    void pickCustomColour (bool forPre);
     bool scopeOpen = true;
     void setScopeOpen (bool open);
     void updateScopeSection();

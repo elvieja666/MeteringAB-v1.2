@@ -80,6 +80,11 @@ Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivela
 - **Escala fija en dB**: 0 arriba y abajo, −6, −12, −18 y −∞ en el centro.
 - **Botones PRE FX y POST FX** (arriba, al lado del largo): muestran u ocultan cada onda. Encendido tiene el color de su onda; apagado queda gris. Se guardan con el proyecto.
 - **Linkeado a la escucha:** cada vez que alternás PRE FX / POST FX (con el botón grande, una tecla asignada o automatización), el osciloscopio pasa a mostrar solo la onda que estás escuchando. El botón **⇄** de la barra del osciloscopio hace lo mismo que el botón grande. Si querés ver las dos ondas juntas, prendé PRE FX y POST FX; al volver a alternar, vuelve a mostrar solo una.
+- **Botón Estilo**: elegí cómo se ve.
+  - *Forma*: **Contorno** (relleno con borde, el de siempre), **Detallado** (picos y, encima, el RMS en un tono más claro; muestra cada ciclo de los graves) o **Solo líneas** (solo el borde, ideal para comparar PRE y POST superpuestos).
+  - *Colores*: paletas listas (Verde agua / Ámbar, Grises, Azul / Rosa, Blanco / Rojo, Violeta / Lima) o **Personalizado**, eligiendo el color de PRE y de POST con un selector. Los botones PRE FX / POST FX toman los mismos colores.
+  - *Mostrar grilla*: prende o apaga las líneas de fondo (las de cada compás quedan siempre).
+  - Todo se guarda con el proyecto.
 - **Clic sobre el osciloscopio** para congelarlo; otro clic lo descongela.
 - Sirve para ver, por ejemplo, cuánto achica un compresor o un saturador los golpes: los picos verdes que sobresalen por encima de los ámbar son lo que el efecto recortó.
 

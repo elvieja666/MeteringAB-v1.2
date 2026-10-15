@@ -567,10 +567,17 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
                 scopePreMax[(size_t) bin].store (preValue, std::memory_order_relaxed);
                 scopePostMin[(size_t) bin].store (postValue, std::memory_order_relaxed);
                 scopePostMax[(size_t) bin].store (postValue, std::memory_order_relaxed);
+                scopePreSq[(size_t) bin].store (preValue * preValue, std::memory_order_relaxed);
+                scopePostSq[(size_t) bin].store (postValue * postValue, std::memory_order_relaxed);
+                scopeCount[(size_t) bin].store (1, std::memory_order_relaxed);
                 lastScopeBin = bin;
             }
             else
             {
+                const auto k = (size_t) bin;
+                scopePreSq[k].store  (scopePreSq[k].load (std::memory_order_relaxed)  + preValue * preValue,   std::memory_order_relaxed);
+                scopePostSq[k].store (scopePostSq[k].load (std::memory_order_relaxed) + postValue * postValue, std::memory_order_relaxed);
+                scopeCount[k].store  (scopeCount[k].load (std::memory_order_relaxed) + 1, std::memory_order_relaxed);
                 auto& a = scopePreMin[(size_t) bin];   if (preValue  < a.load (std::memory_order_relaxed)) a.store (preValue,  std::memory_order_relaxed);
                 auto& b = scopePreMax[(size_t) bin];   if (preValue  > b.load (std::memory_order_relaxed)) b.store (preValue,  std::memory_order_relaxed);
                 auto& c = scopePostMin[(size_t) bin];  if (postValue < c.load (std::memory_order_relaxed)) c.store (postValue, std::memory_order_relaxed);
@@ -603,6 +610,8 @@ void MeteringABProcessor::clearScope()
     {
         scopePreMin[(size_t) b] = 0.0f;  scopePreMax[(size_t) b] = 0.0f;
         scopePostMin[(size_t) b] = 0.0f; scopePostMax[(size_t) b] = 0.0f;
+        scopePreSq[(size_t) b] = 0.0f;   scopePostSq[(size_t) b] = 0.0f;
+        scopeCount[(size_t) b] = 0;
     }
 
     lastScopeBin = -1;

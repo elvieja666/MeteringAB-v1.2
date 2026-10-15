@@ -1,6 +1,26 @@
 #include "PluginEditor.h"
 #include "Text.h"
 
+// Selector de color que avisa en vivo mientras lo movés.
+class LiveColourSelector : public juce::ColourSelector, private juce::ChangeListener
+{
+public:
+    explicit LiveColourSelector (juce::Colour initial, std::function<void (juce::Colour)> callback)
+        : juce::ColourSelector (juce::ColourSelector::showColourspace | juce::ColourSelector::showSliders),
+          onColour (std::move (callback))
+    {
+        setCurrentColour (initial);
+        setSize (300, 260);
+        addChangeListener (this);
+    }
+
+    ~LiveColourSelector() override { removeChangeListener (this); }
+
+private:
+    void changeListenerCallback (juce::ChangeBroadcaster*) override { if (onColour) onColour (getCurrentColour()); }
+    std::function<void (juce::Colour)> onColour;
+};
+
 namespace Colours
 {
     const juce::Colour background { 0xff16181d };
@@ -227,7 +247,8 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
 
     // Osciloscopio sincronizado + largo en compases (se guarda con el proyecto).
     addAndMakeVisible (scope);
-    scopeLabel.setText ("clic para congelar", juce::dontSendNotification);
+    scopeLabel.setText ({}, juce::dontSendNotification);
+    scope.setTooltip ("Clic para congelar / descongelar");
     scopeLabel.setColour (juce::Label::textColourId, Colours::dim);
     scopeLabel.setFont (juce::FontOptions (12.0f));
     addAndMakeVisible (scopeLabel);
@@ -278,6 +299,12 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     addAndMakeVisible (scopeToggleButton);
     scopeOpen = (bool) apvts.state.getProperty ("scopeOpen", true);
 
+    // Estilo: forma de dibujar, colores y grilla (se guardan con el proyecto).
+    scopeStyleButton.setTooltip ("Forma, colores y grilla del osciloscopio");
+    scopeStyleButton.onClick = [this] { showStyleMenu(); };
+    addAndMakeVisible (scopeStyleButton);
+    applyScopeLook();
+
     statusLabel.setFont (juce::FontOptions (13.0f));
     statusLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (statusLabel);
@@ -307,6 +334,91 @@ void MeteringABEditor::setupKnob (PreciseSlider& s, juce::Label& label, const ju
     addAndMakeVisible (label);
 }
 
+void MeteringABEditor::applyScopeLook()
+{
+    auto& state = processor.apvts.state;
+    scope.setStyle ((ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStyle", 0)));
+    scope.setShowGrid ((bool) state.getProperty ("scopeGrid", true));
+
+    const int palette = juce::jlimit (0, ScopeView::customPalette, (int) state.getProperty ("scopePalette", 0));
+
+    if (palette == ScopeView::customPalette)
+        scope.setColours (juce::Colour::fromString (state.getProperty ("scopeCustomPre",  "ff5dcaa5").toString()),
+                          juce::Colour::fromString (state.getProperty ("scopeCustomPost", "fff2b544").toString()));
+    else
+        scope.setColours (juce::Colour (ScopeView::palettes[(size_t) palette].pre),
+                          juce::Colour (ScopeView::palettes[(size_t) palette].post));
+
+    updateWaveButtons();
+}
+
+void MeteringABEditor::showStyleMenu()
+{
+    auto& state = processor.apvts.state;
+    const int style   = (int) state.getProperty ("scopeStyle", 0);
+    const int palette = (int) state.getProperty ("scopePalette", 0);
+
+    juce::PopupMenu menu;
+    menu.addSectionHeader ("Forma");
+    for (int i = 0; i < ScopeView::styleNames.size(); ++i)
+        menu.addItem (100 + i, ScopeView::styleNames[i], true, style == i);
+
+    menu.addSectionHeader ("Colores (PRE / POST)");
+    for (int i = 0; i < (int) ScopeView::palettes.size(); ++i)
+        menu.addItem (200 + i, ScopeView::palettes[(size_t) i].name, true, palette == i);
+
+    menu.addItem (200 + ScopeView::customPalette, "Personalizado", true, palette == ScopeView::customPalette);
+    menu.addItem (300, juce::String::fromUTF8 ("  Elegir color PRE\xe2\x80\xa6"));
+    menu.addItem (301, juce::String::fromUTF8 ("  Elegir color POST\xe2\x80\xa6"));
+
+    menu.addSeparator();
+    menu.addItem (400, "Mostrar grilla", true, scope.getShowGrid());
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&scopeStyleButton),
+                        [this, safe = juce::Component::SafePointer<MeteringABEditor> (this)] (int result)
+    {
+        if (safe == nullptr || result == 0)
+            return;
+
+        auto& st = processor.apvts.state;
+
+        if (result >= 100 && result < 200)      st.setProperty ("scopeStyle", result - 100, nullptr);
+        else if (result >= 200 && result < 300) st.setProperty ("scopePalette", result - 200, nullptr);
+        else if (result == 300 || result == 301) { pickCustomColour (result == 300); return; }
+        else if (result == 400)                 st.setProperty ("scopeGrid", ! scope.getShowGrid(), nullptr);
+
+        applyScopeLook();
+    });
+}
+
+// Abre un selector de color; elegir un color pasa a la paleta "Personalizado".
+void MeteringABEditor::pickCustomColour (bool forPre)
+{
+    auto& state = processor.apvts.state;
+
+    if ((int) state.getProperty ("scopePalette", 0) != ScopeView::customPalette)
+    {
+        // Arrancar el personalizado desde los colores que se ven ahora.
+        state.setProperty ("scopeCustomPre",  scope.getPreColour().toString(),  nullptr);
+        state.setProperty ("scopeCustomPost", scope.getPostColour().toString(), nullptr);
+        state.setProperty ("scopePalette", ScopeView::customPalette, nullptr);
+        applyScopeLook();
+    }
+
+    const auto initial = forPre ? scope.getPreColour() : scope.getPostColour();
+    auto selector = std::make_unique<LiveColourSelector> (initial,
+        [this, forPre, safe = juce::Component::SafePointer<MeteringABEditor> (this)] (juce::Colour c)
+        {
+            if (safe == nullptr)
+                return;
+
+            processor.apvts.state.setProperty (forPre ? "scopeCustomPre" : "scopeCustomPost", c.toString(), nullptr);
+            applyScopeLook();
+        });
+
+    juce::CallOutBox::launchAsynchronously (std::move (selector), scopeStyleButton.getBounds(), this);
+}
+
 void MeteringABEditor::setScopeOpen (bool open)
 {
     scopeOpen = open;
@@ -323,7 +435,7 @@ void MeteringABEditor::updateScopeSection()
     scopeToggleButton.setVisible (showSection);
     scopeToggleButton.setButtonText (juce::String::fromUTF8 (scopeOpen ? "\xe2\x96\xbe" : "\xe2\x96\xb8") + "  Osciloscopio");
 
-    for (juce::Component* c : std::initializer_list<juce::Component*> { &scope, &scopeLabel, &zoomBox, &showPreButton, &showPostButton, &waveSwapButton })
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &scope, &scopeLabel, &zoomBox, &showPreButton, &showPostButton, &waveSwapButton, &scopeStyleButton })
         c->setVisible (showBody);
 
     const int height = ! showSection ? mainHeight
@@ -356,8 +468,8 @@ void MeteringABEditor::updateWaveButtons()
         b.setColour (juce::TextButton::textColourOffId, on ? Colours::background : Colours::dim);
     };
 
-    style (showPreButton,  scope.getShowPre(),  ScopeView::preColour);
-    style (showPostButton, scope.getShowPost(), ScopeView::postColour);
+    style (showPreButton,  scope.getShowPre(),  scope.getPreColour());
+    style (showPostButton, scope.getShowPost(), scope.getPostColour());
 
     // El botón de alternar dice qué onda se está viendo sola, con su color.
     const bool onlyPre  = scope.getShowPre() && ! scope.getShowPost();
@@ -367,12 +479,12 @@ void MeteringABEditor::updateWaveButtons()
     if (onlyPre)
     {
         waveSwapButton.setButtonText (arrows + " PRE");
-        style (waveSwapButton, true, ScopeView::preColour);
+        style (waveSwapButton, true, scope.getPreColour());
     }
     else if (onlyPost)
     {
         waveSwapButton.setButtonText (arrows + " POST");
-        style (waveSwapButton, true, ScopeView::postColour);
+        style (waveSwapButton, true, scope.getPostColour());
     }
     else
     {
@@ -719,6 +831,8 @@ void MeteringABEditor::resized()
     showPreButton.setBounds (scopeHeader.removeFromRight (66));
     scopeHeader.removeFromRight (6);
     waveSwapButton.setBounds (scopeHeader.removeFromRight (78));
+    scopeHeader.removeFromRight (6);
+    scopeStyleButton.setBounds (scopeHeader.removeFromRight (64));
     scopeLabel.setBounds (scopeHeader);
 
     scope.setBounds (section.removeFromTop (scopeBodyHeight - 16));

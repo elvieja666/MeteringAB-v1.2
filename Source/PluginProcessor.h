@@ -99,8 +99,10 @@ public:
     // compás) dividido en "columnas". Cada columna guarda el mínimo y máximo
     // de PRE FX y POST FX en ese momento del compás. Se va sobrescribiendo a
     // medida que avanza la canción, así cada compás reemplaza al anterior.
-    static constexpr int scopeBins = 1024;
+    static constexpr int scopeBins = 2048;            // resolución horizontal (columnas por loop)
     std::array<std::atomic<float>, scopeBins> scopePreMin, scopePreMax, scopePostMin, scopePostMax;
+    std::array<std::atomic<float>, scopeBins> scopePreSq, scopePostSq;   // suma de cuadrados (para el RMS)
+    std::array<std::atomic<int>,   scopeBins> scopeCount;                // muestras en cada columna
     std::atomic<int> scopeCurrentBin { 0 };
     std::atomic<bool> scopeIsRunning { false };       // Logic en play
     std::atomic<int> scopeLengthIndex { ScopeLengths::defaultIndex };

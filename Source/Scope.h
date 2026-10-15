@@ -11,16 +11,36 @@
 //  - Barre de izquierda a derecha siguiendo la canción y, al llegar al final,
 //    vuelve a empezar reemplazando lo del compás anterior.
 //  - Escala vertical fija en dB: 0 arriba y abajo, -∞ en el centro.
-//  - PRE FX (verde agua) y encima POST FX (ámbar, ya nivelado).
+//  - PRE FX y encima POST FX (ya nivelado), con colores y estilo a elección.
 //  - Clic: congelar / descongelar.
 // ---------------------------------------------------------------------------
-class ScopeView : public juce::Component
+class ScopeView : public juce::Component, public juce::SettableTooltipClient
 {
 public:
-    static inline const juce::Colour preColour  { 0xff5dcaa5 };
-    static inline const juce::Colour postColour { 0xfff2b544 };
+    // Formas de dibujar la onda.
+    enum class Style { contour = 0, detailed = 1, lines = 2 };
+    static inline const juce::StringArray styleNames { "Contorno", "Detallado (picos + RMS)", juce::String::fromUTF8 ("Solo l\xc3\xadneas") };
+
+    // Paletas de colores: { nombre, PRE, POST }.
+    struct Palette { const char* name; juce::uint32 pre, post; };
+    static constexpr std::array<Palette, 5> palettes {{
+        { "Verde agua / Ambar",  0xff5dcaa5, 0xfff2b544 },
+        { "Grises (clasico)",    0xff6c7077, 0xffb8bbc1 },
+        { "Azul / Rosa",         0xff5aa9ff, 0xffff6fa8 },
+        { "Blanco / Rojo",       0xffd9d7d3, 0xffeb5757 },
+        { "Violeta / Lima",      0xff9b8cff, 0xffb5e655 },
+    }};
+    static constexpr int customPalette = (int) palettes.size();   // "Personalizado"
 
     explicit ScopeView (MeteringABProcessor& p) : processor (p) { capture(); }
+
+    void setStyle (Style s)                    { style = s; repaint(); }
+    Style getStyle() const                     { return style; }
+    void setColours (juce::Colour pre, juce::Colour post) { preColour = pre; postColour = post; repaint(); }
+    juce::Colour getPreColour() const          { return preColour; }
+    juce::Colour getPostColour() const         { return postColour; }
+    void setShowGrid (bool shouldShow)         { showGrid = shouldShow; repaint(); }
+    bool getShowGrid() const                   { return showGrid; }
 
     bool isFrozen() const { return frozen; }
 
@@ -54,11 +74,21 @@ public:
 
         auto yFor = [&] (float v) { return midY - juce::jlimit (-1.0f, 1.0f, v) * half; };
 
+        auto drawSignal = [&] (const Bins& mins, const Bins& maxs, const Bins& sq, juce::Colour colour)
+        {
+            switch (style)
+            {
+                case Style::contour:  drawEnvelope (g, plot, mins, maxs, yFor, colour, true);  break;
+                case Style::lines:    drawEnvelope (g, plot, mins, maxs, yFor, colour, false); break;
+                case Style::detailed: drawDetailed (g, plot, mins, maxs, sq, yFor, midY, colour); break;
+            }
+        };
+
         if (showPre)
-            drawEnvelope (g, plot, preMin, preMax, yFor, preColour);
+            drawSignal (preMin, preMax, preSq, preColour);
 
         if (showPost)
-            drawEnvelope (g, plot, postMin, postMax, yFor, postColour);    // POST encima
+            drawSignal (postMin, postMax, postSq, postColour);    // POST encima
 
         // Cabezal del barrido
         if (! frozen)
@@ -94,6 +124,10 @@ private:
             preMax[(size_t) b]  = processor.scopePreMax[(size_t) b].load (std::memory_order_relaxed);
             postMin[(size_t) b] = processor.scopePostMin[(size_t) b].load (std::memory_order_relaxed);
             postMax[(size_t) b] = processor.scopePostMax[(size_t) b].load (std::memory_order_relaxed);
+
+            const int count = juce::jmax (1, processor.scopeCount[(size_t) b].load (std::memory_order_relaxed));
+            preSq[(size_t) b]  = processor.scopePreSq[(size_t) b].load (std::memory_order_relaxed)  / (float) count;
+            postSq[(size_t) b] = processor.scopePostSq[(size_t) b].load (std::memory_order_relaxed) / (float) count;
         }
 
         currentBin = processor.scopeCurrentBin.load (std::memory_order_relaxed);
@@ -119,8 +153,11 @@ private:
             const bool isBeat = k % subdivisions == 0;
             const bool isBar  = isBeat && (k / subdivisions) % beatsPerBar == 0;
 
-            g.setColour (juce::Colour (isBar ? 0xff4a4f5a : isBeat ? 0xff383c45 : 0xff24272e));
-            g.drawVerticalLine (juce::roundToInt (x), plot.getY(), plot.getBottom());
+            if (showGrid || isBar)
+            {
+                g.setColour (juce::Colour (isBar ? 0xff4a4f5a : isBeat ? 0xff383c45 : 0xff24272e));
+                g.drawVerticalLine (juce::roundToInt (x), plot.getY(), plot.getBottom());
+            }
 
             const bool wantsLabel = labelSubdivisions ? true : isBeat;
 
@@ -144,7 +181,7 @@ private:
     }
 
     // Escala en dB: 0, -6, -12, -18 arriba y abajo, -∞ en el centro.
-    static void drawLevelGrid (juce::Graphics& g, juce::Rectangle<float> plot, float midY, float half)
+    void drawLevelGrid (juce::Graphics& g, juce::Rectangle<float> plot, float midY, float half) const
     {
         g.setFont (juce::FontOptions (11.0f));
         float lastLabelOffset = 1.0e9f;                   // distancia al centro de la última etiqueta
@@ -158,8 +195,12 @@ private:
             for (int side : { -1, 1 })
             {
                 const float y = midY + (float) side * offset;
-                g.setColour (juce::Colour (0xff24272e));
-                g.drawHorizontalLine (juce::roundToInt (y), plot.getX(), plot.getRight());
+
+                if (showGrid)
+                {
+                    g.setColour (juce::Colour (0xff24272e));
+                    g.drawHorizontalLine (juce::roundToInt (y), plot.getX(), plot.getRight());
+                }
 
                 if (roomForLabel)
                 {
@@ -180,18 +221,19 @@ private:
                     juce::Rectangle<float> (plot.getX() - 36.0f, midY - 7.0f, 32.0f, 14.0f).toNearestInt(), juce::Justification::centredRight);
     }
 
+    using Bins = std::array<float, MeteringABProcessor::scopeBins>;
+
+    // Contorno (con relleno) o solo líneas: el pico de cada columna, suavizado.
     template <typename YFunc>
-    static void drawEnvelope (juce::Graphics& g, juce::Rectangle<float> plot,
-                              const std::array<float, MeteringABProcessor::scopeBins>& mins,
-                              const std::array<float, MeteringABProcessor::scopeBins>& maxs,
-                              YFunc yFor, juce::Colour colour)
+    static void drawEnvelope (juce::Graphics& g, juce::Rectangle<float> plot, const Bins& mins, const Bins& maxs,
+                              YFunc yFor, juce::Colour colour, bool filled)
     {
         const int bins = MeteringABProcessor::scopeBins;
         juce::Path fill, top, bottom;
 
         // Cada columna toma el pico de sus vecinas: así el contorno no se ve
         // "dentado" cuando una columna dura menos que un ciclo de la onda.
-        constexpr int radius = 2;
+        constexpr int radius = 4;
         auto peakMax = [&] (int b) { float v = -1.0f; for (int j = juce::jmax (0, b - radius); j <= juce::jmin (bins - 1, b + radius); ++j) v = juce::jmax (v, maxs[(size_t) j]); return v; };
         auto peakMin = [&] (int b) { float v =  1.0f; for (int j = juce::jmax (0, b - radius); j <= juce::jmin (bins - 1, b + radius); ++j) v = juce::jmin (v, mins[(size_t) j]); return v; };
 
@@ -215,15 +257,68 @@ private:
         }
 
         fill.closeSubPath();
-        g.setColour (colour.withAlpha (0.42f));
-        g.fillPath (fill);
+
+        if (filled)
+        {
+            g.setColour (colour.withAlpha (0.42f));
+            g.fillPath (fill);
+        }
+
         g.setColour (colour);
-        g.strokePath (top, juce::PathStrokeType (1.2f));
-        g.strokePath (bottom, juce::PathStrokeType (1.2f));
+        g.strokePath (top, juce::PathStrokeType (filled ? 1.2f : 1.5f));
+        g.strokePath (bottom, juce::PathStrokeType (filled ? 1.2f : 1.5f));
+    }
+
+    // Detallado: cada medio píxel muestra el pico real (sin suavizar, se ven
+    // los ciclos de los graves) y, encima, el RMS en un tono más claro.
+    template <typename YFunc>
+    static void drawDetailed (juce::Graphics& g, juce::Rectangle<float> plot, const Bins& mins, const Bins& maxs,
+                              const Bins& meanSquares, YFunc yFor, float midY, juce::Colour colour)
+    {
+        const int bins = MeteringABProcessor::scopeBins;
+        const int columns = juce::jmax (1, (int) plot.getWidth() * 2);
+        const float columnWidth = plot.getWidth() / (float) columns;
+        juce::RectangleList<float> peaks, rms;
+
+        for (int c = 0; c < columns; ++c)
+        {
+            const int from = c * bins / columns;
+            const int to   = juce::jmax (from + 1, (c + 1) * bins / columns);
+            float lo = 1.0f, hi = -1.0f;
+            double sq = 0.0;
+
+            for (int b = from; b < to; ++b)
+            {
+                lo = juce::jmin (lo, mins[(size_t) b]);
+                hi = juce::jmax (hi, maxs[(size_t) b]);
+                sq += meanSquares[(size_t) b];
+            }
+
+            if (hi < lo)
+                continue;
+
+            const float x = plot.getX() + (float) c * columnWidth;
+            const float yHi = yFor (hi), yLo = yFor (lo);
+            peaks.addWithoutMerging ({ x, yHi, columnWidth + 0.35f, juce::jmax (0.6f, yLo - yHi) });
+
+            const float r = (float) std::sqrt (sq / (to - from));
+            const float rTop = yFor (juce::jmin (r, hi > 0.0f ? hi : r)), rBottom = yFor (-juce::jmin (r, lo < 0.0f ? -lo : r));
+            if (rBottom > rTop)
+                rms.addWithoutMerging ({ x, rTop, columnWidth + 0.35f, rBottom - rTop });
+        }
+
+        g.setColour (colour.withMultipliedBrightness (0.62f).withAlpha (0.9f));
+        g.fillRectList (peaks);
+        g.setColour (colour.brighter (0.25f));
+        g.fillRectList (rms);
+        juce::ignoreUnused (midY);
     }
 
     MeteringABProcessor& processor;
-    std::array<float, MeteringABProcessor::scopeBins> preMin {}, preMax {}, postMin {}, postMax {};
+    Bins preMin {}, preMax {}, postMin {}, postMax {}, preSq {}, postSq {};
+    Style style = Style::contour;
+    juce::Colour preColour { palettes[0].pre }, postColour { palettes[0].post };
+    bool showGrid = true;
     int currentBin = 0;
     double lengthBars = 1.0;
     int beatsPerBar = 4;

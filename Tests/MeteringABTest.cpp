@@ -43,8 +43,22 @@ static void check (bool ok, const char* what, double value)
     if (! ok) ++failures;
 }
 
+// Simula a Logic en play: tempo 120, 4/4, la posición avanza con cada bloque.
+struct ChainHead : juce::AudioPlayHead
+{
+    double ppq = 0.0;
+    juce::Optional<PositionInfo> getPosition() const override
+    {
+        PositionInfo p; p.setBpm (120.0); p.setTimeSignature (TimeSignature { 4, 4 }); p.setIsPlaying (true);
+        p.setPpqPosition (ppq); p.setPpqPositionOfLastBarStart (std::floor (ppq / 4.0) * 4.0);
+        p.setBarCount ((juce::int64) std::floor (ppq / 4.0));
+        return p;
+    }
+};
+
 struct Chain
 {
+    ChainHead head;
     MeteringABProcessor send, recv;
     juce::MidiBuffer midi;
     std::vector<float> fxDelayL, fxDelayR;
@@ -62,6 +76,7 @@ struct Chain
         setParam (send, ParamIDs::mode, 0); setParam (send, ParamIDs::link, (float) link);
         setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, (float) link);
         setParam (recv, ParamIDs::pre, 0);   // los tests escuchan POST FX salvo que digan otra cosa
+        send.setPlayHead (&head); recv.setPlayHead (&head);
         send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
         fxDelayL.assign ((size_t) juce::jmax (1, latency), 0); fxDelayR.assign ((size_t) juce::jmax (1, latency), 0);
     }
@@ -87,6 +102,7 @@ struct Chain
                 buf.setSample (0, i, x); buf.setSample (1, i, x * 0.8f);
             }
             dry.makeCopyOf (buf);
+            head.ppq = (double) (sampleCount - 512) * 120.0 / 60.0 / 48000.0;
             send.processBlock (buf, midi);
             // "Efecto": ganancia + latencia
             for (int i = 0; i < 512; ++i)
@@ -259,9 +275,10 @@ int main (int argc, char** argv)
 
     if (argc > 1) // Metering A/BTests <carpeta>: guarda capturas de la interfaz
     {
-        const char* names[] = { "/send.png", "/receive.png", "/receive-long.png", "/receive-closed.png" };
+        const char* names[] = { "/send.png", "/receive.png", "/receive-long.png", "/receive-closed.png",
+                                "/estilo-detallado.png", "/estilo-lineas.png", "/estilo-contorno.png" };
 
-        for (int shot = 0; shot < 4; ++shot)
+        for (int shot = 0; shot < 7; ++shot)
         {
             std::unique_ptr<Chain> chain;
             std::unique_ptr<MeteringABProcessor> lone;
@@ -285,6 +302,12 @@ int main (int argc, char** argv)
                 a->apvts.state.setProperty ("scopeLength", shot == 2 ? 3 : 2, nullptr);   // 1 bar / 2 bars
                 a->scopeLengthIndex = shot == 2 ? 3 : 2;
                 if (shot == 2) a->apvts.state.setProperty ("scopeShowPre", false, nullptr);   // captura con solo POST
+                if (shot >= 4)   // estilos, en 1/2 bar para ver el detalle
+                {
+                    a->apvts.state.setProperty ("scopeLength", 1, nullptr); a->scopeLengthIndex = 1;
+                    a->apvts.state.setProperty ("scopeStyle", shot == 4 ? 1 : shot == 5 ? 2 : 0, nullptr);
+                    a->apvts.state.setProperty ("scopePalette", shot == 4 ? 1 : shot == 5 ? 2 : 0, nullptr);
+                }
                 chain->run (shot == 2 ? 5.3 : 3.3);
             }
 
