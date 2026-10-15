@@ -42,7 +42,8 @@ public:
     void setState (State s)   { state = (int) s; }
     bool isMeasuring() const  { return getState() == State::measuring; }
     float getProgress() const { return progress.load(); }
-    int getResult() const     { return result.load(); }
+    double getResult() const  { return result.load(); }   // muestras, con decimales
+    bool isInverted() const   { return inverted.load(); }
 
     // Desde el audio: agrega un bloque (original y procesado, en mono).
     // Devuelve true cuando la grabación se completó y hay que analizar.
@@ -82,7 +83,7 @@ public:
 
         // Sin audio (por debajo de -70 dBFS en promedio) no se puede medir.
         if (dryEnergy / captureSize < 1.0e-7 || postEnergy / captureSize < 1.0e-7)
-            return finish (State::noSignal, 0);
+            return finish (State::noSignal, 0.0, false);
 
         maxLag = juce::jlimit (0, captureSize / 2, maxLag);
 
@@ -104,9 +105,11 @@ public:
 
         // "PHAT": iguala todas las frecuencias, así el pico queda bien marcado
         // aunque la música tenga notas que se repiten o tus efectos ecualicen.
+        // (Se guarda también el espectro cruzado original para el ajuste fino.)
         for (int i = 0; i < fftSize; ++i)
         {
             auto cross = spectrumA[(size_t) i] * std::conj (spectrumB[(size_t) i]);
+            spectrumB[(size_t) i] = cross;
             const float magnitude = std::abs (cross);
             spectrumA[(size_t) i] = magnitude > 1.0e-12f ? cross / magnitude : std::complex<float> {};
         }
@@ -127,13 +130,96 @@ public:
             }
         }
 
+        // Afinar con decimales: se reconstruye la curva entre muestras
+        // (interpolación sinc) y se busca el punto más alto.
+        auto correlationAt = [&] (double offset)
+        {
+            constexpr int K = 24;
+            double acc = 0.0;
+
+            for (int k = -K; k <= K; ++k)
+            {
+                const double x = offset - k;
+                const double sinc = std::abs (x) < 1.0e-9 ? 1.0 : std::sin (juce::MathConstants<double>::pi * x) / (juce::MathConstants<double>::pi * x);
+                const double u = x / (K + 1.0);
+                const double window = 0.42 + 0.5 * std::cos (juce::MathConstants<double>::pi * u) + 0.08 * std::cos (2.0 * juce::MathConstants<double>::pi * u);
+                const int index = (bestLag + k + fftSize) % fftSize;   // lags negativos están al final
+                acc += a[(size_t) index].real() * sinc * window;
+            }
+
+            return acc;
+        };
+
+        double bestOffset = 0.0, bestAbs = std::abs (correlationAt (0.0));
+
+        for (int pass = 0; pass < 2; ++pass)
+        {
+            const double step  = pass == 0 ? 0.01 : 0.0005;
+            const double range = pass == 0 ? 1.0 : 0.01;
+            const double from = bestOffset - range;
+            const double to   = bestOffset + range;
+
+            for (double o = from; o <= to + 1.0e-12; o += step)
+            {
+                const double v = std::abs (correlationAt (o));
+
+                if (v > bestAbs)
+                {
+                    bestAbs = v;
+                    bestOffset = o;
+                }
+            }
+        }
+
+        const bool polarityInverted = correlationAt (bestOffset) < 0.0;
+        double estimate = bestLag + bestOffset;
+
+        // Ajuste fino con la fase: un retardo de τ muestras gira la fase de
+        // cada frecuencia en proporción a τ. Se mide ese giro (pesado por la
+        // energía de cada frecuencia) y se corrige la estimación.
+        for (int iteration = 0; iteration < 3; ++iteration)
+        {
+            double numerator = 0.0, denominator = 0.0;
+            const int maxBin = (int) (0.45 * fftSize);
+
+            for (int k = 1; k < maxBin; ++k)
+            {
+                const double omega = 2.0 * juce::MathConstants<double>::pi * k / fftSize;
+                std::complex<double> c (spectrumB[(size_t) k].real(), spectrumB[(size_t) k].imag());
+
+                if (polarityInverted)
+                    c = -c;
+
+                const double weight = std::abs (c);
+                if (weight <= 0.0)
+                    continue;
+
+                const double phase = std::arg (c * std::polar (1.0, omega * estimate));   // lo que sobra
+                numerator   += weight * omega * phase;
+                denominator += weight * omega * omega;
+            }
+
+            if (denominator <= 0.0)
+                break;
+
+            const double correction = -numerator / denominator;
+
+            if (std::abs (correction) > 1.0)                              // algo raro: no tocar
+                break;
+
+            estimate += correction;
+        }
+
+        const double exactLag = juce::jlimit (0.0, (double) maxLag, estimate);
+
         // ¿Qué tan parecidas son las dos señales con ese corrimiento? (0 a 1)
+        const int checkLag = (int) std::lround (exactLag);
         double cross = 0.0, e1 = 0.0, e2 = 0.0;
 
-        for (int t = bestLag; t < captureSize; ++t)
+        for (int t = checkLag; t < captureSize; ++t)
         {
             const double p = post[(size_t) t];
-            const double d = dry[(size_t) (t - bestLag)];
+            const double d = dry[(size_t) (t - checkLag)];
             cross += p * d;
             e1 += p * p;
             e2 += d * d;
@@ -143,9 +229,11 @@ public:
         lastSimilarity = similarity;
 
         if (similarity < minSimilarity)
-            return finish (State::unclear, 0);
+            return finish (State::unclear, 0.0, false);
 
-        return finish (State::done, bestLag);
+        // Si es casi entero, se redondea (evita "64,0003").
+        const double rounded = std::abs (exactLag - std::round (exactLag)) < 0.005 ? std::round (exactLag) : exactLag;
+        return finish (State::done, rounded, polarityInverted);
     }
 
     double getLastSimilarity() const { return lastSimilarity; }
@@ -153,9 +241,10 @@ public:
     static constexpr double minSimilarity = 0.25;
 
 private:
-    State finish (State s, int lag)
+    State finish (State s, double lag, bool isPolarityInverted)
     {
         result = lag;
+        inverted = isPolarityInverted;
         state = (int) s;
         return s;
     }
@@ -163,7 +252,8 @@ private:
     std::vector<float> dry, post;
     std::atomic<int> state { (int) State::idle };
     std::atomic<int> writePos { 0 };
-    std::atomic<int> result { 0 };
+    std::atomic<double> result { 0.0 };
+    std::atomic<bool> inverted { false };
     std::atomic<float> progress { 0.0f };
     double lastSimilarity = 0.0;
 };

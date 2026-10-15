@@ -10,21 +10,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout MeteringABProcessor::createL
     using namespace juce;
     AudioProcessorValueTreeState::ParameterLayout layout;
 
-    auto dbAttributes = AudioParameterFloatAttributes()
-        .withLabel ("dB")
-        .withStringFromValueFunction ([] (float v, int) { return String (v, 2) + " dB"; })
-        .withValueFromStringFunction ([] (const String& t) { return t.retainCharacters ("-+.,0123456789").replaceCharacter (',', '.').getFloatValue(); });
-
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::mode, 1 }, "Modo",
                                                         StringArray { "Send (antes de FX)"_u, "Receive (después de FX)"_u }, 0));
 
     layout.add (std::make_unique<AudioParameterInt> (ParameterID { ParamIDs::link, 1 }, "Link ID", 1, SharedBus::numLinks, 1));
-
-    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::match, 1 }, "Matcheo",
-                                                        StringArray { "Auto", "Manual", "Apagado" }, 0));
-
-    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::manual, 1 }, "Ganancia manual",
-                                                       NormalisableRange<float> (minGainDb, maxGainDb, 0.01f), 0.0f, dbAttributes));
 
     layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::pre, 1 }, "PRE/POST FX", false,
                                                       AudioParameterBoolAttributes()
@@ -59,14 +48,25 @@ juce::AudioProcessorValueTreeState::ParameterLayout MeteringABProcessor::createL
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::windowSync, 1 }, "Ventana (compases)",
                                                         SyncDivisions::names, SyncDivisions::defaultIndex));
 
-    layout.add (std::make_unique<AudioParameterInt> (ParameterID { ParamIDs::latency, 1 }, "Latencia", 0, maxLatencySamples, 0,
-                                                     AudioParameterIntAttributes()
-                                                         .withLabel ("muestras")
-                                                         .withStringFromValueFunction ([] (int v, int) { return String (v) + " muestras"; })
-                                                         .withValueFromStringFunction ([] (const String& t) { return t.retainCharacters ("0123456789").getIntValue(); })));
+    // Latencia con decimales: muchos plugins (oversampling, fase lineal)
+    // retrasan el audio un número "con coma" de muestras, ej. 64,5.
+    NormalisableRange<float> latencyRange (0.0f, (float) maxLatencySamples, 0.01f);
+    latencyRange.setSkewForCentre (2000.0f);
 
-    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::limit, 1 }, "Límite auto"_u,
-                                                       NormalisableRange<float> (0.0f, maxGainDb, 0.1f), 18.0f, dbAttributes));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::latency, 1 }, "Latencia", latencyRange, 0.0f,
+                                                       AudioParameterFloatAttributes()
+                                                           .withLabel ("muestras")
+                                                           .withStringFromValueFunction ([] (float v, int)
+                                                           {
+                                                               const bool whole = std::abs (v - std::round (v)) < 0.005f;
+                                                               return (whole ? String (juce::roundToInt (v)) : String (v, 2)) + " muestras";
+                                                           })
+                                                           .withValueFromStringFunction ([] (const String& t)
+                                                           {
+                                                               return t.retainCharacters (".,0123456789").replaceCharacter (',', '.').getFloatValue();
+                                                           })));
+
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::polarity, 1 }, "Polaridad invertida", false));
 
     layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::hold, 1 }, "Congelar", false));
 
@@ -81,8 +81,6 @@ MeteringABProcessor::MeteringABProcessor()
 {
     pMode    = apvts.getRawParameterValue (ParamIDs::mode);
     pLink    = apvts.getRawParameterValue (ParamIDs::link);
-    pMatch   = apvts.getRawParameterValue (ParamIDs::match);
-    pManual  = apvts.getRawParameterValue (ParamIDs::manual);
     pPre     = apvts.getRawParameterValue (ParamIDs::pre);
     pDelta   = apvts.getRawParameterValue (ParamIDs::delta);
     pMeasure = apvts.getRawParameterValue (ParamIDs::measure);
@@ -90,7 +88,7 @@ MeteringABProcessor::MeteringABProcessor()
     pSync       = apvts.getRawParameterValue (ParamIDs::sync);
     pWindowSync = apvts.getRawParameterValue (ParamIDs::windowSync);
     pLatency = apvts.getRawParameterValue (ParamIDs::latency);
-    pLimit   = apvts.getRawParameterValue (ParamIDs::limit);
+    pPolarity = apvts.getRawParameterValue (ParamIDs::polarity);
     pHold    = apvts.getRawParameterValue (ParamIDs::hold);
 
     syncStateHandled = pSync->load() > 0.5f;
@@ -213,12 +211,18 @@ void MeteringABProcessor::handleAsyncUpdate()
     {
         if (latencyMeasurer.analyse (maxLatencySamples) == LatencyMeasurer::State::done)
         {
-            if (auto* param = apvts.getParameter (ParamIDs::latency))
+            auto setPlainNow = [this] (const char* id, float plainValue)
             {
-                param->beginChangeGesture();
-                param->setValueNotifyingHost (param->convertTo0to1 ((float) latencyMeasurer.getResult()));
-                param->endChangeGesture();
-            }
+                if (auto* param = apvts.getParameter (id))
+                {
+                    param->beginChangeGesture();
+                    param->setValueNotifyingHost (param->convertTo0to1 (plainValue));
+                    param->endChangeGesture();
+                }
+            };
+
+            setPlainNow (ParamIDs::latency, (float) latencyMeasurer.getResult());
+            setPlainNow (ParamIDs::polarity, latencyMeasurer.isInverted() ? 1.0f : 0.0f);
         }
     }
 
@@ -261,6 +265,7 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     preMeter.prepare (sampleRate);
     postMeter.prepare (sampleRate);
     dryBuffer.setSize (2, juce::jmax (samplesPerBlock, 4096));
+    deltaDryBuffer.setSize (2, juce::jmax (samplesPerBlock, 4096));
     dryMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
     postMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
     latencyMeasurer.prepare();
@@ -412,9 +417,14 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
 
     // 1) Traer el audio original, retrasado según la latencia de tus FX.
     if (dryBuffer.getNumSamples() < n)
+    {
         dryBuffer.setSize (2, n, false, false, true);  // caso raro: bloque más grande de lo esperado
+        deltaDryBuffer.setSize (2, n, false, false, true);
+    }
 
-    const int latency = juce::jlimit (0, LinkSlot::ringSize - n - 1, (int) pLatency->load());
+    const double latencyExact = juce::jlimit (0.0, (double) (LinkSlot::ringSize - n - 2 * maxInterpolationHalfLength),
+                                              (double) pLatency->load());
+    const int latency = (int) std::lround (latencyExact);   // PRE FX: el original intacto, sin filtrar
     const auto end = slot.writePos.load (std::memory_order_acquire);
     const auto start = end - n - latency;
 
@@ -456,37 +466,34 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
 
     preMeter.process (dryBuffer.getArrayOfReadPointers(), numCh, n);
 
-    // 2) Calcular cuánta ganancia hace falta.
-    float targetDb = 0.0f;
-
-    switch ((Match) (int) pMatch->load())
+    // 2) Matcheo automático: cuánta ganancia hace falta para igualar el nivel.
     {
-        case Match::automatic:
-        {
-            const double preMs = preMeter.getMeanSquare();
-            const double postMs = postMeter.getMeanSquare();
-            constexpr double gate = 1.0e-6;              // -60 dB: no matchear silencio
+        const double preMs = preMeter.getMeanSquare();
+        const double postMs = postMeter.getMeanSquare();
+        constexpr double gate = 1.0e-6;                  // -60 dB: no matchear silencio
 
-            if (pHold->load() < 0.5f && preMs > gate && postMs > 1.0e-12)
-            {
-                const auto limit = pLimit->load();
-                autoGainDb = juce::jlimit (-limit, limit, (float) (10.0 * std::log10 (preMs / postMs)));
-            }
-
-            targetDb = autoGainDb;
-            break;
-        }
-
-        case Match::manual: targetDb = pManual->load(); break;
-        case Match::off:    targetDb = 0.0f;            break;
+        if (pHold->load() < 0.5f && preMs > gate && postMs > 1.0e-12)
+            autoGainDb = juce::jlimit (-autoLimitDb, autoLimitDb, (float) (10.0 * std::log10 (preMs / postMs)));
     }
 
+    const float targetDb = autoGainDb;
     gainSmoother.setTargetValue (juce::Decibels::decibelsToGain (targetDb));
 
     // 3) Aplicar según lo que quieras escuchar.
     //    DELTA manda sobre todo; si no, el botón elige PRE FX u POST FX.
     const bool delta = pDelta->load() > 0.5f;
     const bool pre   = pPre->load() > 0.5f;
+    const float polaritySign = pPolarity->load() > 0.5f ? -1.0f : 1.0f;
+
+    // Para DELTA el original se alinea con decimales (ej. 64,5 muestras),
+    // así se anula exacto lo que tus efectos no cambiaron.
+    const juce::AudioBuffer<float>* deltaDry = &dryBuffer;
+
+    if (delta && std::abs (latencyExact - latency) > 0.001)
+    {
+        readDryFractional (slot, end, n, numCh, latencyExact);
+        deltaDry = &deltaDryBuffer;
+    }
 
     for (int i = 0; i < n; ++i)
     {
@@ -497,7 +504,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
             float* out = buffer.getWritePointer (ch);
             const float dry = dryBuffer.getSample (ch, i);
 
-            if (delta)      out[i] = out[i] * g - dry;   // solo lo que cambiaron tus FX
+            if (delta)      out[i] = out[i] * g - polaritySign * deltaDry->getSample (ch, i);   // solo lo que cambiaron tus FX
             else if (pre)   out[i] = dry;                // PRE FX: el original
             else            out[i] = out[i] * g;         // POST FX: procesado y nivelado
         }
@@ -506,6 +513,60 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     displayPre  = (float) preMeter.getDecibels();
     displayPost = (float) postMeter.getDecibels();
     displayGain = targetDb;
+}
+
+// ---------------------------------------------------------------------------
+//  Lee el audio original retrasado un número de muestras CON DECIMALES.
+//  Usa interpolación "sinc con ventana": reconstruye el valor exacto entre
+//  dos muestras, como haría la onda continua original.
+// ---------------------------------------------------------------------------
+void MeteringABProcessor::readDryFractional (const LinkSlot& slot, juce::int64 end, int n, int numCh, double latencyExact)
+{
+    const int whole = (int) std::floor (latencyExact);
+    const double frac = latencyExact - whole;
+
+    // Cuántas muestras a cada lado se pueden usar: no podemos leer audio
+    // "del futuro", así que con latencias muy chicas se usan menos.
+    const int half = juce::jlimit (1, maxInterpolationHalfLength, whole + 1);
+
+    // Pesos del interpolador (iguales para todo el bloque).
+    std::array<double, 2 * maxInterpolationHalfLength> weights {};
+    double sum = 0.0;
+
+    for (int k = -(half - 1); k <= half; ++k)
+    {
+        const double x = k - frac;                                    // distancia a la muestra
+        const double sinc = std::abs (x) < 1.0e-9 ? 1.0 : std::sin (juce::MathConstants<double>::pi * x) / (juce::MathConstants<double>::pi * x);
+        const double u = x / (double) half;                           // -1..1
+        const double window = std::abs (u) >= 1.0 ? 0.0
+                            : 0.42 + 0.5 * std::cos (juce::MathConstants<double>::pi * u) + 0.08 * std::cos (2.0 * juce::MathConstants<double>::pi * u);
+        weights[(size_t) (k + half - 1)] = sinc * window;
+        sum += sinc * window;
+    }
+
+    for (int k = 0; k < 2 * half; ++k)
+        weights[(size_t) k] /= sum;                                    // sin cambio de volumen
+
+    for (int ch = 0; ch < numCh; ++ch)
+    {
+        const auto& ring = slot.ring[(size_t) ch];
+        float* dst = deltaDryBuffer.getWritePointer (ch);
+
+        for (int i = 0; i < n; ++i)
+        {
+            const juce::int64 base = end - n + i - whole;              // muestra entera más cercana
+            double acc = 0.0;
+
+            for (int k = -(half - 1); k <= half; ++k)
+            {
+                const auto pos = base - k;
+                if (pos >= 0)
+                    acc += weights[(size_t) (k + half - 1)] * ring[(size_t) (pos & LinkSlot::ringMask)];
+            }
+
+            dst[i] = (float) acc;
+        }
+    }
 }
 
 void MeteringABProcessor::getStateInformation (juce::MemoryBlock& destData)

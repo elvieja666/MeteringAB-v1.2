@@ -1,6 +1,6 @@
 # Metering A/B
 
-Plugin de matcheo de loudness Send/Receive para Logic. Ponés un Metering A/B antes de tu cadena de efectos y otro después: el segundo iguala automáticamente el volumen, así comparás el sonido con y sin efectos sin que te engañe el "más fuerte suena mejor". Todas las perillas aceptan valores exactos escritos con el teclado.
+Plugin de matcheo de loudness Send/Receive para Logic. El volumen se iguala siempre automáticamente. Ponés un Metering A/B antes de tu cadena de efectos y otro después: el segundo iguala automáticamente el volumen, así comparás el sonido con y sin efectos sin que te engañe el "más fuerte suena mejor". Todas las perillas aceptan valores exactos escritos con el teclado.
 
 ---
 
@@ -63,12 +63,11 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 |---|---|
 | **PRE FX / POST FX** | Un solo botón: cada clic alterna. **POST FX** (ámbar) = con tus efectos, al mismo volumen que el original. **PRE FX** (verde agua) = la señal antes de los efectos. Es un parámetro de Logic, así que lo podés asignar a una tecla o control MIDI. |
 | **DELTA** | Escuchás solo lo que tus efectos le cambiaron al sonido. Mientras está activo, el botón PRE/POST se apaga; si lo tocás, sale de DELTA y vuelve a la última versión. |
-| **Matcheo** | *Auto* iguala solo. *Manual* usa la perilla Ganancia manual. *Apagado* no corrige nada. |
 | **Medición** | *LUFS* se parece más a cómo escucha el oído (recomendado). *RMS* es energía pura. |
 | **Ventana (ms / Sync)** | Cuánto tiempo promedia la medición. En **ms** elegís milisegundos. En **Sync** elegís compases (1/4 bar a 8 bars) según el tempo y el compás del proyecto, y el promedio toma compases exactos, así la lectura de un loop queda quieta. Al pasar de Sync a ms se convierte al tiempo equivalente; al volver a Sync se acomoda al valor musical más cercano. Debajo de la perilla ves la equivalencia. |
-| **Límite auto** | Máxima corrección que puede aplicar el modo Auto, para arriba o para abajo. |
-| **Congelar** | Deja fija la corrección actual del modo Auto. |
-| **Latencia + Medir** | Compensa efectos que retrasan el audio (EQ de fase lineal, limitadores con lookahead). Dale play y tocá **Medir**: en unos 3 segundos el plugin encuentra el retraso exacto y lo pone solo. Si el sonido procesado no se parece lo suficiente al original (por ejemplo, una reverb 100% wet), te avisa en vez de poner un valor dudoso. |
+| **Congelar** | Deja fija la corrección de volumen actual (el matcheo es siempre automático, con un máximo de 24 dB para arriba o para abajo). |
+| **Latencia + Medir** | Compensa efectos que retrasan el audio (EQ de fase lineal, oversampling, limitadores con lookahead). Dale play y tocá **Medir**: en unos 3 segundos el plugin encuentra el retraso exacto, **con decimales** (por ejemplo 64,50 muestras, porque muchos plugins retrasan "medio sample"), y lo pone solo. Si el sonido procesado no se parece lo suficiente al original (por ejemplo, una reverb 100% wet), te avisa en vez de poner un valor dudoso. |
+| **Ø (polaridad)** | Se enciende solo si **Medir** detecta que algún plugin invierte la polaridad, y lo compensa en el DELTA. También lo podés activar a mano. |
 
 ### Valores exactos
 

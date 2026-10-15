@@ -102,6 +102,146 @@ struct Chain
     size_t fxWrite = 0;
 };
 
+// ---- Simulación del DELTA con distintos tipos de efecto ----
+// "Efecto": procesa una muestra mono-por-canal con estado propio.
+struct Fx
+{
+    virtual ~Fx() = default;
+    virtual float process (int ch, float x) = 0;
+};
+
+struct Delay : Fx
+{
+    std::vector<float> buf[2]; size_t w[2] {};
+    explicit Delay (int n) { buf[0].assign ((size_t) n + 1, 0); buf[1].assign ((size_t) n + 1, 0); }
+    float process (int ch, float x) override
+    {
+        auto& b = buf[ch]; b[w[ch]] = x; size_t r = (w[ch] + 1) % b.size(); w[ch] = r; return b[r];
+    }
+};
+
+// FIR genérico (para retardo fraccionario o EQ de fase lineal).
+struct Fir : Fx
+{
+    std::vector<float> h, hist[2]; size_t pos[2] {};
+    explicit Fir (std::vector<float> taps) : h (std::move (taps)) { hist[0].assign (h.size(), 0); hist[1].assign (h.size(), 0); }
+    float process (int ch, float x) override
+    {
+        auto& s = hist[ch]; s[pos[ch]] = x; double y = 0; size_t idx = pos[ch];
+        for (size_t k = 0; k < h.size(); ++k) { y += h[k] * s[idx]; idx = idx == 0 ? s.size() - 1 : idx - 1; }
+        pos[ch] = (pos[ch] + 1) % s.size(); return (float) y;
+    }
+};
+
+static std::vector<float> fractionalDelayTaps (double delay, int length)   // sinc con ventana centrada en el retardo
+{
+    std::vector<float> h ((size_t) length);
+    const double halfSpan = std::min (delay, length - 1 - delay);
+    for (int n = 0; n < length; ++n)
+    {
+        const double t = n - delay;
+        const double sinc = std::abs (t) < 1e-9 ? 1.0 : std::sin (juce::MathConstants<double>::pi * t) / (juce::MathConstants<double>::pi * t);
+        const double u = t / (halfSpan + 1.0);
+        const double win = std::abs (u) >= 1.0 ? 0.0 : 0.42 + 0.5 * std::cos (juce::MathConstants<double>::pi * u) + 0.08 * std::cos (2 * juce::MathConstants<double>::pi * u);
+        h[(size_t) n] = (float) (sinc * win);
+    }
+    return h;
+}
+
+// Filtro pasa-bajos en 16 kHz para la señal de prueba: la música casi no
+// tiene energía arriba de eso, y cualquier retardo "con coma" es impreciso
+// pegado a la frecuencia máxima (24 kHz a 48 kHz de muestreo).
+static std::vector<float> lowpassTaps()
+{
+    const int length = 101; const double fc = 16000.0 / 48000.0;
+    std::vector<float> h ((size_t) length);
+    for (int n = 0; n < length; ++n)
+    {
+        const double t = n - (length - 1) / 2.0;
+        const double sinc = std::abs (t) < 1e-9 ? 2 * fc : std::sin (2 * juce::MathConstants<double>::pi * fc * t) / (juce::MathConstants<double>::pi * t);
+        const double win = 0.42 - 0.5 * std::cos (2 * juce::MathConstants<double>::pi * n / (length - 1)) + 0.08 * std::cos (4 * juce::MathConstants<double>::pi * n / (length - 1));
+        h[(size_t) n] = (float) (sinc * win);
+    }
+    return h;
+}
+
+struct Peaking : Fx   // EQ "común" (fase mínima): +4 dB en 3 kHz
+{
+    double b0, b1, b2, a1, a2, z1[2] {}, z2[2] {};
+    Peaking()
+    {
+        const double fs = 48000, f0 = 3000, Q = 1.0, A = std::pow (10.0, 4.0 / 40.0);
+        const double w = 2 * juce::MathConstants<double>::pi * f0 / fs, al = std::sin (w) / (2 * Q), c = std::cos (w);
+        const double a0 = 1 + al / A;
+        b0 = (1 + al * A) / a0; b1 = -2 * c / a0; b2 = (1 - al * A) / a0; a1 = -2 * c / a0; a2 = (1 - al / A) / a0;
+    }
+    float process (int ch, float x) override
+    {
+        const double y = b0 * x + z1[ch]; z1[ch] = b1 * x - a1 * y + z2[ch]; z2[ch] = b2 * x - a2 * y; return (float) y;
+    }
+};
+
+struct Invert : Fx { float process (int, float x) override { return -x; } };
+
+struct Result { double measured; bool inverted; double deltaDb; double idealDb; };
+
+// idealFx: lo que el efecto "realmente cambia" alineado perfecto (o nullptr = no cambia nada).
+static Result runDeltaCase (int link, std::unique_ptr<Fx> fx, std::unique_ptr<Fx> idealFx)
+{
+    MeteringABProcessor send, recv; juce::MidiBuffer m;
+    setParam (send, ParamIDs::mode, 0); setParam (send, ParamIDs::link, (float) link);
+    setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, (float) link);
+    send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
+
+    juce::Random rng (3); float brown = 0;
+    Fir bandLimit (lowpassTaps());
+    juce::AudioBuffer<float> buf (2, 512), dry (2, 512);
+    double sumDelta = 0, sumDry = 0, sumIdeal = 0;
+
+    auto block = [&] (bool accumulate)
+    {
+        for (int i = 0; i < 512; ++i)
+        {
+            const float white = rng.nextFloat() * 2 - 1;
+            brown = 0.97f * brown + 0.03f * white;
+            const float x = bandLimit.process (0, 0.3f * white + 2.0f * brown);   // ruido con graves y agudos (tipo música)
+            buf.setSample (0, i, x); buf.setSample (1, i, x);
+        }
+        dry.makeCopyOf (buf);
+        send.processBlock (buf, m);
+        for (int ch = 0; ch < 2; ++ch)
+            for (int i = 0; i < 512; ++i)
+                buf.setSample (ch, i, fx->process (ch, buf.getSample (ch, i)));
+        recv.processBlock (buf, m);
+
+        if (accumulate)
+            for (int i = 0; i < 512; ++i)
+            {
+                const float d = dry.getSample (0, i);
+                const float ideal = idealFx ? idealFx->process (0, d) - d : 0.0f;
+                sumDelta += (double) buf.getSample (0, i) * buf.getSample (0, i);
+                sumDry   += (double) d * d;
+                sumIdeal += (double) ideal * ideal;
+            }
+        else if (idealFx)
+            for (int i = 0; i < 512; ++i) idealFx->process (0, dry.getSample (0, i));
+    };
+
+    for (int b = 0; b < 30; ++b) block (false);
+    recv.startLatencyMeasurement();
+    for (int b = 0; b < 300; ++b) block (false);
+    recv.processPendingConversion();
+    const double measured = recv.apvts.getRawParameterValue (ParamIDs::latency)->load();
+    const bool inv = recv.apvts.getRawParameterValue (ParamIDs::polarity)->load() > 0.5f;
+    setParam (recv, ParamIDs::delta, 1);
+    for (int b = 0; b < 600; ++b) block (false);       // que se asiente el matcheo
+    for (int b = 0; b < 200; ++b) block (true);
+
+    auto db = [] (double a, double b) { return a <= 0 ? -200.0 : 10 * std::log10 (a / b); };
+    return { measured, inv, db (sumDelta, sumDry), db (sumIdeal, sumDry) };
+}
+
+
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
@@ -112,7 +252,7 @@ int main (int argc, char** argv)
         {
             MeteringABProcessor a; FakePlayHead ph; a.setPlayHead (&ph); a.prepareToPlay (48000, 512);
             setParam (a, ParamIDs::mode, shot == 0 ? 0.0f : 1.0f);
-            if (shot == 1) { setParam (a, ParamIDs::latency, 64); a.latencyMeasurer.setState (LatencyMeasurer::State::done); }
+            if (shot == 1) { setParam (a, ParamIDs::latency, 64.5f); setParam (a, ParamIDs::polarity, 1); a.latencyMeasurer.setState (LatencyMeasurer::State::done); }
             if (shot == 2) { oneBlock (a); setParam (a, ParamIDs::sync, 1); a.processPendingConversion(); setParam (a, ParamIDs::windowSync, 2); setParam (a, ParamIDs::pre, 1); }
             a.displayPre = -14.2f; a.displayPost = -9.8f; a.displayGain = -4.4f; a.sendConnected = true;
             std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
@@ -168,19 +308,20 @@ int main (int argc, char** argv)
         check (rmsDb (out) > -40, "Latencia sin compensar: Delta NO es silencio (dB)", rmsDb (out));
     }
     {
-        Chain c (4, -6.0f, 0);
-        setParam (c.recv, ParamIDs::match, 1);
-        setParam (c.recv, ParamIDs::manual, 2.37f);
-        c.run (3.0);
-        check (std::abs (c.recv.displayGain.load() - 2.37f) < 0.001f, "Manual: valor exacto 2.37 dB", c.recv.displayGain.load());
-        auto* p = c.recv.apvts.getParameter (ParamIDs::manual);
-        check (std::abs (p->getValueForText ("-3,25 dB") * 48 - 24 + 3.25f) < 0.01f, "Escribir '-3,25 dB' se interpreta como -3.25", p->getValueForText ("-3,25 dB") * 48 - 24);
+        // Latencia con decimales escrita a mano.
+        MeteringABProcessor q; auto* p = q.apvts.getParameter (ParamIDs::latency);
+        const auto r = p->getNormalisableRange();
+        check (std::abs (r.convertFrom0to1 (p->getValueForText ("64,25")) - 64.25f) < 0.006f, "Escribir '64,25' en Latencia = 64.25 muestras", r.convertFrom0to1 (p->getValueForText ("64,25")));
+        setParam (q, ParamIDs::latency, 64.5f);
+        check (p->getCurrentValueAsText() == "64.50 muestras", "Latencia se muestra con decimales ('64.50 muestras')", 1);
+        setParam (q, ParamIDs::latency, 128.0f);
+        check (p->getCurrentValueAsText() == "128 muestras", "Latencia entera se muestra sin decimales", 1);
     }
     {
-        Chain c (5, -20.0f, 0);
-        setParam (c.recv, ParamIDs::limit, 12.0f);
+        // El matcheo es siempre automático, con un tope fijo de 24 dB.
+        Chain c (5, -30.0f, 0);
         c.run (12.0);
-        check (std::abs (c.recv.displayGain.load() - 12.0f) < 0.01f, "Límite auto 12 dB respeta el tope", c.recv.displayGain.load());
+        check (std::abs (c.recv.displayGain.load() - 24.0f) < 0.01f, "Matcheo siempre Auto: tope fijo de 24 dB", c.recv.displayGain.load());
     }
     {
         MeteringABProcessor lonely; juce::MidiBuffer m;
@@ -201,10 +342,12 @@ int main (int argc, char** argv)
     {
         // Guardar/recuperar estado (como cuando abrís el proyecto de Logic).
         MeteringABProcessor a, b2;
-        setParam (a, ParamIDs::manual, -7.13f); setParam (a, ParamIDs::latency, 128);
+        setParam (a, ParamIDs::latency, 128.37f); setParam (a, ParamIDs::polarity, 1);
         juce::MemoryBlock mb; a.getStateInformation (mb);
         b2.setStateInformation (mb.getData(), (int) mb.getSize());
-        check (std::abs (b2.apvts.getRawParameterValue (ParamIDs::manual)->load() + 7.13f) < 0.005f, "Estado guardado y recuperado (manual)", b2.apvts.getRawParameterValue (ParamIDs::manual)->load());
+        check (std::abs (b2.apvts.getRawParameterValue (ParamIDs::latency)->load() - 128.37f) < 0.006f
+                   && b2.apvts.getRawParameterValue (ParamIDs::polarity)->load() > 0.5f,
+               "Estado guardado y recuperado (latencia 128.37 y polaridad)", b2.apvts.getRawParameterValue (ParamIDs::latency)->load());
     }
     {
         // El editor se puede crear y destruir sin problemas.
@@ -354,6 +497,24 @@ int main (int argc, char** argv)
         setParam (c.recv, ParamIDs::delta, 1);
         c.run (8.0); auto out = c.run (1.0);
         check (rmsDb (out) < -60, "Medir 777 y DELTA -> silencio (dB)", rmsDb (out));
+    }
+
+    {
+        // DELTA con latencias "con coma", polaridad y EQ común.
+        auto r = runDeltaCase (21, std::make_unique<Delay> (64), nullptr);
+        check (r.measured == 64.0 && r.deltaDb < -90, "DELTA: retardo entero 64 -> silencio (dB)", r.deltaDb);
+        r = runDeltaCase (22, std::make_unique<Fir> (fractionalDelayTaps (64.5, 129)), nullptr);
+        check (std::abs (r.measured - 64.5) < 0.02, "Medir: retardo 64,5 -> 64.5 (muestras)", r.measured);
+        check (r.deltaDb < -40, "DELTA: retardo 64,5 -> silencio (dB)", r.deltaDb);
+        r = runDeltaCase (23, std::make_unique<Fir> (fractionalDelayTaps (64.25, 129)), nullptr);
+        check (std::abs (r.measured - 64.25) < 0.02, "Medir: retardo 64,25 -> 64.25 (muestras)", r.measured);
+        check (r.deltaDb < -40, "DELTA: retardo 64,25 -> silencio (dB)", r.deltaDb);
+        r = runDeltaCase (24, std::make_unique<Fir> (fractionalDelayTaps (1000.37, 2001)), nullptr);
+        check (std::abs (r.measured - 1000.37) < 0.02 && r.deltaDb < -40, "DELTA: retardo 1000,37 -> medido y en silencio (dB)", r.deltaDb);
+        r = runDeltaCase (25, std::make_unique<Invert>(), nullptr);
+        check (r.inverted && r.deltaDb < -90, "Polaridad invertida: se detecta y DELTA da silencio (dB)", r.deltaDb);
+        r = runDeltaCase (26, std::make_unique<Peaking>(), std::make_unique<Peaking>());
+        check (! r.inverted && std::abs (r.deltaDb - r.idealDb) < 2.0, "EQ común: DELTA muestra lo que cambió el EQ (dB vs ideal)", r.deltaDb - r.idealDb);
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;

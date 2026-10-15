@@ -19,7 +19,7 @@ namespace Colours
 PreciseSlider::PreciseSlider()
 {
     setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    setTextBoxStyle (juce::Slider::TextBoxBelow, false, 96, 22);
+    setTextBoxStyle (juce::Slider::TextBoxBelow, false, 124, 22);
     setTextBoxIsEditable (true);                 // <- clic en el número para escribir
     setWantsKeyboardFocus (true);
 }
@@ -118,17 +118,12 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     };
 
     addCombo (modeBox, ParamIDs::mode, modeAtt);
-    addCombo (matchBox, ParamIDs::match, matchAtt);
     addCombo (measureBox, ParamIDs::measure, measureAtt);
 
-    for (auto* l : { &matchLabel, &measureLabel })
-    {
-        l->setColour (juce::Label::textColourId, Colours::dim);
-        l->setFont (juce::FontOptions (12.0f));
-        addAndMakeVisible (*l);
-    }
-    matchLabel.setText ("Matcheo", juce::dontSendNotification);
+    measureLabel.setColour (juce::Label::textColourId, Colours::dim);
+    measureLabel.setFont (juce::FontOptions (12.0f));
     measureLabel.setText ("Medición"_u, juce::dontSendNotification);
+    addAndMakeVisible (measureLabel);
 
     // Link ID: flechitas + número editable.
     linkSlider.setSliderStyle (juce::Slider::IncDecButtons);
@@ -141,18 +136,13 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     addAndMakeVisible (linkLabel);
     linkAtt = std::make_unique<SliderAttachment> (apvts, ParamIDs::link, linkSlider);
 
-    setupKnob (manualSlider,  manualLabel,  "Ganancia manual");
     setupKnob (windowSlider,  windowLabel,  "Ventana");
-    setupKnob (limitSlider,   limitLabel,   "Límite auto"_u);
     setupKnob (latencySlider, latencyLabel, "Latencia");
 
-    manualAtt  = std::make_unique<SliderAttachment> (apvts, ParamIDs::manual,  manualSlider);
     windowAtt  = std::make_unique<SliderAttachment> (apvts, ParamIDs::windowMs, windowSlider);
-    limitAtt   = std::make_unique<SliderAttachment> (apvts, ParamIDs::limit,   limitSlider);
     latencyAtt = std::make_unique<SliderAttachment> (apvts, ParamIDs::latency, latencySlider);
 
     // Doble clic vuelve al valor por defecto.
-    manualSlider.setDoubleClickReturnValue (true, 0.0);
     windowSlider.setDoubleClickReturnValue (true, 3000.0);
 
     // Ventana en compases (modo Sync): misma perilla, valores musicales.
@@ -177,7 +167,6 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     windowInfoLabel.setColour (juce::Label::textColourId, Colours::dim);
     windowInfoLabel.setFont (juce::FontOptions (11.0f));
     addAndMakeVisible (windowInfoLabel);
-    limitSlider.setDoubleClickReturnValue (true, 18.0);
     latencySlider.setDoubleClickReturnValue (true, 0.0);
 
     // Botón único PRE FX / POST FX (cada clic alterna).
@@ -204,6 +193,13 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     measureButton.setColour (juce::TextButton::textColourOffId, Colours::accent);
     measureButton.onClick = [this] { processor.startLatencyMeasurement(); };
     addAndMakeVisible (measureButton);
+
+    // Ø: compensar un plugin que invierte la polaridad (lo pone solo "Medir").
+    polarityButton.setClickingTogglesState (true);
+    polarityButton.setTooltip ("Polaridad invertida");
+    polarityButton.setColour (juce::TextButton::buttonOnColourId, Colours::accent);
+    addAndMakeVisible (polarityButton);
+    polarityAtt = std::make_unique<ButtonAttachment> (apvts, ParamIDs::polarity, polarityButton);
 
     latencyInfoLabel.setJustificationType (juce::Justification::centred);
     latencyInfoLabel.setFont (juce::FontOptions (11.0f));
@@ -287,8 +283,7 @@ void MeteringABEditor::timerCallback()
         isSendMode = sendMode;
 
         for (juce::Component* c : std::initializer_list<juce::Component*> {
-                 &matchBox, &measureBox, &matchLabel, &measureLabel, &manualSlider, &windowSlider,
-                 &limitSlider, &latencySlider, &manualLabel, &windowLabel, &limitLabel, &latencyLabel,
+                 &measureBox, &measureLabel, &windowSlider, &latencySlider, &windowLabel, &latencyLabel, &polarityButton,
                  &abButton, &deltaButton, &listenLabel, &measureButton, &latencyInfoLabel, &holdButton,
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
             c->setVisible (! isSendMode);
@@ -341,8 +336,12 @@ void MeteringABEditor::timerCallback()
     {
         using State = LatencyMeasurer::State;
         const auto& m = processor.latencyMeasurer;
-        const int latency = (int) processor.apvts.getRawParameterValue (ParamIDs::latency)->load();
-        const auto msText = juce::String (latency * 1000.0 / juce::jmax (1.0, processor.getCurrentSampleRate()), 1).replaceCharacter ('.', ',') + " ms";
+        const double latency = processor.apvts.getRawParameterValue (ParamIDs::latency)->load();
+        const bool whole = std::abs (latency - std::round (latency)) < 0.005;
+        const auto samplesText = (whole ? juce::String (juce::roundToInt (latency)) : juce::String (latency, 2)).replaceCharacter ('.', ',');
+        const auto msText = juce::String (latency * 1000.0 / juce::jmax (1.0, processor.getCurrentSampleRate()), 2).replaceCharacter ('.', ',') + " ms";
+        const bool inverted = processor.apvts.getRawParameterValue (ParamIDs::polarity)->load() > 0.5f;
+        const auto polarityText = inverted ? "  ·  "_u + juce::String::fromUTF8 ("\xc3\x98") + " invertida" : juce::String();
         juce::String text;
         juce::Colour colour = Colours::dim;
 
@@ -357,13 +356,13 @@ void MeteringABEditor::timerCallback()
                 colour = Colours::accent;
                 break;
             case State::done:
-                text = "Medido: " + juce::String (latency) + " = " + msText;
+                text = "Medido: " + samplesText + " = " + msText + polarityText;
                 colour = Colours::good;
                 break;
             case State::noSignal: text = "No llega audio: dale play";          colour = Colours::bad; break;
             case State::unclear:  text = "Sin coincidencia clara";              colour = Colours::bad; break;
             case State::noSend:   text = "No hay Send conectado";               colour = Colours::bad; break;
-            case State::idle:     text = "= " + msText;                          break;
+            case State::idle:     text = "= " + msText + polarityText;            break;
         }
 
         latencyInfoLabel.setText (text, juce::dontSendNotification);
@@ -373,10 +372,6 @@ void MeteringABEditor::timerCallback()
         measureButton.setButtonText (busy ? "..." : "Medir");
         measureButton.setEnabled (! busy);
     }
-
-    const bool manual = (int) processor.apvts.getRawParameterValue (ParamIDs::match)->load() == 1;
-    manualSlider.setEnabled (manual);
-    manualSlider.setAlpha (manual ? 1.0f : 0.4f);
 
     // Mensaje de estado.
     const int link = (int) processor.apvts.getRawParameterValue (ParamIDs::link)->load();
@@ -489,61 +484,48 @@ void MeteringABEditor::resized()
     area.removeFromTop (90);   // medidores (se dibujan en paint)
     area.removeFromTop (14);
 
-    // Fila de A/B y opciones
+    // Fila de escucha: PRE/POST | DELTA | Medición | Congelar
     auto row = area.removeFromTop (56);
-    auto abArea = row.removeFromLeft (160);
-    listenLabel.setBounds (abArea.removeFromTop (16).withWidth (240));
+    auto abArea = row.removeFromLeft (200);
+    listenLabel.setBounds (abArea.removeFromTop (16).withWidth (260));
     abButton.setBounds (abArea.withHeight (40).translated (0, -2));
-    row.removeFromLeft (8);
-    deltaButton.setBounds (row.removeFromLeft (72).withTrimmedTop (14).withHeight (40));
-    row.removeFromLeft (12);
-    auto matchArea = row.removeFromLeft (96);
-    matchLabel.setBounds (matchArea.removeFromTop (16));
-    matchBox.setBounds (matchArea.withHeight (30));
-
     row.removeFromLeft (10);
-    auto measureArea = row.removeFromLeft (118);
+    deltaButton.setBounds (row.removeFromLeft (90).withTrimmedTop (14).withHeight (40));
+
+    row.removeFromLeft (20);
+    auto measureArea = row.removeFromLeft (140);
     measureLabel.setBounds (measureArea.removeFromTop (16));
-    measureBox.setBounds (measureArea.withHeight (30));
+    measureBox.setBounds (measureArea.withHeight (30).translated (0, 2));
 
-    row.removeFromLeft (10);
-    holdButton.setBounds (row.withTrimmedTop (16).withHeight (30));
+    row.removeFromLeft (16);
+    holdButton.setBounds (row.withTrimmedTop (18).withHeight (30));
 
-    // Perillas
+    // Perillas: Ventana y Latencia, centradas.
     area.removeFromTop (12);
-    auto knobs = area.removeFromTop (172);
-    const int kw = knobs.getWidth() / 4;
+    auto knobs = area.removeFromTop (172).reduced (40, 0);
+    const int kw = 240;
 
-    auto placeKnob = [&] (PreciseSlider& s, juce::Label& l)
-    {
-        auto k = knobs.removeFromLeft (kw);
-        l.setBounds (k.removeFromTop (22));
-        k.removeFromBottom (18);
-        s.setBounds (k.reduced (8, 0));
-    };
-
-    placeKnob (manualSlider, manualLabel);
-
-    // Columna de Ventana: botones ms|Sync arriba, perilla, equivalencia abajo.
+    // Ventana: botones ms|Sync arriba, perilla, equivalencia abajo.
     {
         auto k = knobs.removeFromLeft (kw);
         auto header = k.removeFromTop (22).withSizeKeepingCentre (138, 22);
         windowLabel.setBounds (header.removeFromLeft (54));
         syncButtons[0].setBounds (header.removeFromLeft (38));
         syncButtons[1].setBounds (header.removeFromLeft (46));
-        windowInfoLabel.setBounds (k.removeFromBottom (18).expanded (12, 0));
-        windowSlider.setBounds (k.reduced (8, 0));
-        windowSyncSlider.setBounds (k.reduced (8, 0));
+        windowInfoLabel.setBounds (k.removeFromBottom (18));
+        windowSlider.setBounds (k.withSizeKeepingCentre (150, k.getHeight()));
+        windowSyncSlider.setBounds (k.withSizeKeepingCentre (150, k.getHeight()));
     }
 
-    placeKnob (limitSlider, limitLabel);
-    // Columna de Latencia: botón Medir arriba, estado de la medición abajo.
+    // Latencia: Medir y Ø arriba, perilla, estado de la medición abajo.
     {
-        auto k = knobs.removeFromLeft (kw);
-        auto header = k.removeFromTop (22).withSizeKeepingCentre (128, 22);
-        latencyLabel.setBounds (header.removeFromLeft (62));
-        measureButton.setBounds (header.removeFromLeft (60));
-        latencyInfoLabel.setBounds (k.removeFromBottom (18).expanded (14, 0));
-        latencySlider.setBounds (k.reduced (8, 0));
+        auto k = knobs.removeFromRight (kw);
+        auto header = k.removeFromTop (22).withSizeKeepingCentre (150, 22);
+        latencyLabel.setBounds (header.removeFromLeft (60));
+        measureButton.setBounds (header.removeFromLeft (56));
+        header.removeFromLeft (6);
+        polarityButton.setBounds (header.removeFromLeft (28));
+        latencyInfoLabel.setBounds (k.removeFromBottom (18));
+        latencySlider.setBounds (k.withSizeKeepingCentre (150, k.getHeight()));
     }
 }

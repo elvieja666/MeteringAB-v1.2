@@ -9,16 +9,14 @@ namespace ParamIDs
 {
     inline constexpr auto mode     = "mode";      // Send / Receive
     inline constexpr auto link     = "link";      // Link ID 1..16
-    inline constexpr auto match    = "match";     // Auto / Manual / Off
-    inline constexpr auto manual   = "manual";    // ganancia manual en dB
     inline constexpr auto pre      = "pre";       // botón PRE FX (on) / POST FX (off)
     inline constexpr auto delta    = "delta";     // escuchar solo la diferencia
     inline constexpr auto measure  = "measure";   // RMS / LUFS
     inline constexpr auto windowMs   = "windowMs";   // ventana en milisegundos
     inline constexpr auto sync       = "sync";       // ventana: ms (off) / Sync (on)
     inline constexpr auto windowSync = "windowSync"; // ventana en compases
-    inline constexpr auto latency  = "latency";   // compensación (muestras)
-    inline constexpr auto limit    = "limit";     // límite de auto gain (dB)
+    inline constexpr auto latency  = "latency";   // compensación (muestras, con decimales)
+    inline constexpr auto polarity = "polarity";  // compensar polaridad invertida
     inline constexpr auto hold     = "hold";      // congelar el auto gain
 }
 
@@ -36,7 +34,6 @@ class MeteringABProcessor : public juce::AudioProcessor,
 {
 public:
     enum class Mode   { send = 0, receive = 1 };
-    enum class Match  { automatic = 0, manual = 1, off = 2 };
 
     MeteringABProcessor();
     ~MeteringABProcessor() override;
@@ -96,8 +93,9 @@ public:
     double getCurrentSampleRate() const { return currentSampleRate; }
 
     static constexpr float minWindowMs = 100.0f, maxWindowMs = 60000.0f;
-    static constexpr float minGainDb = -24.0f, maxGainDb = 24.0f;
+    static constexpr float autoLimitDb = 24.0f;      // corrección máxima del matcheo automático
     static constexpr int   maxLatencySamples = 32000;
+    static constexpr int   maxInterpolationHalfLength = 32;   // 64 muestras de interpolación
 
 private:
     void parameterChanged (const juce::String& parameterID, float newValue) override;
@@ -107,12 +105,11 @@ private:
     void updateSenderRegistration (bool isSend, int linkIndex);
     void processSend (juce::AudioBuffer<float>& buffer, LinkSlot& slot);
     void processReceive (juce::AudioBuffer<float>& buffer, LinkSlot& slot);
+    void readDryFractional (const LinkSlot& slot, juce::int64 end, int n, int numCh, double latency);
 
     // Punteros rápidos a los parámetros (leer esto en el audio es seguro).
     std::atomic<float>* pMode    = nullptr;
     std::atomic<float>* pLink    = nullptr;
-    std::atomic<float>* pMatch   = nullptr;
-    std::atomic<float>* pManual  = nullptr;
     std::atomic<float>* pPre     = nullptr;
     std::atomic<float>* pDelta   = nullptr;
     std::atomic<float>* pMeasure = nullptr;
@@ -120,11 +117,12 @@ private:
     std::atomic<float>* pSync       = nullptr;
     std::atomic<float>* pWindowSync = nullptr;
     std::atomic<float>* pLatency = nullptr;
-    std::atomic<float>* pLimit   = nullptr;
+    std::atomic<float>* pPolarity = nullptr;
     std::atomic<float>* pHold    = nullptr;
 
     LoudnessMeter preMeter, postMeter;
-    juce::AudioBuffer<float> dryBuffer;               // audio original alineado
+    juce::AudioBuffer<float> dryBuffer;               // original alineado (muestras enteras, para PRE FX)
+    juce::AudioBuffer<float> deltaDryBuffer;          // original alineado con decimales (para DELTA)
     std::vector<float> dryMono, postMono;             // para medir la latencia
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> gainSmoother;
 
