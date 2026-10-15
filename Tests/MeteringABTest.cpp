@@ -858,15 +858,15 @@ int main (int argc, char** argv)
     }
 
     {
-        // LINK: al cambiar la escucha, del cabezal en adelante pasa a la nueva
-        // onda y lo de atrás queda como estaba (120 BPM: 1 compás = 2 s).
+        // LINK: al cambiar la escucha, la nueva onda aparece solo donde ya pasó el
+        // cabezal desde el cambio; atrás y adelante quedan como estaban (120 BPM: 1 compás = 2 s).
         Chain c (10, -3.0f, 0);
         c.run (3.0);                               // 1,5 compases escuchando POST: cabezal en la mitad
         setParam (c.recv, ParamIDs::pre, 1);       // cambio a PRE
         c.run (0.5);                               // cabezal en 3/4 del compás
         auto flagAt = [&] (double barFraction) { return (int) c.recv.scopeShowPreAt[(size_t) (barFraction * MeteringABProcessor::scopeBins)].load(); };
-        check (flagAt (0.25) == 0 && flagAt (0.6) == 1 && flagAt (0.9) == 1,
-               "LINK: atrás queda POST, del cabezal en adelante PRE", flagAt (0.25) * 100 + flagAt (0.6) * 10 + flagAt (0.9));
+        check (flagAt (0.25) == 0 && flagAt (0.6) == 1 && flagAt (0.9) == 0,
+               "LINK: PRE solo desde el cambio hasta el cabezal; adelante sigue POST", flagAt (0.25) * 100 + flagAt (0.6) * 10 + flagAt (0.9));
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;

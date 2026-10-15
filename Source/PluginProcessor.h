@@ -106,9 +106,10 @@ public:
     std::array<ScopeTrace, numScopeTraces> scopeTraces;                  // L+R (promedio), solo L, solo R
     std::array<std::atomic<int>, scopeBins> scopeCount;                  // muestras en cada columna
 
-    // Con LINK: qué onda mostrar en cada columna (1 = PRE, 0 = POST). Al
-    // alternar la escucha, del cabezal en adelante pasa a la nueva onda y lo
-    // de atrás queda como estaba; al dibujar, cada columna guarda lo que sonaba.
+    // Con LINK: qué onda mostrar en cada columna (1 = PRE, 0 = POST). Cada
+    // columna guarda lo que sonaba cuando el cabezal pasó por ella: al alternar
+    // la escucha, el cambio aparece a medida que avanza el cabezal y lo de
+    // adelante sigue como estaba hasta que el cabezal llegue.
     std::array<std::atomic<std::uint8_t>, scopeBins> scopeShowPreAt;
 
     // Atajos a la suma L+R (los usan las pruebas).
@@ -166,7 +167,6 @@ private:
     double scopePhaseQuarters = 0.0;                  // dónde va el barrido (en negras)
     int    lastScopeBin = -1, lastScopeLength = -1;
     bool   scopeWasPlaying = false;                   // para detectar cuándo se da play
-    int    lastScopeListenPre = -1;                   // para detectar cuándo cambia la escucha
     bool   scopeGateOpen = true;                      // false solo durante el tramo previo al play
     double scopeLastBlockPpq = 0.0;                   // para detectar saltos hacia atrás (ciclo)
     double scopePlayStartQuarters = 0.0;              // dónde se dio play (en negras)
