@@ -87,6 +87,12 @@ public:
     // Para los tests: aplica ya una conversión ms <-> Sync pendiente.
     void processPendingConversion() { handleUpdateNowIfNeeded(); }
 
+    // Osciloscopio: últimos segundos de PRE FX (original alineado) y POST FX
+    // (procesado y nivelado), en mono. Los escribe el audio, los lee la interfaz.
+    std::vector<float> scopePre, scopePost;
+    std::atomic<juce::int64> scopeWritePos { 0 };
+    int scopeMask = 0;
+
     // Medición automática de latencia (botón "Medir").
     LatencyMeasurer latencyMeasurer;
     void startLatencyMeasurement();
@@ -106,6 +112,7 @@ private:
     void processSend (juce::AudioBuffer<float>& buffer, LinkSlot& slot);
     void processReceive (juce::AudioBuffer<float>& buffer, LinkSlot& slot);
     void readDryFractional (const LinkSlot& slot, juce::int64 end, int n, int numCh, double latency);
+    void writeScope (const float* preBlock, const float* postBlock, int n);
 
     // Punteros rápidos a los parámetros (leer esto en el audio es seguro).
     std::atomic<float>* pMode    = nullptr;
@@ -124,6 +131,7 @@ private:
     juce::AudioBuffer<float> dryBuffer;               // original alineado (muestras enteras, para PRE FX)
     juce::AudioBuffer<float> deltaDryBuffer;          // original alineado con decimales (para DELTA)
     std::vector<float> dryMono, postMono;             // para medir la latencia
+    std::vector<float> scopePreBlock, scopePostBlock; // un bloque para el osciloscopio
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> gainSmoother;
 
     float autoGainDb = 0.0f;

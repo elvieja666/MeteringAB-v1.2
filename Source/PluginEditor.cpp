@@ -208,6 +208,29 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     addAndMakeVisible (holdButton);
     holdAtt = std::make_unique<ButtonAttachment> (apvts, ParamIDs::hold, holdButton);
 
+    // Osciloscopio + zoom (el zoom se guarda con el proyecto).
+    addAndMakeVisible (scope);
+    scopeLabel.setText ("Osciloscopio  ·  clic para congelar"_u, juce::dontSendNotification);
+    scopeLabel.setColour (juce::Label::textColourId, Colours::dim);
+    scopeLabel.setFont (juce::FontOptions (12.0f));
+    addAndMakeVisible (scopeLabel);
+
+    for (int i = 0; i < (int) ScopeView::zoomMs.size(); ++i)
+    {
+        const int ms = ScopeView::zoomMs[(size_t) i];
+        zoomBox.addItem (ms >= 1000 ? juce::String (ms / 1000.0, ms % 1000 == 0 ? 0 : 1) + " s" : juce::String (ms) + " ms", i + 1);
+    }
+
+    const int savedZoom = (int) apvts.state.getProperty ("scopeZoom", 3);
+    scope.setZoomIndex (savedZoom);
+    zoomBox.setSelectedId (scope.getZoomIndex() + 1, juce::dontSendNotification);
+    zoomBox.onChange = [this]
+    {
+        scope.setZoomIndex (zoomBox.getSelectedId() - 1);
+        processor.apvts.state.setProperty ("scopeZoom", scope.getZoomIndex(), nullptr);
+    };
+    addAndMakeVisible (zoomBox);
+
     statusLabel.setFont (juce::FontOptions (13.0f));
     statusLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (statusLabel);
@@ -216,9 +239,9 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     shownPost = processor.displayPost.load();
     shownGain = processor.displayGain.load();
 
-    setSize (640, 478);
+    setSize (640, 630);
     timerCallback();
-    startTimerHz (20);
+    startTimerHz (30);
 }
 
 MeteringABEditor::~MeteringABEditor()
@@ -285,6 +308,7 @@ void MeteringABEditor::timerCallback()
         for (juce::Component* c : std::initializer_list<juce::Component*> {
                  &measureBox, &measureLabel, &windowSlider, &latencySlider, &windowLabel, &latencyLabel, &polarityButton,
                  &abButton, &deltaButton, &listenLabel, &measureButton, &latencyInfoLabel, &holdButton,
+                 &scope, &scopeLabel, &zoomBox,
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
             c->setVisible (! isSendMode);
     }
@@ -398,6 +422,9 @@ void MeteringABEditor::timerCallback()
     }
 
     repaint (0, 90, getWidth(), 100);
+
+    if (! isSendMode && ! scope.isFrozen())
+        scope.repaint();
 }
 
 void MeteringABEditor::paint (juce::Graphics& g)
@@ -482,6 +509,13 @@ void MeteringABEditor::resized()
     statusLabel.setBounds (area.removeFromTop (28));
     area.removeFromTop (6);
     area.removeFromTop (90);   // medidores (se dibujan en paint)
+    area.removeFromTop (10);
+
+    // Osciloscopio
+    auto scopeHeader = area.removeFromTop (26);
+    zoomBox.setBounds (scopeHeader.removeFromRight (90).withTrimmedBottom (4));
+    scopeLabel.setBounds (scopeHeader);
+    scope.setBounds (area.removeFromTop (130));
     area.removeFromTop (14);
 
     // Fila de escucha: PRE/POST | DELTA | Medición | Congelar

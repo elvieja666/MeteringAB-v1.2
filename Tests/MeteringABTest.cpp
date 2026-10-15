@@ -52,6 +52,8 @@ struct Chain
     double phase = 0;
     juce::Random rng { 42 }, otherRng { 7 };
     bool lowpass = false, unrelated = false, silent = false;   // tipos de "efecto"
+    bool saturate = false, pulsing = false;                    // para las capturas del osciloscopio
+    long long sampleCount = 0;
     float lpState[2] = { 0.0f, 0.0f };
 
     Chain (int link, float gainDb, int latency) : fxLatency (latency), fxGain (juce::Decibels::decibelsToGain (gainDb))
@@ -73,6 +75,12 @@ struct Chain
             for (int i = 0; i < 512; ++i)
             {
                 float x = silent ? 0.0f : 0.25f * (float) std::sin (phase) + 0.05f * (rng.nextFloat() * 2 - 1);
+                if (pulsing)   // golpes tipo batería cada 0,5 s
+                {
+                    const double tb = std::fmod ((double) sampleCount / 48000.0, 0.5);
+                    x *= (float) (0.25 + 2.4 * std::exp (-tb / 0.09));
+                }
+                ++sampleCount;
                 phase += 2 * juce::MathConstants<double>::pi * 220.0 / 48000.0;
                 buf.setSample (0, i, x); buf.setSample (1, i, x * 0.8f);
             }
@@ -90,6 +98,7 @@ struct Chain
                     float y = fxLatency == 0 ? in * fxGain : out * fxGain;
                     if (lowpass) { lpState[ch] += 0.15f * (y - lpState[ch]); y = lpState[ch]; }   // "EQ" que quita agudos
                     if (unrelated) y = 0.2f * (otherRng.nextFloat() * 2 - 1);                   // sonido sin relación
+                    if (saturate) y = std::tanh (3.0f * y) / 3.0f * 2.0f;                      // saturador que aplasta picos
                     buf.setSample (ch, i, y);
                 }
             fxWrite = (fxWrite + 512) % fxDelayL.size();
@@ -248,19 +257,35 @@ int main (int argc, char** argv)
 
     if (argc > 1) // Metering A/BTests <carpeta>: guarda capturas de la interfaz
     {
+        const char* names[] = { "/send.png", "/receive.png", "/receive-long.png" };
+
         for (int shot = 0; shot < 3; ++shot)
         {
-            MeteringABProcessor a; FakePlayHead ph; a.setPlayHead (&ph); a.prepareToPlay (48000, 512);
-            setParam (a, ParamIDs::mode, shot == 0 ? 0.0f : 1.0f);
-            if (shot == 1) { setParam (a, ParamIDs::latency, 64.5f); setParam (a, ParamIDs::polarity, 1); a.latencyMeasurer.setState (LatencyMeasurer::State::done); }
-            if (shot == 2) { oneBlock (a); setParam (a, ParamIDs::sync, 1); a.processPendingConversion(); setParam (a, ParamIDs::windowSync, 2); setParam (a, ParamIDs::pre, 1); }
-            a.displayPre = -14.2f; a.displayPost = -9.8f; a.displayGain = -4.4f; a.sendConnected = true;
-            std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+            std::unique_ptr<Chain> chain;
+            std::unique_ptr<MeteringABProcessor> lone;
+            MeteringABProcessor* a = nullptr;
+
+            if (shot == 0)
+            {
+                lone = std::make_unique<MeteringABProcessor>(); a = lone.get();
+                a->prepareToPlay (48000, 512);
+                a->displayPre = -14.2f;
+            }
+            else
+            {
+                chain = std::make_unique<Chain> (40 + shot, 0.0f, 64);   // FX con 64 muestras de latencia
+                setParam (chain->recv, ParamIDs::latency, 64.0f);
+                chain->recv.latencyMeasurer.setState (LatencyMeasurer::State::done);
+                chain->saturate = true; chain->pulsing = true;
+                a = &chain->recv;
+                chain->run (shot == 1 ? 3.07 : 4.0);
+                a->apvts.state.setProperty ("scopeZoom", shot == 1 ? 1 : 7, nullptr);   // 25 ms / 2 s
+            }
+
+            std::unique_ptr<juce::AudioProcessorEditor> ed (a->createEditor());
             auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 2.0f);
-            const char* names[] = { "/send.png", "/receive.png", "/receive-sync.png" };
             juce::File f (juce::String (argv[1]) + names[shot]);
             f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
-            ed.reset(); a.setPlayHead (nullptr);
         }
         return 0;
     }
@@ -353,7 +378,7 @@ int main (int argc, char** argv)
         // El editor se puede crear y destruir sin problemas.
         MeteringABProcessor a;
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        check (ed != nullptr && ed->getWidth() == 640 && ed->getHeight() == 478, "Editor se crea (ancho px)", ed->getWidth());
+        check (ed != nullptr && ed->getWidth() == 640 && ed->getHeight() == 630, "Editor se crea (ancho px)", ed->getWidth());
     }
 
 

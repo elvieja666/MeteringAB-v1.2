@@ -269,6 +269,15 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     dryMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
     postMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
     latencyMeasurer.prepare();
+
+    // Osciloscopio: ~5,5 s de historia (potencia de 2 para el buffer circular).
+    const int scopeSize = (int) juce::nextPowerOfTwo ((int) (sampleRate * 5.5));
+    scopePre.assign ((size_t) scopeSize, 0.0f);
+    scopePost.assign ((size_t) scopeSize, 0.0f);
+    scopeMask = scopeSize - 1;
+    scopeWritePos = 0;
+    scopePreBlock.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
+    scopePostBlock.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
     gainSmoother.reset (sampleRate, 0.05);           // 50 ms de suavizado
     gainSmoother.setCurrentAndTargetValue (1.0f);
     blocksWithoutHeartbeat = 0;
@@ -495,24 +504,55 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         deltaDry = &deltaDryBuffer;
     }
 
+    const bool scopeFits = (int) scopePreBlock.size() >= n;
+
     for (int i = 0; i < n; ++i)
     {
         const float g = gainSmoother.getNextValue();
+        float preSum = 0.0f, postSum = 0.0f;
 
         for (int ch = 0; ch < numCh; ++ch)
         {
             float* out = buffer.getWritePointer (ch);
             const float dry = dryBuffer.getSample (ch, i);
+            preSum  += dry;
+            postSum += out[i] * g;                       // POST nivelado, escuches lo que escuches
 
             if (delta)      out[i] = out[i] * g - polaritySign * deltaDry->getSample (ch, i);   // solo lo que cambiaron tus FX
             else if (pre)   out[i] = dry;                // PRE FX: el original
             else            out[i] = out[i] * g;         // POST FX: procesado y nivelado
         }
+
+        if (scopeFits)
+        {
+            scopePreBlock[(size_t) i]  = preSum / (float) numCh;
+            scopePostBlock[(size_t) i] = postSum / (float) numCh;
+        }
     }
+
+    if (scopeFits)
+        writeScope (scopePreBlock.data(), scopePostBlock.data(), n);
 
     displayPre  = (float) preMeter.getDecibels();
     displayPost = (float) postMeter.getDecibels();
     displayGain = targetDb;
+}
+
+void MeteringABProcessor::writeScope (const float* preBlock, const float* postBlock, int n)
+{
+    if (scopePre.empty())
+        return;
+
+    const auto start = scopeWritePos.load (std::memory_order_relaxed);
+
+    for (int i = 0; i < n; ++i)
+    {
+        const auto index = (size_t) ((start + i) & scopeMask);
+        scopePre[index]  = preBlock[i];
+        scopePost[index] = postBlock[i];
+    }
+
+    scopeWritePos.store (start + n, std::memory_order_release);
 }
 
 // ---------------------------------------------------------------------------

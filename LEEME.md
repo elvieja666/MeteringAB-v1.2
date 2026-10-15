@@ -69,6 +69,15 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 | **Latencia + Medir** | Compensa efectos que retrasan el audio (EQ de fase lineal, oversampling, limitadores con lookahead). Dale play y tocá **Medir**: en unos 3 segundos el plugin encuentra el retraso exacto, **con decimales** (por ejemplo 64,50 muestras, porque muchos plugins retrasan "medio sample"), y lo pone solo. Si el sonido procesado no se parece lo suficiente al original (por ejemplo, una reverb 100% wet), te avisa en vez de poner un valor dudoso. |
 | **Ø (polaridad)** | Se enciende solo si **Medir** detecta que algún plugin invierte la polaridad, y lo compensa en el DELTA. También lo podés activar a mano. |
 
+### Osciloscopio
+
+Muestra la onda del **PRE FX** (verde agua) y, encima, la del **POST FX** (ámbar), ya nivelada al volumen del original, así ves solo lo que cambió la forma.
+
+- **Zoom** (arriba a la derecha): de 10 ms a 5 s. Con zoom corto ves la forma de onda (por ejemplo, cómo una saturación redondea los picos); con zoom largo ves el contorno de los golpes (por ejemplo, cuánto achica un compresor los transientes).
+- **Clic sobre el osciloscopio** para congelarlo y mirarlo con calma. Otro clic lo descongela.
+- La altura se ajusta sola al nivel de la pista; el número arriba a la derecha (por ejemplo "x4") indica cuánto está ampliado.
+- También sirve para chequear la latencia: si las dos ondas aparecen corridas en el zoom corto, tocá **Medir**.
+
 ### Valores exactos
 
 - **Clic en el número** debajo de cada perilla, escribí el valor (por ejemplo `-3.25`) y Enter. También acepta coma: `-3,25`.
@@ -91,6 +100,7 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 - `Source/SharedBus.h` · el "cable invisible" que conecta el Send con el Receive.
 - `Source/LatencyMeasurer.h` · la medición automática de latencia (botón Medir).
 - `Source/PluginEditor.cpp` · la interfaz (perillas, botones, colores).
+- `Source/Scope.h` · el osciloscopio.
 - `Tests/` · pruebas automáticas que verifican que el matcheo funcione.
 - `.github/workflows/compilar.yml` · las instrucciones para que GitHub compile el plugin.
 - `instalar.command` · instala en tu Mac el plugin que compiló GitHub.

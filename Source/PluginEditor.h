@@ -1,6 +1,7 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
+#include "Scope.h"
 
 // ---------------------------------------------------------------------------
 //  Perilla con valor exacto:
@@ -57,6 +58,10 @@ private:
     juce::Label windowInfoLabel;                      // equivalencia ms <-> compases
     juce::ToggleButton holdButton { "Congelar" };
     juce::Label statusLabel;
+
+    ScopeView scope { processor };
+    juce::Label scopeLabel;
+    juce::ComboBox zoomBox;
 
     std::unique_ptr<ComboAttachment>  modeAtt, measureAtt;
     std::unique_ptr<SliderAttachment> linkAtt, windowAtt, windowSyncAtt, latencyAtt;
