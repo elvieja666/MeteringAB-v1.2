@@ -1,0 +1,66 @@
+# ---------------------------------------------------------------------------
+#  GitHub compila Metering A/B en una Mac en la nube cada vez que subís
+#  cambios (o cuando tocás "Run workflow" en la pestaña Actions).
+#  El plugin terminado aparece en la sección "Releases" del repositorio.
+# ---------------------------------------------------------------------------
+name: Compilar Metering A/B
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mac:
+    runs-on: macos-14
+    steps:
+      - name: Bajar el código
+        uses: actions/checkout@v4
+
+      - name: Configurar (descarga JUCE)
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DMETERINGAB_TESTS=ON
+
+      - name: Compilar
+        run: cmake --build build --config Release --target MeteringAB_AU MeteringAB_VST3 MeteringABTests -j 4
+
+      - name: Pruebas automáticas (si algo falla, no se publica)
+        run: ./build/MeteringABTests_artefacts/Release/MeteringABTests
+
+      - name: Firmar y empaquetar
+        run: |
+          set -e
+          ART="build/MeteringAB_artefacts/Release"
+          mkdir -p salida
+          cp -R "$ART/AU/Metering AB.component" salida/
+          cp -R "$ART/VST3/Metering AB.vst3" salida/
+          codesign --force --deep -s - "salida/Metering AB.component"
+          codesign --force --deep -s - "salida/Metering AB.vst3"
+          cp instalar.command salida/
+          chmod +x salida/instalar.command
+          cd salida
+          ditto -c -k --sequesterRsrc . ../MeteringAB-mac.zip
+
+      - name: Validar el Audio Unit (igual que Logic)
+        continue-on-error: true
+        run: |
+          killall -9 AudioComponentRegistrar || true
+          sleep 2
+          auval -v aufx Mtab Ms06 | tail -5
+
+      - name: Publicar en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ultima --cleanup-tag -y || true
+          gh release create ultima MeteringAB-mac.zip \
+            --title "Metering A/B (última versión)" \
+            --notes "Bajá MeteringAB-mac.zip y seguí el paso A3 del LEEME para instalarlo." \
+            --target "$GITHUB_SHA"
+
+      - name: Guardar también como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: MeteringAB-mac
+          path: MeteringAB-mac.zip
