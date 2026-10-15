@@ -47,9 +47,10 @@ static void check (bool ok, const char* what, double value)
 struct ChainHead : juce::AudioPlayHead
 {
     double ppq = 0.0;
+    bool playing = true;
     juce::Optional<PositionInfo> getPosition() const override
     {
-        PositionInfo p; p.setBpm (120.0); p.setTimeSignature (TimeSignature { 4, 4 }); p.setIsPlaying (true);
+        PositionInfo p; p.setBpm (120.0); p.setTimeSignature (TimeSignature { 4, 4 }); p.setIsPlaying (playing);
         p.setPpqPosition (ppq); p.setPpqPositionOfLastBarStart (std::floor (ppq / 4.0) * 4.0);
         p.setBarCount ((juce::int64) std::floor (ppq / 4.0));
         return p;
@@ -319,6 +320,11 @@ int main (int argc, char** argv)
 
             if (shot == 3)   // ventana en modo Sync (compases)
             {
+                chain->head.playing = false; chain->run (0.1);          // pausa: medidores en -∞
+                dynamic_cast<MeteringABEditor*> (ed.get())->refreshNow();
+                save (*ed, "/receive-pausa.png");
+                chain->head.playing = true;
+
                 setParam (*a, ParamIDs::sync, 1);
                 dynamic_cast<MeteringABEditor*> (ed.get())->refreshNow();
                 save (*ed, "/receive-sync.png");
@@ -352,6 +358,33 @@ int main (int argc, char** argv)
         c.run (0.5, &dry); out = c.run (0.02, &dry);
         check (std::abs (rmsDb (out) - rmsDb (dry)) < 0.2, "POST FX = procesado al mismo nivel", rmsDb (out) - rmsDb (dry));
         check (c.recv.apvts.getParameter (ParamIDs::pre)->getCurrentValueAsText() == "POST FX", "El parámetro se muestra como 'POST FX'", 1);
+    }
+    {
+        // Pausa en Logic: los medidores quedan en -∞; al volver el play miden de
+        // nuevo y la ganancia aplicada no salta (no se escucha un golpe de volumen).
+        Chain c (31, -6.0f, 0);
+        c.run (12.0);
+        c.head.playing = false;
+        c.run (0.3);
+        check (c.recv.displayPre.load() <= -119.0f && c.recv.displayPost.load() <= -119.0f && ! c.recv.displayGainValid.load(),
+               "Pausa: Original y Procesado en -inf, ganancia sin valor", c.recv.displayPre.load());
+        c.head.playing = true;
+        juce::AudioBuffer<float> dry; c.run (0.05, &dry); auto out = c.run (512.0 / 48000.0, &dry);
+        check (std::abs (rmsDb (out) - rmsDb (dry)) < 0.3, "Al volver el play el nivel sigue igualado (dB de diferencia)", rmsDb (out) - rmsDb (dry));
+        c.run (0.5);
+        check (c.recv.displayPre.load() > -60.0f && c.recv.displayGainValid.load() && std::abs (c.recv.displayGain.load() - 6.0f) < 0.3f,
+               "Al volver el play los medidores miden de nuevo (ganancia dB)", c.recv.displayGain.load());
+
+        // Clic sobre los números: medidores a cero y vuelven a medir desde ahí.
+        c.run (5.0);
+        const float before = c.recv.displayPre.load();
+        MeteringABProcessor& r = c.recv;
+        std::unique_ptr<juce::AudioProcessorEditor> ed (r.createEditor());
+        auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
+        e->clickMetersForTests();
+        check (e->getShownPreForTests() <= -119.0f && ! e->isGainShownForTests(), "Clic en los números: se borran enseguida", e->getShownPreForTests());
+        c.run (512.0 / 48000.0);
+        check (c.recv.displayPre.load() < before - 10.0f, "Clic en los números: el medidor arranca de cero (dB)", c.recv.displayPre.load());
     }
     {
         Chain c (2, 4.5f, 0);

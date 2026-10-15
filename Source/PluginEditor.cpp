@@ -824,10 +824,26 @@ void MeteringABEditor::setSync (bool on)
 void MeteringABEditor::timerCallback()
 {
     // Movimiento suave de los números en pantalla.
-    auto ease = [] (float& shown, float target) { shown += (target - shown) * 0.35f; };
-    ease (shownPre,  processor.displayPre.load());
-    ease (shownPost, processor.displayPost.load());
-    ease (shownGain, processor.displayGain.load());
+    // Si Logic deja de mandar audio (pausa), los medidores quedan en -∞ y se
+    // ponen en cero para cuando vuelva el play.
+    const auto sinceLastBlock = juce::Time::getMillisecondCounter() - processor.lastBlockMs.load (std::memory_order_relaxed);
+    const bool audioStopped = processor.lastBlockMs.load (std::memory_order_relaxed) == 0 || sinceLastBlock > 300;
+
+    if (audioStopped && ! audioWasStopped)
+        processor.requestMeterReset();
+
+    audioWasStopped = audioStopped;
+
+    auto ease = [] (float& shown, float target)
+    {
+        if (target <= -119.0f) shown = -120.0f;                // a -∞ de una (pausa o clic)
+        else if (shown <= -119.0f) shown = target;             // arranca sin "subir" desde -∞
+        else shown += (target - shown) * 0.35f;
+    };
+    ease (shownPre,  audioStopped ? -120.0f : processor.displayPre.load());
+    ease (shownPost, audioStopped ? -120.0f : processor.displayPost.load());
+    gainShown = ! audioStopped && processor.displayGainValid.load();
+    shownGain += (processor.displayGain.load() - shownGain) * 0.35f;
 
     // El osciloscopio sigue a la escucha: cuando cambia PRE/POST FX (botón,
     // tecla asignada o automatización), muestra solo la onda que suena.
@@ -1041,23 +1057,24 @@ void MeteringABEditor::paint (juce::Graphics& g)
         return;
 
     // Números: Original | Ganancia | Procesado, en un recuadro hundido.
-    auto meterArea = juce::Rectangle<int> (20, 80 + oy, editorWidth - 40, 70);
-    Theme::drawWell (g, meterArea.toFloat(), 14.0f);
+    const auto meters = meterArea();
+    Theme::drawWell (g, meters.toFloat(), 14.0f);
 
-    auto level = [] (float db) { return db <= -119.0f ? juce::String ("—"_u) : juce::String (db, 1); };
+    // En pausa (o después de un clic) los niveles quedan en -∞ y la ganancia sin valor.
+    auto level = [] (float db) { return db <= -119.0f ? juce::String::fromUTF8 ("-\xe2\x88\x9e") : juce::String (db, 1); };
     struct Readout { juce::String title, number, unit; juce::Colour colour; };
-    const bool hasPre = shownPre > -119.0f, hasPost = shownPost > -119.0f;
     const Readout readouts[] = {
-        { "Original (Send)",   level (shownPre),  hasPre  ? "LUFS" : "", Theme::inkStrong },
-        { "Ganancia aplicada", (shownGain >= 0 ? "+" : "") + juce::String (shownGain, 2), "dB", Theme::teal },
-        { "Procesado",         level (shownPost), hasPost ? "LUFS" : "", Theme::inkStrong },
+        { "Original (Send)",   level (shownPre),  "LUFS", Theme::inkStrong },
+        { "Ganancia aplicada", gainShown ? (shownGain >= 0 ? "+" : "") + juce::String (shownGain, 2) : juce::String ("—"_u),
+                               gainShown ? "dB" : "", Theme::teal },
+        { "Procesado",         level (shownPost), "LUFS", Theme::inkStrong },
     };
 
-    const int colWidth = meterArea.getWidth() / 3;
+    const int colWidth = meters.getWidth() / 3;
 
     for (int i = 0; i < 3; ++i)
     {
-        auto col = meterArea.withX (meterArea.getX() + i * colWidth).withWidth (colWidth).reduced (8, 7);
+        auto col = meters.withX (meters.getX() + i * colWidth).withWidth (colWidth).reduced (8, 7);
         g.setColour (Theme::inkDim);
         g.setFont (Theme::font (12.0f, 300));
         g.drawText (readouts[i].title, col.removeFromTop (16), juce::Justification::centred);
@@ -1079,6 +1096,32 @@ void MeteringABEditor::paint (juce::Graphics& g)
     g.setFont (Theme::font (10.5f, 300));
     g.drawText ("Clic en un número para escribir el valor exacto  ·  Shift + arrastrar = ajuste fino  ·  Doble clic = valor por defecto"_u,
                 20, mainHeight - 24 + oy, editorWidth - 40, 16, juce::Justification::centred);
+}
+
+// Clic sobre los números: medidores a cero (vuelven a medir desde ahí).
+juce::Rectangle<int> MeteringABEditor::meterArea() const
+{
+    return { 20, 80 + contentOffsetY(), editorWidth - 40, 70 };
+}
+
+void MeteringABEditor::mouseDown (const juce::MouseEvent& e)
+{
+    if (! isSendMode && meterArea().contains (e.getPosition()))
+        resetMeters();
+}
+
+void MeteringABEditor::resetMeters()
+{
+    processor.requestMeterReset();
+    shownPre = shownPost = -120.0f;
+    gainShown = false;
+    repaint (meterArea());
+}
+
+void MeteringABEditor::mouseMove (const juce::MouseEvent& e)
+{
+    setMouseCursor (! isSendMode && meterArea().contains (e.getPosition()) ? juce::MouseCursor::PointingHandCursor
+                                                                           : juce::MouseCursor::NormalCursor);
 }
 
 void MeteringABEditor::resized()

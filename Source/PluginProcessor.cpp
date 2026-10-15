@@ -152,6 +152,7 @@ void MeteringABProcessor::readHostTempo()
                     hostBpm = *bpm;
 
             hostPlaying = position->getIsPlaying();
+            hostKnowsTransport = true;
             const auto ppq = position->getPpqPosition();
             const auto barStart = position->getPpqPositionOfLastBarStart();
             const auto barCount = position->getBarCount();
@@ -310,6 +311,7 @@ void MeteringABProcessor::updateSenderRegistration (bool isSend, int linkIndex)
 void MeteringABProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
+    lastBlockMs.store (juce::Time::getMillisecondCounter(), std::memory_order_relaxed);   // la interfaz ve si Logic dejó de procesar
 
     for (auto ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)
         buffer.clear (ch, 0, buffer.getNumSamples());
@@ -406,6 +408,16 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     configureMeter (preMeter);
     configureMeter (postMeter);
 
+    // Medidores en cero: con Logic en pausa, o al hacer clic sobre los números.
+    // (La ganancia aplicada se mantiene: al volver el audio se recalcula enseguida.)
+    const bool paused = hostKnowsTransport && ! hostPlaying;
+
+    if (meterResetRequested.exchange (false) || paused)
+    {
+        preMeter.reset();
+        postMeter.reset();
+    }
+
     postMeter.process (buffer.getArrayOfReadPointers(), numCh, n);
 
     if (! connected)
@@ -418,8 +430,9 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         scopeWasPlaying = false;                        // el próximo play arranca de cero
         scopeIsRunning.store (false, std::memory_order_relaxed);
         displayPre  = -120.0f;
-        displayPost = (float) postMeter.getDecibels();
+        displayPost = paused ? -120.0f : (float) postMeter.getDecibels();
         displayGain = 0.0f;
+        displayGainValid = false;
         return;
     }
 
@@ -604,9 +617,20 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     scopeIsRunning.store (scopeRunning, std::memory_order_relaxed);
     scopeCurrentBin.store (juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins)), std::memory_order_relaxed);
 
+    if (paused)
+    {
+        preMeter.reset();                              // en pausa quedan en -∞
+        postMeter.reset();
+        displayPre  = -120.0f;
+        displayPost = -120.0f;
+        displayGainValid = false;
+        return;
+    }
+
     displayPre  = (float) preMeter.getDecibels();
     displayPost = (float) postMeter.getDecibels();
     displayGain = targetDb;
+    displayGainValid = preMeter.getMeanSquare() > 1.0e-6;   // hay audio medido
 }
 
 void MeteringABProcessor::setMixTargets (bool pre, bool immediately)

@@ -76,6 +76,11 @@ public:
     std::atomic<float> displayPre    { -120.0f };
     std::atomic<float> displayPost   { -120.0f };
     std::atomic<float> displayGain   { 0.0f };
+    std::atomic<bool>  displayGainValid { false };   // false: medidores en cero (pausa o clic), sin ganancia que mostrar
+
+    // Pone los medidores en cero (clic sobre los números). Lo aplica el audio en el próximo bloque.
+    void requestMeterReset()                         { meterResetRequested = true; }
+    std::atomic<juce::uint32> lastBlockMs { 0 };      // cuándo llegó el último bloque de audio
     std::atomic<bool>  sendConnected { false };
     std::atomic<bool>  duplicateSend { false };
 
@@ -154,6 +159,8 @@ private:
     juce::AudioBuffer<float> dryBuffer;               // original alineado (muestras enteras, para PRE FX)
     std::vector<float> dryMono, postMono;             // para medir la latencia
     // Posición de la canción (la informa Logic en cada bloque).
+    std::atomic<bool> meterResetRequested { false };
+    bool   hostKnowsTransport = false;                // el host informa play / pausa
     bool   hostPlaying = false, hostHasPpq = false, hostHasBarStart = false, hostHasBarCount = false;
     double hostPpq = 0.0, hostBarStart = 0.0;
     juce::int64 hostBarCount = 0;

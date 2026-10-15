@@ -62,10 +62,15 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    void mouseDown (const juce::MouseEvent&) override;   // clic en los números: medidores a cero
+    void mouseMove (const juce::MouseEvent&) override;
 
     // Para las pruebas: ejecuta una actualización de la interfaz (lo que hace el timer).
     void refreshNow() { timerCallback(); }
     const ScopeView& getScopeForTests() const { return scope; }
+    float getShownPreForTests() const             { return shownPre; }
+    bool isGainShownForTests() const              { return gainShown; }
+    void clickMetersForTests()                    { resetMeters(); }
     void setScopeWideForTests (bool on)           { setScopeWide (on); }
     bool isScopeWide() const                      { return scopeWide; }
 
@@ -139,6 +144,10 @@ private:
     std::unique_ptr<ButtonAttachment> polarityAtt;
 
     float shownPre = -120.0f, shownPost = -120.0f, shownGain = 0.0f;
+    bool gainShown = false;                           // false: ganancia "—" (pausa o recién reseteado)
+    bool audioWasStopped = false;
+    juce::Rectangle<int> meterArea() const;
+    void resetMeters();
     bool isSendMode = false;
     int lastListenPre = -1;                           // para seguir al botón de escucha
 
