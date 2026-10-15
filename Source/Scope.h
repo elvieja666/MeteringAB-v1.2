@@ -105,7 +105,7 @@ public:
                 {
                     case Style::contour:  drawEnvelope (g, area, t.min, t.max, yFor, colour, true, mask, binSecs);  break;
                     case Style::lines:    drawEnvelope (g, area, t.min, t.max, yFor, colour, false, mask, binSecs); break;
-                    case Style::detailed: drawDetailed (g, area, t.min, t.max, t.sq, yFor, midY, colour, mask); break;
+                    case Style::detailed: drawDetailed (g, area, t.min, t.max, yFor, colour, mask); break;
                 }
             };
 
@@ -432,23 +432,22 @@ private:
     }
 
     // Detallado: cada medio píxel muestra el pico real (sin suavizar, se ven
-    // los ciclos de los graves) y, encima, el RMS en un tono más claro.
+    // los ciclos de los graves), todo de un mismo color.
     template <typename YFunc>
     static void drawDetailed (juce::Graphics& g, juce::Rectangle<float> plot, const Bins& mins, const Bins& maxs,
-                              const Bins& meanSquares, YFunc yFor, float midY, juce::Colour colour, Mask mask)
+                              YFunc yFor, juce::Colour colour, Mask mask)
     {
         const int bins = MeteringABProcessor::scopeBins;
         const int columns = juce::jmax (1, (int) plot.getWidth() * 2);
         const float columnWidth = plot.getWidth() / (float) columns;
-        juce::RectangleList<float> peaks, rms;
+        juce::RectangleList<float> peaks;
 
         for (int c = 0; c < columns; ++c)
         {
             const int from = c * bins / columns;
             const int to   = juce::jmax (from + 1, (c + 1) * bins / columns);
             float lo = 1.0f, hi = -1.0f;
-            double sq = 0.0;
-            int included = 0;
+            bool any = false;
 
             for (int b = from; b < to; ++b)
             {
@@ -457,28 +456,19 @@ private:
 
                 lo = juce::jmin (lo, mins[(size_t) b]);
                 hi = juce::jmax (hi, maxs[(size_t) b]);
-                sq += meanSquares[(size_t) b];
-                ++included;
+                any = true;
             }
 
-            if (included == 0 || hi < lo)
+            if (! any || hi < lo)
                 continue;
 
             const float x = plot.getX() + (float) c * columnWidth;
             const float yHi = yFor (hi), yLo = yFor (lo);
             peaks.addWithoutMerging ({ x, yHi, columnWidth + 0.35f, juce::jmax (0.6f, yLo - yHi) });
-
-            const float r = (float) std::sqrt (sq / included);
-            const float rTop = yFor (juce::jmin (r, hi > 0.0f ? hi : r)), rBottom = yFor (-juce::jmin (r, lo < 0.0f ? -lo : r));
-            if (rBottom > rTop)
-                rms.addWithoutMerging ({ x, rTop, columnWidth + 0.35f, rBottom - rTop });
         }
 
-        g.setColour (colour.withMultipliedBrightness (0.62f).withAlpha (0.9f));
+        g.setColour (colour);
         g.fillRectList (peaks);
-        g.setColour (colour.brighter (0.25f));
-        g.fillRectList (rms);
-        juce::ignoreUnused (midY);
     }
 
     MeteringABProcessor& processor;
