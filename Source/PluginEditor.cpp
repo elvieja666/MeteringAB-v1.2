@@ -259,15 +259,11 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     showPreButton.onClick  = [this] { setWaves (! scope.getShowPre(), scope.getShowPost()); };
     showPostButton.onClick = [this] { setWaves (scope.getShowPre(), ! scope.getShowPost()); };
 
-    // Botón de alternar, como el de escucha: cada clic muestra solo una onda.
-    // Si se ve solo PRE pasa a solo POST; en cualquier otro caso, a solo PRE.
+    // Botón ⇄ linkeado a la escucha: hace lo mismo que el botón PRE/POST FX
+    // grande (alterna lo que suena) y el osciloscopio lo sigue.
     waveSwapButton.setClickingTogglesState (false);
-    waveSwapButton.setTooltip ("Clic para alternar entre ver solo PRE FX y ver solo POST FX");
-    waveSwapButton.onClick = [this]
-    {
-        const bool onlyPre = scope.getShowPre() && ! scope.getShowPost();
-        setWaves (! onlyPre, onlyPre);
-    };
+    waveSwapButton.setTooltip ("Alterna PRE FX / POST FX (sonido y osciloscopio juntos)");
+    waveSwapButton.onClick = [this] { toggleAB(); };
     addAndMakeVisible (waveSwapButton);
 
     updateWaveButtons();
@@ -424,6 +420,17 @@ void MeteringABEditor::timerCallback()
     ease (shownPre,  processor.displayPre.load());
     ease (shownPost, processor.displayPost.load());
     ease (shownGain, processor.displayGain.load());
+
+    // El osciloscopio sigue a la escucha: cuando cambia PRE/POST FX (botón,
+    // tecla asignada o automatización), muestra solo la onda que suena.
+    {
+        const int listenPre = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f ? 1 : 0;
+
+        if (lastListenPre >= 0 && listenPre != lastListenPre)
+            setWaves (listenPre == 1, listenPre == 0);
+
+        lastListenPre = listenPre;
+    }
 
     const bool sendMode = (int) processor.apvts.getRawParameterValue (ParamIDs::mode)->load() == 0;
 

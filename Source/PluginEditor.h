@@ -34,6 +34,9 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    // Para las pruebas: ejecuta una actualización de la interfaz (lo que hace el timer).
+    void refreshNow() { timerCallback(); }
+
 private:
     void timerCallback() override;
     void setBoolParam (const char* paramId, bool on);
@@ -84,6 +87,7 @@ private:
 
     float shownPre = -120.0f, shownPost = -120.0f, shownGain = 0.0f;
     bool isSendMode = false;
+    int lastListenPre = -1;                           // para seguir al botón de escucha
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MeteringABEditor)
 };

@@ -79,7 +79,7 @@ Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivela
 - **Barre de izquierda a derecha** siguiendo la canción (la línea blanca es el cabezal). Al llegar al final vuelve a empezar y va reemplazando lo del compás anterior, así cada compás va cambiando. Con Logic detenido sigue barriendo al tempo del proyecto.
 - **Escala fija en dB**: 0 arriba y abajo, −6, −12, −18 y −∞ en el centro.
 - **Botones PRE FX y POST FX** (arriba, al lado del largo): muestran u ocultan cada onda. Encendido tiene el color de su onda; apagado queda gris. Se guardan con el proyecto.
-- **Botón ⇄** (a la izquierda de esos dos): como el de escucha, cada clic alterna entre ver **solo PRE** y ver **solo POST**. Muestra cuál se está viendo ("⇄ PRE" en verde agua, "⇄ POST" en ámbar). Si se ven las dos, dice "⇄ A/B" y el primer clic pasa a solo PRE.
+- **Linkeado a la escucha:** cada vez que alternás PRE FX / POST FX (con el botón grande, una tecla asignada o automatización), el osciloscopio pasa a mostrar solo la onda que estás escuchando. El botón **⇄** de la barra del osciloscopio hace lo mismo que el botón grande. Si querés ver las dos ondas juntas, prendé PRE FX y POST FX; al volver a alternar, vuelve a mostrar solo una.
 - **Clic sobre el osciloscopio** para congelarlo; otro clic lo descongela.
 - Sirve para ver, por ejemplo, cuánto achica un compresor o un saturador los golpes: los picos verdes que sobresalen por encima de los ámbar son lo que el efecto recortó.
 

@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 #include <cstdio>
 
 static void setParam (MeteringABProcessor& p, const char* id, float plainValue)
@@ -288,6 +289,11 @@ int main (int argc, char** argv)
             }
 
             std::unique_ptr<juce::AudioProcessorEditor> ed (a->createEditor());
+            if (shot == 1)   // simula tocar el botón de escucha: pasa a PRE FX y el osciloscopio lo sigue
+            {
+                auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
+                e->refreshNow(); setParam (*a, ParamIDs::pre, 1); e->refreshNow();
+            }
             auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 2.0f);
             juce::File f (juce::String (argv[1]) + names[shot]);
             f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
@@ -354,6 +360,20 @@ int main (int argc, char** argv)
         MeteringABProcessor sendP;
         std::unique_ptr<juce::AudioProcessorEditor> ed2 (sendP.createEditor());
         check (ed2->getHeight() == 378, "Modo Send: sin sección de osciloscopio (alto px)", ed2->getHeight());
+    }
+    {
+        // Osciloscopio linkeado a la escucha: al alternar PRE/POST FX muestra solo esa onda.
+        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1); setParam (a, ParamIDs::pre, 0);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+        auto* editor = dynamic_cast<MeteringABEditor*> (ed.get());
+        auto pump = [editor] { editor->refreshNow(); };     // lo mismo que hace el timer de la interfaz
+        pump();
+        const bool bothAtStart = (bool) a.apvts.state.getProperty ("scopeShowPre", true) && (bool) a.apvts.state.getProperty ("scopeShowPost", true);
+        setParam (a, ParamIDs::pre, 1); pump();
+        const bool onlyPre = (bool) a.apvts.state.getProperty ("scopeShowPre", false) && ! (bool) a.apvts.state.getProperty ("scopeShowPost", true);
+        setParam (a, ParamIDs::pre, 0); pump();
+        const bool onlyPost = ! (bool) a.apvts.state.getProperty ("scopeShowPre", true) && (bool) a.apvts.state.getProperty ("scopeShowPost", false);
+        check (bothAtStart && onlyPre && onlyPost, "Osciloscopio sigue a la escucha (PRE -> solo PRE, POST -> solo POST)", 1);
     }
     {
         MeteringABProcessor fresh;
