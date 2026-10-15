@@ -40,33 +40,13 @@ public:
     juce::Font getLabelFont (juce::Label&) override;
 };
 
-// Botón con el ícono "abrir en ventana aparte" (cuadro con una flecha).
-class DetachButton : public juce::Button
+// Botón para agrandar el plugin: osciloscopio grande a la derecha del panel gris.
+class WideButton : public juce::Button
 {
 public:
-    DetachButton() : juce::Button ("Ventana aparte") {}
-    bool detached = false;                            // resaltado mientras está en la ventana
+    WideButton() : juce::Button ("Osciloscopio grande") {}
+    bool on = false;                                  // resaltado mientras está grande
     void paintButton (juce::Graphics&, bool isOver, bool isDown) override;
-};
-
-// Contenido de la ventana grande: el osciloscopio arriba y sus controles abajo.
-// Los componentes son los mismos del plugin (se mudan de lugar, no se copian).
-class ScopeWindowContent : public juce::Component
-{
-public:
-    std::function<void (juce::Rectangle<int>)> layout;
-    void paint (juce::Graphics& g) override       { g.fillAll (Theme::darkBg); }
-    void resized() override                         { if (layout) layout (getLocalBounds()); }
-};
-
-// Ventana aparte (flota sobre Logic, se puede agrandar).
-class ScopeWindow : public juce::DocumentWindow
-{
-public:
-    explicit ScopeWindow (const juce::String& title)
-        : juce::DocumentWindow (title, Theme::darkBg, juce::DocumentWindow::allButtons) {}
-    std::function<void()> onClose;
-    void closeButtonPressed() override              { if (onClose) onClose(); }
 };
 
 class MeteringABEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -86,11 +66,13 @@ public:
     // Para las pruebas: ejecuta una actualización de la interfaz (lo que hace el timer).
     void refreshNow() { timerCallback(); }
     const ScopeView& getScopeForTests() const { return scope; }
-    void setScopeDetachedForTests (bool on)       { setScopeDetached (on); }
-    bool isScopeDetached() const                  { return scopeDetached; }
-    bool isScopeInsideDetachedContent() const     { return scope.getParentComponent() == &detachedContent; }
-    juce::Component& getDetachedContentForTests() { return detachedContent; }
-    static inline bool createSeparateWindows = true;   // las pruebas sin pantalla lo apagan
+    void setScopeWideForTests (bool on)           { setScopeWide (on); }
+    bool isScopeWide() const                      { return scopeWide; }
+
+    // Modo grande: el panel gris a la izquierda y el osciloscopio a la derecha,
+    // del tamaño de la pantalla de una MacBook Pro de 14" (1512 x 982 puntos,
+    // menos la barra de menú y la barra de la ventana de Logic).
+    static constexpr int wideWidth = 1500, wideHeight = 860;
 
 private:
     void timerCallback() override;
@@ -139,13 +121,12 @@ private:
     void setScopeOpen (bool open);
     void updateScopeSection();
 
-    // Osciloscopio en una ventana aparte, grande.
-    DetachButton detachButton;
-    ScopeWindowContent detachedContent;
-    std::unique_ptr<ScopeWindow> scopeWindow;
-    bool scopeDetached = false;
-    void setScopeDetached (bool detached);
-    void layoutDetached (juce::Rectangle<int> area);
+    // Osciloscopio grande, a la derecha del panel gris.
+    WideButton wideButton;
+    bool scopeWide = false;
+    void setScopeWide (bool wide);
+    bool isWideLayout() const                         { return scopeWide && ! isSendMode; }
+    int contentOffsetY() const;                       // en modo grande el panel gris va centrado en alto
     juce::Component* scopeParts[6] = { &scope, &zoomBox, &scopeStyleButton, &linkButton, &showPreButton, &showPostButton };
 
     static constexpr int editorWidth = 640;

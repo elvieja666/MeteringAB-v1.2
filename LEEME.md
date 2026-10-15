@@ -84,7 +84,7 @@ Muestra el **PRE FX** (gris) y, encima, el **POST FX** (turquesa), ya nivelado a
   - *Mostrar grilla*: prende o apaga las líneas de fondo (las de cada compás quedan siempre).
   - Todo se guarda con el proyecto.
 - **Clic sobre el osciloscopio** para congelarlo; otro clic lo descongela.
-- **Ventana aparte** (el botón con el cuadrito y la flecha, a la derecha): abre el osciloscopio en una ventana grande que flota sobre Logic y la podés agrandar como quieras, con sus controles arriba, igual que en el plugin. Para traerlo de vuelta cerrá esa ventana, o tocá otra vez el botón o **▸ Osciloscopio**. La ventana recuerda su tamaño y lugar.
+- **Osciloscopio grande** (el botón con el cuadrito y la flecha, a la derecha): el plugin se agranda al tamaño de la pantalla de una MacBook Pro de 14", con el panel gris a la izquierda y el osciloscopio grande a la derecha. Tocá el botón otra vez, o **▾ Osciloscopio**, para volver al tamaño normal. Queda guardado con el proyecto.
 - Sirve para ver, por ejemplo, cuánto achica un compresor o un saturador los golpes: los picos grises que sobresalen por encima de los turquesa son lo que el efecto recortó.
 
 ### Valores exactos

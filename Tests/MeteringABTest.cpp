@@ -253,8 +253,6 @@ static Result runMeasureCase (int link, std::unique_ptr<Fx> fx)
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
-    // Sin pantalla, la ventana aparte se prueba por dentro (con METERINGAB_REAL_WINDOW=1 se abre de verdad).
-    MeteringABEditor::createSeparateWindows = juce::SystemStats::getEnvironmentVariable ("METERINGAB_REAL_WINDOW", {}) == "1";
 
     if (argc > 1) // Metering A/BTests <carpeta>: guarda capturas de la interfaz
     {
@@ -326,14 +324,13 @@ int main (int argc, char** argv)
                 save (*ed, "/receive-sync.png");
             }
 
-            if (shot == 2)   // osciloscopio en ventana aparte
+            if (shot == 2)   // osciloscopio grande a la derecha
             {
                 auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
-                e->setScopeDetachedForTests (true);
-                auto& content = e->getDetachedContentForTests();
-                content.setSize (1000, 500);
-                save (content, "/ventana-grande.png");
-                save (*ed, "/receive-ventana.png");
+                e->setScopeWideForTests (true);
+                auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
+                juce::File f (juce::String (argv[1]) + "/receive-grande.png");
+                f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
             }
         }
         return 0;
@@ -403,39 +400,35 @@ int main (int argc, char** argv)
         check (ed2->getHeight() == MeteringABEditor::sendHeight, "Modo Send: sin sección de osciloscopio (alto px)", ed2->getHeight());
     }
     {
-        // Ventana aparte: el osciloscopio se muda a la ventana y vuelve al cerrarla.
+        // Modo grande: panel gris a la izquierda y osciloscopio a la derecha, del tamaño
+        // de la pantalla de una MacBook Pro de 14".
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
-        a.apvts.state.setProperty ("scopeOpen", true, nullptr);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
         auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
-        e->setScopeDetachedForTests (true);
-        check (e->isScopeDetached() && e->isScopeInsideDetachedContent() && ed->getHeight() == MeteringABEditor::mainHeight + 44,
-               "Ventana aparte: el osciloscopio se va y el plugin se achica (alto px)", ed->getHeight());
-        e->setScopeDetachedForTests (false);
-        check (! e->isScopeInsideDetachedContent() && ed->getHeight() == MeteringABEditor::mainHeight + 44 + 316,
-               "Al cerrar la ventana vuelve al plugin, abierto (alto px)", ed->getHeight());
-        e->setScopeDetachedForTests (true);
+        e->setScopeWideForTests (true);
+        const auto sb = e->getScopeForTests().getBounds();
+        check (ed->getWidth() == MeteringABEditor::wideWidth && ed->getHeight() == MeteringABEditor::wideHeight
+               && ed->getWidth() <= 1512 && ed->getHeight() <= 982 - 37 - 60,
+               "Modo grande: entra en la pantalla de una MacBook Pro 14 (px)", ed->getWidth());
+        check (e->getScopeForTests().isVisible() && sb.getX() >= 640 && sb.getHeight() > 700 && sb.getWidth() > 760,
+               "Modo grande: el osciloscopio ocupa la derecha (alto px)", sb.getHeight());
+        check ((bool) a.apvts.state.getProperty ("scopeWide", false), "Modo grande: se guarda con el proyecto", 1);
+
+        // Se puede reabrir: el editor nuevo arranca grande.
+        std::unique_ptr<juce::AudioProcessorEditor> ed2 (a.createEditor());
+        check (ed2->getWidth() == MeteringABEditor::wideWidth, "Modo grande: al reabrir el plugin sigue grande (px)", ed2->getWidth());
+        ed2.reset();
+
+        // En Send no hay osciloscopio: ventana chica. Al volver a Receive, otra vez grande.
         setParam (a, ParamIDs::mode, 0); e->refreshNow();
-        check (! e->isScopeDetached() && ed->getHeight() == MeteringABEditor::sendHeight, "Pasar a Send cierra la ventana aparte", ed->getHeight());
-    }
-    {
-        // Cerrar y volver a abrir la ventana aparte: el osciloscopio tiene que
-        // ocupar la ventana (no quedar donde estaba en el plugin).
-        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
-        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
-        auto scopeFillsWindow = [&]
-        {
-            const auto sb = e->getScopeForTests().getBounds();
-            const auto cb = e->getDetachedContentForTests().getLocalBounds();
-            return sb.getY() < 70 && sb.getHeight() > cb.getHeight() - 90 && sb.getWidth() > cb.getWidth() - 40;
-        };
-        e->setScopeDetachedForTests (true);
-        const bool first = scopeFillsWindow();
-        e->setScopeDetachedForTests (false);
-        e->setScopeDetachedForTests (true);
-        check (first && scopeFillsWindow(), "Ventana aparte: al reabrirla el osciloscopio ocupa toda la ventana",
-               e->getScopeForTests().getY());
+        check (ed->getWidth() == 640 && ed->getHeight() == MeteringABEditor::sendHeight, "Modo grande en Send: ventana chica (px)", ed->getHeight());
+        setParam (a, ParamIDs::mode, 1); e->refreshNow();
+        check (ed->getWidth() == MeteringABEditor::wideWidth, "Al volver a Receive vuelve a modo grande (px)", ed->getWidth());
+
+        // Volver al tamaño normal: osciloscopio abierto debajo.
+        e->setScopeWideForTests (false);
+        check (ed->getWidth() == 640 && ed->getHeight() == MeteringABEditor::mainHeight + 44 + 316 && e->getScopeForTests().getY() > MeteringABEditor::mainHeight,
+               "Salir del modo grande: tamaño normal, osciloscopio abierto (alto px)", ed->getHeight());
     }
     {
         // Osciloscopio linkeado a la escucha: al alternar PRE/POST FX muestra solo esa onda.
