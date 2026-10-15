@@ -596,10 +596,10 @@ int main (int argc, char** argv)
         setParam (send, ParamIDs::link, 9); setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 9);
         struct PlayingHead : juce::AudioPlayHead
         {
-            double ppq = 0.0;
+            double ppq = 0.0; bool playing = true;
             juce::Optional<PositionInfo> getPosition() const override
             {
-                PositionInfo p; p.setBpm (120.0); p.setTimeSignature (TimeSignature { 4, 4 }); p.setIsPlaying (true);
+                PositionInfo p; p.setBpm (120.0); p.setTimeSignature (TimeSignature { 4, 4 }); p.setIsPlaying (playing);
                 p.setPpqPosition (ppq); p.setPpqPositionOfLastBarStart (std::floor (ppq / 4.0) * 4.0);
                 p.setBarCount ((juce::int64) std::floor (ppq / 4.0));
                 return p;
@@ -617,6 +617,18 @@ int main (int argc, char** argv)
         step (21.0);
         const double expected2 = (4.0 + 1.0 + 512.0 * 120.0 / 60.0 / 48000.0) / 8.0 * MeteringABProcessor::scopeBins;
         check (std::abs (recv.scopeCurrentBin.load() - expected2) <= 1.0, "Osciloscopio 2 bars: el compás 6 va en la segunda mitad", recv.scopeCurrentBin.load());
+
+        // En pausa: el cabezal no avanza, sigue al cursor y no dibuja nada nuevo.
+        recv.scopeLengthIndex = 2; step (17.0);
+        head.playing = false;
+        const int binBefore = recv.scopeCurrentBin.load();
+        const float maxBefore = recv.scopePostMax[(size_t) binBefore + 5].load();
+        for (int k = 0; k < 50; ++k) { head.ppq = 17.0; b.clear(); b.setSample (0, 0, 0.9f); b.setSample (0, 300, 0.9f); send.processBlock (b, m); recv.processBlock (b, m); }
+        const bool stayed = recv.scopeCurrentBin.load() == (int) (1.0 / 4.0 * MeteringABProcessor::scopeBins);
+        const bool untouched = std::abs (recv.scopePostMax[(size_t) binBefore + 5].load() - maxBefore) < 1.0e-9f;
+        check (stayed && untouched && ! recv.scopeIsRunning.load(), "Osciloscopio en pausa: quieto y sin dibujar", recv.scopeCurrentBin.load());
+        head.ppq = 25.0; step (25.0); head.playing = false; recv.processBlock (b, m);
+        check (recv.scopeCurrentBin.load() == (int) (1.0 / 4.0 * MeteringABProcessor::scopeBins), "Osciloscopio en pausa: sigue al cursor si lo movés", recv.scopeCurrentBin.load());
         send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);

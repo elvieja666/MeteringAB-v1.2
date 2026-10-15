@@ -505,7 +505,9 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     }
 
     // Osciloscopio: dónde arranca este bloque dentro del loop y cuánto avanza por muestra.
+    // Solo se dibuja con Logic en play; en pausa queda quieto.
     double scopeQuarters = scopeBlockStartQuarters (n);
+    const bool scopeRunning = hostPlaying;
     const double loopQuarters = getScopeLengthBars() * timeSigNum.load() * 4.0 / timeSigDen.load();
     const double quartersPerSample = hostBpm.load() / 60.0 / currentSampleRate;
 
@@ -527,6 +529,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         }
 
         // Osciloscopio: columna que corresponde a este momento del compás.
+        if (scopeRunning)
         {
             const float preValue  = preSum / (float) numCh;
             const float postValue = postSum / (float) numCh;
@@ -555,6 +558,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     }
 
     scopePhaseQuarters = scopeQuarters;
+    scopeIsRunning.store (scopeRunning, std::memory_order_relaxed);
     scopeCurrentBin.store (juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins)), std::memory_order_relaxed);
 
     displayPre  = (float) preMeter.getDecibels();
@@ -563,8 +567,8 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
 }
 
 // Dónde arranca el bloque dentro del loop del osciloscopio (en negras).
-// Con la canción sonando sigue la posición de Logic (alineada a los compases);
-// detenida, el barrido sigue corriendo solo al tempo del proyecto.
+// Sigue siempre la posición del cursor de Logic (alineada a los compases).
+// Con Logic en pausa el cabezal queda quieto y no se dibuja nada nuevo.
 double MeteringABProcessor::scopeBlockStartQuarters (int n)
 {
     const int lengthIndex = scopeLengthIndex.load();
@@ -585,7 +589,9 @@ double MeteringABProcessor::scopeBlockStartQuarters (int n)
 
     double phase = scopePhaseQuarters;
 
-    if (hostPlaying && hostHasPpq)
+    // Con play o en pausa, el cabezal va donde está el cursor de Logic
+    // (en pausa se queda quieto ahí; si movés el cursor, lo sigue).
+    if (hostHasPpq)
     {
         if (hostHasBarStart)
         {

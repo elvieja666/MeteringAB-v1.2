@@ -102,6 +102,7 @@ public:
     static constexpr int scopeBins = 1024;
     std::array<std::atomic<float>, scopeBins> scopePreMin, scopePreMax, scopePostMin, scopePostMax;
     std::atomic<int> scopeCurrentBin { 0 };
+    std::atomic<bool> scopeIsRunning { false };       // Logic en play
     std::atomic<int> scopeLengthIndex { ScopeLengths::defaultIndex };
     double getScopeLengthBars() const { return ScopeLengths::bars[(size_t) juce::jlimit (0, (int) ScopeLengths::bars.size() - 1, scopeLengthIndex.load())]; }
 

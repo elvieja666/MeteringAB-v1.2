@@ -76,7 +76,7 @@ Está abajo de todo, separado por una línea. Tocá **▾ Osciloscopio** para oc
 Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivelado al volumen del original, así ves solo lo que cambió.
 
 - Está **sincronizado al tempo del proyecto**: el ancho es un largo musical que elegís arriba a la derecha (1/4 bar, 1/2 bar, 1 bar, 2 bars o 4 bars). Arriba tiene la grilla de tiempos (0, 1/4, 2/4, 3/4, 4/4) con subdivisiones.
-- **Barre de izquierda a derecha** siguiendo la canción (la línea blanca es el cabezal). Al llegar al final vuelve a empezar y va reemplazando lo del compás anterior, así cada compás va cambiando. Con Logic detenido sigue barriendo al tempo del proyecto.
+- **Barre de izquierda a derecha** siguiendo la canción (la línea blanca es el cabezal). Al llegar al final vuelve a empezar y va reemplazando lo del compás anterior, así cada compás va cambiando. Está sincronizado con Logic: con Logic en pausa el osciloscopio se queda quieto (y si movés el cursor, el cabezal lo sigue); al dar play retoma desde esa posición.
 - **Escala fija en dB**: 0 arriba y abajo, −6, −12, −18 y −∞ en el centro.
 - **Botones PRE FX y POST FX** (arriba, al lado del largo): muestran u ocultan cada onda. Encendido tiene el color de su onda; apagado queda gris. Se guardan con el proyecto.
 - **Linkeado a la escucha:** cada vez que alternás PRE FX / POST FX (con el botón grande, una tecla asignada o automatización), el osciloscopio pasa a mostrar solo la onda que estás escuchando. El botón **⇄** de la barra del osciloscopio hace lo mismo que el botón grande. Si querés ver las dos ondas juntas, prendé PRE FX y POST FX; al volver a alternar, vuelve a mostrar solo una.
