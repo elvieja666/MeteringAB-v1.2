@@ -902,23 +902,35 @@ int main (int argc, char** argv)
     }
 
     {
-        // Contorno/líneas: decay de 5 ms y dibujo con menos definición.
+        // Contorno/líneas: muy definido sin ciclos (sube al instante, sostiene 20 ms,
+        // baja en 5 ms, suavizado fino).
         constexpr int bins = MeteringABProcessor::scopeBins;
         std::vector<float> mins ((size_t) bins, 0.0f), maxs ((size_t) bins, 0.0f);
-        maxs[100] = 1.0f; mins[100] = -1.0f;                        // un golpe en una sola columna
+        for (int b = 100; b < 140; ++b) { maxs[(size_t) b] = 1.0f; mins[(size_t) b] = -1.0f; }   // golpe de 40 ms
         const double binSec = 1.0e-3;                               // 1 ms por columna
         const auto pts = ScopeView::smoothEnvelope (mins.data(), maxs.data(), 0, bins, binSec);
-        check (pts.size() >= 250 && pts.size() <= 260, "Contorno: ~256 puntos a lo largo del recorrido", (double) pts.size());
+        check ((int) pts.size() == bins + 2, "Contorno: un punto por columna (mucha definición)", (double) pts.size());
 
-        // Sin suavizado final, el borde 5 ms después del golpe vale e^-1 (decay de 5 ms).
-        auto valueAt = [&] (float bin) { for (auto& p : pts) if (std::abs (p.bin - bin) < 4.1f) return p.hi; return -1.0f; };
-        const float atHit = valueAt (100.0f), after20 = valueAt (124.0f), after60 = valueAt (164.0f);
-        check (atHit > 0.2f && after20 < atHit && after60 < 0.02f, "Contorno: el golpe cae con el decay y se apaga", after20);
+        auto valueAt = [&] (int bin) { return pts[(size_t) bin + 1].hi; };
+        check (valueAt (94) < 0.05f && valueAt (104) > 0.9f, "Contorno: el golpe sube justo donde cae", valueAt (94));
+        check (valueAt (150) > 0.9f, "Contorno: sostiene el pico 20 ms después del golpe", valueAt (150));
+        check (valueAt (185) < 0.05f, "Contorno: después baja rápido (5 ms)", valueAt (185));
+
+        // Graves de 50 Hz (ciclos de 20 ms) parejos: el borde queda liso, sin serrucho.
+        std::vector<float> bmin ((size_t) bins), bmax ((size_t) bins);
+        for (int b = 0; b < bins; ++b)
+        {
+            const float v = 0.5f * (float) std::abs (std::sin (juce::MathConstants<double>::pi * b / 10.0));
+            bmax[(size_t) b] = v; bmin[(size_t) b] = -v;
+        }
+        const auto bass = ScopeView::smoothEnvelope (bmin.data(), bmax.data(), 0, bins, binSec);
+        float lo = 1.0f, hi = 0.0f;
+        for (int i = 200; i < 1800; ++i) { lo = juce::jmin (lo, bass[(size_t) i].hi); hi = juce::jmax (hi, bass[(size_t) i].hi); }
+        check (hi - lo < 0.02f, "Contorno: con graves no se ven los ciclos (variación)", hi - lo);
+
         check (pts.front().bin == 0.0f && pts.back().bin == (float) bins, "Contorno: el dibujo cubre todo el tramo", pts.back().bin);
-
-        // Tramo parcial (LINK): solo dibuja dentro del tramo.
         const auto part = ScopeView::smoothEnvelope (mins.data(), maxs.data(), 300, 500, binSec);
-        check (part.front().bin == 300.0f && part.back().bin == 500.0f, "Contorno: con LINK cada tramo se suaviza aparte", part.size());
+        check (part.front().bin == 300.0f && part.back().bin == 500.0f, "Contorno: con LINK cada tramo se dibuja aparte", part.size());
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;
