@@ -68,7 +68,10 @@ private:
     juce::Label scopeLabel;
     juce::ComboBox zoomBox;
     juce::TextButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };
-    juce::TextButton waveSwapButton;                  // alterna: ver solo PRE <-> ver solo POST
+    juce::TextButton linkButton { "LINK" };           // prendido: el osciloscopio sigue a la escucha
+    bool scopeLinked = true;
+    void setScopeLinked (bool linked);
+    void syncWavesToListen();
     juce::TextButton scopeToggleButton;               // ▾ / ▸ mostrar u ocultar el osciloscopio
     juce::TextButton scopeStyleButton { "Estilo" };   // menú de opciones gráficas
     void showStyleMenu();

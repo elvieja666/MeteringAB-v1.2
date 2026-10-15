@@ -307,6 +307,7 @@ int main (int argc, char** argv)
                     a->apvts.state.setProperty ("scopeLength", 1, nullptr); a->scopeLengthIndex = 1;
                     a->apvts.state.setProperty ("scopeStyle", shot == 4 ? 1 : shot == 5 ? 2 : 0, nullptr);
                     a->apvts.state.setProperty ("scopePalette", shot == 4 ? 1 : shot == 5 ? 2 : 0, nullptr);
+                    if (shot == 5) a->apvts.state.setProperty ("scopeLink", false, nullptr);   // LINK apagado en la captura
                 }
                 chain->run (shot == 2 ? 5.3 : 3.3);
             }
@@ -396,7 +397,16 @@ int main (int argc, char** argv)
         const bool onlyPre = (bool) a.apvts.state.getProperty ("scopeShowPre", false) && ! (bool) a.apvts.state.getProperty ("scopeShowPost", true);
         setParam (a, ParamIDs::pre, 0); pump();
         const bool onlyPost = ! (bool) a.apvts.state.getProperty ("scopeShowPre", true) && (bool) a.apvts.state.getProperty ("scopeShowPost", false);
-        check (bothAtStart && onlyPre && onlyPost, "Osciloscopio sigue a la escucha (PRE -> solo PRE, POST -> solo POST)", 1);
+        check (bothAtStart && onlyPre && onlyPost, "LINK prendido: el osciloscopio sigue a la escucha", 1);
+
+        // LINK apagado: alternar la escucha no cambia lo que se ve.
+        MeteringABProcessor c; setParam (c, ParamIDs::mode, 1); setParam (c, ParamIDs::pre, 0);
+        c.apvts.state.setProperty ("scopeLink", false, nullptr);
+        std::unique_ptr<juce::AudioProcessorEditor> ed2 (c.createEditor());
+        auto* e2 = dynamic_cast<MeteringABEditor*> (ed2.get());
+        e2->refreshNow(); setParam (c, ParamIDs::pre, 1); e2->refreshNow(); setParam (c, ParamIDs::pre, 0); e2->refreshNow();
+        const bool unchanged = (bool) c.apvts.state.getProperty ("scopeShowPre", true) && (bool) c.apvts.state.getProperty ("scopeShowPost", true);
+        check (unchanged, "LINK apagado: alternar la escucha no cambia el osciloscopio", 1);
     }
     {
         MeteringABProcessor fresh;

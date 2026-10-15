@@ -282,10 +282,13 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
 
     // Botón ⇄ linkeado a la escucha: hace lo mismo que el botón PRE/POST FX
     // grande (alterna lo que suena) y el osciloscopio lo sigue.
-    waveSwapButton.setClickingTogglesState (false);
-    waveSwapButton.setTooltip ("Alterna PRE FX / POST FX (sonido y osciloscopio juntos)");
-    waveSwapButton.onClick = [this] { toggleAB(); };
-    addAndMakeVisible (waveSwapButton);
+    // LINK: prendido, el osciloscopio sigue a la escucha (muestra solo la onda
+    // que suena); apagado, muestra lo que dejes con PRE FX / POST FX.
+    linkButton.setClickingTogglesState (false);
+    linkButton.setTooltip ("Prendido: el osciloscopio sigue a la escucha PRE/POST FX");
+    linkButton.onClick = [this] { setScopeLinked (! scopeLinked); };
+    addAndMakeVisible (linkButton);
+    scopeLinked = (bool) apvts.state.getProperty ("scopeLink", true);
 
     updateWaveButtons();
 
@@ -435,7 +438,7 @@ void MeteringABEditor::updateScopeSection()
     scopeToggleButton.setVisible (showSection);
     scopeToggleButton.setButtonText (juce::String::fromUTF8 (scopeOpen ? "\xe2\x96\xbe" : "\xe2\x96\xb8") + "  Osciloscopio");
 
-    for (juce::Component* c : std::initializer_list<juce::Component*> { &scope, &scopeLabel, &zoomBox, &showPreButton, &showPostButton, &waveSwapButton, &scopeStyleButton })
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &scope, &scopeLabel, &zoomBox, &showPreButton, &showPostButton, &linkButton, &scopeStyleButton })
         c->setVisible (showBody);
 
     const int height = ! showSection ? mainHeight
@@ -471,27 +474,26 @@ void MeteringABEditor::updateWaveButtons()
     style (showPreButton,  scope.getShowPre(),  scope.getPreColour());
     style (showPostButton, scope.getShowPost(), scope.getPostColour());
 
-    // El botón de alternar dice qué onda se está viendo sola, con su color.
-    const bool onlyPre  = scope.getShowPre() && ! scope.getShowPost();
-    const bool onlyPost = scope.getShowPost() && ! scope.getShowPre();
-    const auto arrows = juce::String::fromUTF8 ("\xe2\x87\x84");   // ⇄
+    // LINK: prendido toma el color de la onda que estás escuchando.
+    const bool listeningPre = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f;
+    style (linkButton, scopeLinked, listeningPre ? scope.getPreColour() : scope.getPostColour());
+}
 
-    if (onlyPre)
-    {
-        waveSwapButton.setButtonText (arrows + " PRE");
-        style (waveSwapButton, true, scope.getPreColour());
-    }
-    else if (onlyPost)
-    {
-        waveSwapButton.setButtonText (arrows + " POST");
-        style (waveSwapButton, true, scope.getPostColour());
-    }
+void MeteringABEditor::setScopeLinked (bool linked)
+{
+    scopeLinked = linked;
+    processor.apvts.state.setProperty ("scopeLink", linked, nullptr);
+
+    if (linked)
+        syncWavesToListen();          // al prenderlo, mostrar enseguida lo que suena
     else
-    {
-        waveSwapButton.setButtonText (arrows + " A/B");
-        waveSwapButton.setColour (juce::TextButton::buttonColourId, Colours::panel);
-        waveSwapButton.setColour (juce::TextButton::textColourOffId, Colours::text);
-    }
+        updateWaveButtons();
+}
+
+void MeteringABEditor::syncWavesToListen()
+{
+    const bool listeningPre = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f;
+    setWaves (listeningPre, ! listeningPre);
 }
 
 void MeteringABEditor::setBoolParam (const char* paramId, bool on)
@@ -539,7 +541,12 @@ void MeteringABEditor::timerCallback()
         const int listenPre = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f ? 1 : 0;
 
         if (lastListenPre >= 0 && listenPre != lastListenPre)
-            setWaves (listenPre == 1, listenPre == 0);
+        {
+            if (scopeLinked)
+                setWaves (listenPre == 1, listenPre == 0);
+            else
+                updateWaveButtons();      // solo el color del botón LINK
+        }
 
         lastListenPre = listenPre;
     }
@@ -830,7 +837,7 @@ void MeteringABEditor::resized()
     scopeHeader.removeFromRight (6);
     showPreButton.setBounds (scopeHeader.removeFromRight (66));
     scopeHeader.removeFromRight (6);
-    waveSwapButton.setBounds (scopeHeader.removeFromRight (78));
+    linkButton.setBounds (scopeHeader.removeFromRight (64));
     scopeHeader.removeFromRight (6);
     scopeStyleButton.setBounds (scopeHeader.removeFromRight (64));
     scopeLabel.setBounds (scopeHeader);
