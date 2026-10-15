@@ -25,7 +25,7 @@ public:
     // Paletas de colores: { nombre, PRE, POST }.
     struct Palette { const char* name; juce::uint32 pre, post; };
     static constexpr std::array<Palette, 5> palettes {{
-        { "Gris / Turquesa",     0xffa9aeb6, 0xff4fc2b9 },
+        { "Gris / Azul",         0xffa9aeb6, 0xff5aa9ff },
         { "Grises (clasico)",    0xff6c7077, 0xffb8bbc1 },
         { "Azul / Rosa",         0xff5aa9ff, 0xffff6fa8 },
         { "Blanco / Rojo",       0xffd9d7d3, 0xffeb5757 },

@@ -4,7 +4,7 @@
 
 // ---------------------------------------------------------------------------
 //  Estilo visual: parte de arriba en gris claro (controles en relieve y
-//  pastillas), osciloscopio en oscuro, turquesa como color principal y la
+//  pastillas), osciloscopio en oscuro, azul como color principal y la
 //  letra Inter incluida en el plugin.
 // ---------------------------------------------------------------------------
 namespace Theme
@@ -21,8 +21,8 @@ namespace Theme
     const juce::Colour raisedTop  { 0xfff8f9fa };     // botones en relieve
     const juce::Colour raisedBot  { 0xffe6e8ea };
     const juce::Colour track      { 0xffc9ccd1 };     // arco de fondo de la perilla
-    const juce::Colour teal       { 0xff179486 };     // turquesa sobre fondo claro
-    const juce::Colour good       { 0xff1f9484 };
+    const juce::Colour accent     { 0xff2f74d0 };     // azul sobre fondo claro
+    const juce::Colour good       { 0xff2f74d0 };
     const juce::Colour bad        { 0xffd04848 };
     const juce::Colour preInk     { 0xff6b7078 };     // botón grande en PRE FX (gris)
 
@@ -33,7 +33,7 @@ namespace Theme
     const juce::Colour chipText   { 0xff9a9fa6 };
     const juce::Colour darkText   { 0xffd5d7da };
     const juce::Colour darkDim    { 0xff7c8188 };
-    const juce::Colour tealBright { 0xff4fc2b9 };     // turquesa sobre fondo oscuro
+    const juce::Colour accentBright { 0xff5aa9ff };   // azul sobre fondo oscuro
 
     // Letra Inter
     inline juce::Typeface::Ptr typeface (int weight)

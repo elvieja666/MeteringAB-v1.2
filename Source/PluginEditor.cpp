@@ -27,7 +27,7 @@ namespace Colours
     const juce::Colour background = Theme::topLight;
     const juce::Colour text       = Theme::ink;
     const juce::Colour dim        = Theme::inkDim;
-    const juce::Colour accent     = Theme::teal;
+    const juce::Colour accent     = Theme::accent;
     const juce::Colour good       = Theme::good;
     const juce::Colour bad        = Theme::bad;
 }
@@ -59,25 +59,25 @@ MeteringABLookAndFeel::MeteringABLookAndFeel()
     setColour (juce::Slider::textBoxTextColourId, Theme::inkStrong);
     setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
     setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
-    setColour (juce::Slider::textBoxHighlightColourId, Theme::teal.withAlpha (0.25f));
+    setColour (juce::Slider::textBoxHighlightColourId, Theme::accent.withAlpha (0.25f));
     setColour (juce::TextEditor::backgroundColourId, Theme::well);
     setColour (juce::TextEditor::textColourId, Theme::inkStrong);
-    setColour (juce::TextEditor::highlightColourId, Theme::teal.withAlpha (0.25f));
+    setColour (juce::TextEditor::highlightColourId, Theme::accent.withAlpha (0.25f));
     setColour (juce::TextEditor::highlightedTextColourId, Theme::inkStrong);
     setColour (juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
-    setColour (juce::TextEditor::focusedOutlineColourId, Theme::teal);
-    setColour (juce::CaretComponent::caretColourId, Theme::teal);
+    setColour (juce::TextEditor::focusedOutlineColourId, Theme::accent);
+    setColour (juce::CaretComponent::caretColourId, Theme::accent);
     setColour (juce::ComboBox::textColourId, Theme::ink);
     setColour (juce::ComboBox::arrowColourId, Theme::ink);
     setColour (juce::PopupMenu::backgroundColourId, Theme::well);
     setColour (juce::PopupMenu::textColourId, Theme::ink);
     setColour (juce::PopupMenu::headerTextColourId, Theme::inkDim);
-    setColour (juce::PopupMenu::highlightedBackgroundColourId, Theme::teal);
+    setColour (juce::PopupMenu::highlightedBackgroundColourId, Theme::accent);
     setColour (juce::PopupMenu::highlightedTextColourId, juce::Colours::white);
     setColour (juce::TextButton::buttonColourId, Theme::raisedBot);
     setColour (juce::TextButton::buttonOnColourId, Theme::raisedBot);
     setColour (juce::TextButton::textColourOffId, Theme::ink);
-    setColour (juce::TextButton::textColourOnId, Theme::teal);
+    setColour (juce::TextButton::textColourOnId, Theme::accent);
     setColour (juce::Label::textColourId, Theme::ink);
     setColour (juce::TooltipWindow::backgroundColourId, Theme::ink);
     setColour (juce::TooltipWindow::textColourId, Theme::well);
@@ -117,7 +117,7 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
         r = r.reduced (0.5f);
         const float radius = r.getHeight() * 0.5f;
         const bool on = button.getToggleState();
-        const auto colour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::tealBright.getARGB()));
+        const auto colour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::accentBright.getARGB()));
 
         g.setColour (on ? colour.withAlpha (0.16f).overlaidWith (juce::Colours::transparentBlack) : Theme::darkBg.brighter (over ? 0.06f : 0.0f));
         g.fillRoundedRectangle (r, radius);
@@ -146,12 +146,12 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
 
     if (kind == "chip")
     {
-        const auto chipColour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::tealBright.getARGB()));
+        const auto chipColour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::accentBright.getARGB()));
         colour = button.getToggleState() ? chipColour.brighter (0.25f) : Theme::chipText;
     }
     else if (kind == "segment")
     {
-        colour = button.getToggleState() ? Theme::teal : Theme::inkDim;
+        colour = button.getToggleState() ? Theme::accent : Theme::inkDim;
     }
     else if (kind == "plain" && button.getProperties().contains ("open"))
     {
@@ -236,7 +236,7 @@ juce::Label* MeteringABLookAndFeel::createSliderTextBox (juce::Slider& slider)
     label->setColour (juce::Label::outlineColourId, juce::Colours::transparentBlack);
     label->setColour (juce::Label::backgroundWhenEditingColourId, Theme::well);
     label->setColour (juce::Label::textWhenEditingColourId, Theme::inkStrong);
-    label->setColour (juce::Label::outlineWhenEditingColourId, Theme::teal);
+    label->setColour (juce::Label::outlineWhenEditingColourId, Theme::accent);
     return label;
 }
 
@@ -270,7 +270,7 @@ void MeteringABLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
     const auto angle  = startAngle + pos * (endAngle - startAngle);
     const float track = 5.0f;
 
-    // Arco de fondo y arco del valor (turquesa).
+    // Arco de fondo y arco del valor (azul).
     juce::Path back;
     back.addCentredArc (centre.x, centre.y, radius - track * 0.5f, radius - track * 0.5f, 0.0f, startAngle, endAngle, true);
     g.setColour (Theme::track);
@@ -278,7 +278,7 @@ void MeteringABLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
 
     juce::Path value;
     value.addCentredArc (centre.x, centre.y, radius - track * 0.5f, radius - track * 0.5f, 0.0f, startAngle, angle, true);
-    g.setColour (Theme::teal.brighter (0.15f));
+    g.setColour (Theme::accent.brighter (0.15f));
     g.strokePath (value, juce::PathStrokeType (track, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     // Perilla clara en relieve.
@@ -547,13 +547,13 @@ void WideButton::paintButton (juce::Graphics& g, bool isOver, bool isDown)
 {
     auto r = getLocalBounds().toFloat().reduced (0.5f);
     const float radius = r.getHeight() * 0.5f;
-    g.setColour (on ? Theme::tealBright.withAlpha (0.16f) : Theme::darkBg.brighter (isDown ? 0.1f : isOver ? 0.06f : 0.0f));
+    g.setColour (on ? Theme::accentBright.withAlpha (0.16f) : Theme::darkBg.brighter (isDown ? 0.1f : isOver ? 0.06f : 0.0f));
     g.fillRoundedRectangle (r, radius);
-    g.setColour (on ? Theme::tealBright.withAlpha (0.6f) : Theme::chipLine.brighter (isOver ? 0.25f : 0.0f));
+    g.setColour (on ? Theme::accentBright.withAlpha (0.6f) : Theme::chipLine.brighter (isOver ? 0.25f : 0.0f));
     g.drawRoundedRectangle (r, radius, 1.0f);
 
     // Ícono: cuadro abierto arriba a la derecha con una flecha saliendo.
-    const auto ink = on ? Theme::tealBright.brighter (0.25f) : Theme::chipText;
+    const auto ink = on ? Theme::accentBright.brighter (0.25f) : Theme::chipText;
     auto icon = r.withSizeKeepingCentre (12.0f, 12.0f);
     juce::Path box;
     box.startNewSubPath (icon.getX() + 6.0f, icon.getY());
@@ -902,7 +902,7 @@ void MeteringABEditor::timerCallback()
     // Botón PRE FX / POST FX
     const bool pre = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f;
     abButton.setButtonText (pre ? "PRE FX" : "POST FX");
-    abButton.setColour (juce::TextButton::textColourOffId, pre ? Theme::preInk : Theme::teal);   // PRE gris, POST turquesa
+    abButton.setColour (juce::TextButton::textColourOffId, pre ? Theme::preInk : Theme::accent);   // PRE gris, POST azul
 
     // Estado de la medición de latencia
     {
@@ -1066,7 +1066,7 @@ void MeteringABEditor::paint (juce::Graphics& g)
     const Readout readouts[] = {
         { "Original (Send)",   level (shownPre),  "LUFS", Theme::inkStrong },
         { "Ganancia aplicada", gainShown ? (shownGain >= 0 ? "+" : "") + juce::String (shownGain, 2) : juce::String ("—"_u),
-                               gainShown ? "dB" : "", Theme::teal },
+                               gainShown ? "dB" : "", Theme::accent },
         { "Procesado",         level (shownPost), "LUFS", Theme::inkStrong },
     };
 
