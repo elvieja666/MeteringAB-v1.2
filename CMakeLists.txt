@@ -36,6 +36,15 @@ juce_add_plugin(MeteringAB
     NEEDS_MIDI_OUTPUT        FALSE
     COPY_PLUGIN_AFTER_BUILD  TRUE)       # lo copia solo a la carpeta de plugins
 
+# Letra Inter (licencia OFL, ver Resources/Fonts/OFL.txt), incluida en el plugin
+# para que se vea igual en cualquier Mac.
+juce_add_binary_data(MeteringABFonts SOURCES
+    Resources/Fonts/Inter-Light.otf
+    Resources/Fonts/Inter-Regular.otf
+    Resources/Fonts/Inter-Medium.otf
+    Resources/Fonts/Inter-SemiBold.otf)
+set_target_properties(MeteringABFonts PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
 target_sources(MeteringAB PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp)
@@ -49,6 +58,7 @@ target_compile_definitions(MeteringAB PUBLIC
 
 target_link_libraries(MeteringAB
     PRIVATE
+        MeteringABFonts
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC
@@ -70,5 +80,5 @@ if(METERINGAB_TESTS)
     target_compile_definitions(MeteringABTests PRIVATE
         JucePlugin_Name="Metering A/B" JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
     target_link_libraries(MeteringABTests PRIVATE
-        juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+        MeteringABFonts juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

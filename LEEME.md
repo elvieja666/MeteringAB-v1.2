@@ -61,7 +61,7 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 | Control | Qué hace |
 |---|---|
-| **PRE FX / POST FX** | Un solo botón: cada clic alterna. Arranca en **PRE FX**. **POST FX** (ámbar) = con tus efectos, al mismo volumen que el original. **PRE FX** (verde agua) = la señal antes de los efectos. Es un parámetro de Logic, así que lo podés asignar a una tecla o control MIDI. Al cambiar hace un crossfade de 10 ms, imperceptible, para que no haya clicks. El volumen se iguala siempre solo, midiendo en **LUFS (filtro K)**, con un máximo de 24 dB para arriba o para abajo. |
+| **PRE FX / POST FX** | Un solo botón: cada clic alterna. Arranca en **PRE FX**. **POST FX** (turquesa) = con tus efectos, al mismo volumen que el original. **PRE FX** (gris) = la señal antes de los efectos. Es un parámetro de Logic, así que lo podés asignar a una tecla o control MIDI. Al cambiar hace un crossfade de 10 ms, imperceptible, para que no haya clicks. El volumen se iguala siempre solo, midiendo en **LUFS (filtro K)**, con un máximo de 24 dB para arriba o para abajo. |
 | **Ventana (ms / Sync)** | Cuánto tiempo promedia la medición. En **ms** elegís milisegundos. En **Sync** elegís compases (1/4 bar a 8 bars) según el tempo y el compás del proyecto, y el promedio toma compases exactos, así la lectura de un loop queda quieta. Al pasar de Sync a ms se convierte al tiempo equivalente; al volver a Sync se acomoda al valor musical más cercano. Debajo de la perilla ves la equivalencia. |
 | **Latencia + Medir** | Compensa efectos que retrasan el audio (EQ de fase lineal, oversampling, limitadores con lookahead). Dale play y tocá **Medir**: en unos 3 segundos el plugin encuentra el retraso exacto, **con decimales** (por ejemplo 64,50 muestras, porque muchos plugins retrasan "medio sample"), y lo muestra en grande con su equivalente en ms. Si el sonido procesado no se parece lo suficiente al original (por ejemplo, una reverb 100% wet), te avisa en vez de poner un valor dudoso. Si cambiás los efectos de la cadena, volvé a medir. |
 | **Ø (polaridad)** | Se enciende solo si **Medir** detecta que algún plugin invierte la polaridad. También lo podés activar a mano. |
@@ -70,7 +70,7 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 Está abajo de todo, separado por una línea, y arranca cerrado: tocá **▸ Osciloscopio** para abrirlo. Tocá **▾ Osciloscopio** para ocultarlo (la ventana del plugin se achica); queda guardado con el proyecto.
 
-Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivelado al volumen del original, así ves solo lo que cambió.
+Muestra el **PRE FX** (gris) y, encima, el **POST FX** (turquesa), ya nivelado al volumen del original, así ves solo lo que cambió.
 
 - Está **sincronizado al tempo del proyecto**: el ancho es un largo musical que elegís arriba a la derecha (1/4 bar, 1/2 bar, 1 bar, 2 bars o 4 bars). Arriba tiene la grilla de tiempos (0, 1/4, 2/4, 3/4, 4/4) con subdivisiones.
 - **Barre de izquierda a derecha** siguiendo la canción (la línea blanca es el cabezal). Al llegar al final vuelve a empezar y va reemplazando lo del compás anterior, así cada compás va cambiando. Está sincronizado con Logic: con Logic en pausa el osciloscopio se queda quieto (y si movés el cursor, el cabezal lo sigue); al dar play se limpia y dibuja desde esa posición.
@@ -80,12 +80,12 @@ Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivela
 - **Botón Estilo**: elegí cómo se ve.
   - *Forma PRE FX* y *Forma POST FX* (cada una por separado, por ejemplo PRE en Contorno y POST en Solo líneas): **Contorno** (relleno de color plano, sin borde), **Detallado** (los picos reales en un solo color; muestra cada ciclo de los graves) o **Solo líneas** (solo el borde, ideal para comparar PRE y POST superpuestos).
   - *Canales*: **L + R (suma)** (los dos canales sumados y promediados, así lo que está al centro se ve a su nivel real), **Solo L**, **Solo R** o **L y R separados** (L arriba, R abajo, cada uno con su escala).
-  - *Colores*: paletas listas (Verde agua / Ámbar, Grises, Azul / Rosa, Blanco / Rojo, Violeta / Lima) o **Personalizado**, eligiendo el color de PRE y de POST con un selector. Los botones PRE FX / POST FX toman los mismos colores.
+  - *Colores*: paletas listas (Gris / Turquesa, Grises, Azul / Rosa, Blanco / Rojo, Violeta / Lima) o **Personalizado**, eligiendo el color de PRE y de POST con un selector. Los botones PRE FX / POST FX toman los mismos colores.
   - *Mostrar grilla*: prende o apaga las líneas de fondo (las de cada compás quedan siempre).
   - Todo se guarda con el proyecto.
 - **Clic sobre el osciloscopio** para congelarlo; otro clic lo descongela.
 - **Ventana aparte** (el botón con el cuadrito y la flecha, a la derecha): abre el osciloscopio en una ventana grande que flota sobre Logic y la podés agrandar como quieras, con sus controles arriba, igual que en el plugin. Para traerlo de vuelta cerrá esa ventana, o tocá otra vez el botón o **▸ Osciloscopio**. La ventana recuerda su tamaño y lugar.
-- Sirve para ver, por ejemplo, cuánto achica un compresor o un saturador los golpes: los picos verdes que sobresalen por encima de los ámbar son lo que el efecto recortó.
+- Sirve para ver, por ejemplo, cuánto achica un compresor o un saturador los golpes: los picos grises que sobresalen por encima de los turquesa son lo que el efecto recortó.
 
 ### Valores exactos
 
@@ -110,6 +110,7 @@ Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivela
 - `Source/LatencyMeasurer.h` · la medición automática de latencia (botón Medir).
 - `Source/PluginEditor.cpp` · la interfaz (perillas, botones, colores).
 - `Source/Scope.h` · el osciloscopio.
+- `Source/Theme.h` · colores y letra. La letra es **Inter** (licencia libre OFL, ver `Resources/Fonts/OFL.txt`), incluida dentro del plugin.
 - `Tests/` · pruebas automáticas que verifican que el matcheo funcione.
 - `.github/workflows/compilar.yml` · las instrucciones para que GitHub compile el plugin.
 - `instalar.command` · instala en tu Mac el plugin que compiló GitHub.

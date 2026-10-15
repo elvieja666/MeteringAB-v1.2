@@ -21,16 +21,15 @@ private:
     std::function<void (juce::Colour)> onColour;
 };
 
+// Colores de la parte de arriba (clara). El osciloscopio usa los de Theme oscuros.
 namespace Colours
 {
-    const juce::Colour background { 0xff16181d };
-    const juce::Colour panel      { 0xff20232b };
-    const juce::Colour outline    { 0xff2e323c };
-    const juce::Colour text       { 0xffe8e6e3 };
-    const juce::Colour dim        { 0xff8a8f98 };
-    const juce::Colour accent     { 0xfff2b544 };
-    const juce::Colour good       { 0xff6fcf97 };
-    const juce::Colour bad        { 0xffeb5757 };
+    const juce::Colour background = Theme::topLight;
+    const juce::Colour text       = Theme::ink;
+    const juce::Colour dim        = Theme::inkDim;
+    const juce::Colour accent     = Theme::teal;
+    const juce::Colour good       = Theme::good;
+    const juce::Colour bad        = Theme::bad;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,67 +55,234 @@ void PreciseSlider::mouseDown (const juce::MouseEvent& e)
 // ---------------------------------------------------------------------------
 MeteringABLookAndFeel::MeteringABLookAndFeel()
 {
-    setColour (juce::ResizableWindow::backgroundColourId, Colours::background);
-    setColour (juce::Slider::textBoxTextColourId, Colours::text);
-    setColour (juce::Slider::textBoxBackgroundColourId, Colours::background);
-    setColour (juce::Slider::textBoxOutlineColourId, Colours::outline);
-    setColour (juce::Slider::textBoxHighlightColourId, Colours::accent.withAlpha (0.4f));
-    setColour (juce::TextEditor::backgroundColourId, Colours::background);
-    setColour (juce::TextEditor::textColourId, Colours::text);
-    setColour (juce::TextEditor::focusedOutlineColourId, Colours::accent);
-    setColour (juce::CaretComponent::caretColourId, Colours::accent);
-    setColour (juce::ComboBox::backgroundColourId, Colours::panel);
-    setColour (juce::ComboBox::outlineColourId, Colours::outline);
-    setColour (juce::ComboBox::textColourId, Colours::text);
-    setColour (juce::ComboBox::arrowColourId, Colours::accent);
-    setColour (juce::PopupMenu::backgroundColourId, Colours::panel);
-    setColour (juce::PopupMenu::textColourId, Colours::text);
-    setColour (juce::PopupMenu::highlightedBackgroundColourId, Colours::accent);
-    setColour (juce::PopupMenu::highlightedTextColourId, Colours::background);
-    setColour (juce::TextButton::buttonColourId, Colours::panel);
-    setColour (juce::TextButton::buttonOnColourId, Colours::accent);
-    setColour (juce::TextButton::textColourOffId, Colours::text);
-    setColour (juce::TextButton::textColourOnId, Colours::background);
-    setColour (juce::ToggleButton::textColourId, Colours::text);
-    setColour (juce::ToggleButton::tickColourId, Colours::accent);
-    setColour (juce::ToggleButton::tickDisabledColourId, Colours::dim);
-    setColour (juce::Label::textColourId, Colours::text);
+    setColour (juce::ResizableWindow::backgroundColourId, Theme::topLight);
+    setColour (juce::Slider::textBoxTextColourId, Theme::inkStrong);
+    setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+    setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    setColour (juce::Slider::textBoxHighlightColourId, Theme::teal.withAlpha (0.25f));
+    setColour (juce::TextEditor::backgroundColourId, Theme::well);
+    setColour (juce::TextEditor::textColourId, Theme::inkStrong);
+    setColour (juce::TextEditor::highlightColourId, Theme::teal.withAlpha (0.25f));
+    setColour (juce::TextEditor::highlightedTextColourId, Theme::inkStrong);
+    setColour (juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
+    setColour (juce::TextEditor::focusedOutlineColourId, Theme::teal);
+    setColour (juce::CaretComponent::caretColourId, Theme::teal);
+    setColour (juce::ComboBox::textColourId, Theme::ink);
+    setColour (juce::ComboBox::arrowColourId, Theme::ink);
+    setColour (juce::PopupMenu::backgroundColourId, Theme::well);
+    setColour (juce::PopupMenu::textColourId, Theme::ink);
+    setColour (juce::PopupMenu::headerTextColourId, Theme::inkDim);
+    setColour (juce::PopupMenu::highlightedBackgroundColourId, Theme::teal);
+    setColour (juce::PopupMenu::highlightedTextColourId, juce::Colours::white);
+    setColour (juce::TextButton::buttonColourId, Theme::raisedBot);
+    setColour (juce::TextButton::buttonOnColourId, Theme::raisedBot);
+    setColour (juce::TextButton::textColourOffId, Theme::ink);
+    setColour (juce::TextButton::textColourOnId, Theme::teal);
+    setColour (juce::Label::textColourId, Theme::ink);
+    setColour (juce::TooltipWindow::backgroundColourId, Theme::ink);
+    setColour (juce::TooltipWindow::textColourId, Theme::well);
+    setColour (juce::TooltipWindow::outlineColourId, juce::Colours::transparentBlack);
+    setColour (juce::BubbleComponent::backgroundColourId, Theme::well);
+    setColour (juce::BubbleComponent::outlineColourId, Theme::track);
 }
 
 juce::Font MeteringABLookAndFeel::getTextButtonFont (juce::TextButton& button, int buttonHeight)
 {
     if (button.getProperties().contains ("big"))
-        return juce::FontOptions (19.0f, juce::Font::bold);
+        return Theme::font (22.0f, 600, 0.05f);
 
-    return juce::FontOptions (juce::jmin (15.0f, (float) buttonHeight * 0.6f));
+    if (button.getProperties()["kind"].toString() == "plain")
+        return Theme::font (button.getProperties().contains ("open") ? 14.0f : 16.0f, 300);
+
+    return Theme::font (juce::jmin (14.0f, (float) buttonHeight * 0.5f), 400);
+}
+
+void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& button, const juce::Colour&, bool over, bool down)
+{
+    const auto kind = button.getProperties()["kind"].toString();
+    auto r = button.getLocalBounds().toFloat();
+
+    if (kind == "plain")
+        return;
+
+    if (kind == "chip")                              // pastilla oscura del osciloscopio
+    {
+        r = r.reduced (0.5f);
+        const float radius = r.getHeight() * 0.5f;
+        const bool on = button.getToggleState();
+        const auto colour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::tealBright.getARGB()));
+
+        g.setColour (on ? colour.withAlpha (0.16f).overlaidWith (juce::Colours::transparentBlack) : Theme::darkBg.brighter (over ? 0.06f : 0.0f));
+        g.fillRoundedRectangle (r, radius);
+        g.setColour (on ? colour.withAlpha (0.6f) : Theme::chipLine.brighter (over ? 0.25f : 0.0f));
+        g.drawRoundedRectangle (r, radius, 1.0f);
+        return;
+    }
+
+    if (kind == "segment")                           // ms | Sync: la elegida en relieve
+    {
+        if (button.getToggleState())
+            Theme::drawRaised (g, r.reduced (2.0f), (r.getHeight() - 4.0f) * 0.5f, false, false);
+        return;
+    }
+
+    // raised (por defecto)
+    const float radius = button.getProperties().contains ("big") ? 18.0f : (r.getHeight() - 6.0f) * 0.5f;
+    Theme::drawRaised (g, r.reduced (5.0f, 2.0f).withTrimmedBottom (4.0f), radius, over, down || button.getToggleState());
+}
+
+void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& button, bool, bool)
+{
+    const auto kind = button.getProperties()["kind"].toString();
+    auto r = button.getLocalBounds();
+    juce::Colour colour = button.findColour (button.getToggleState() ? juce::TextButton::textColourOnId : juce::TextButton::textColourOffId);
+
+    if (kind == "chip")
+    {
+        const auto chipColour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::tealBright.getARGB()));
+        colour = button.getToggleState() ? chipColour.brighter (0.25f) : Theme::chipText;
+    }
+    else if (kind == "segment")
+    {
+        colour = button.getToggleState() ? Theme::teal : Theme::inkDim;
+    }
+    else if (kind == "plain" && button.getProperties().contains ("open"))
+    {
+        // Triángulo ▸ / ▾ dibujado (más prolijo que un carácter).
+        const bool open = button.getProperties()["open"];
+        auto tri = r.removeFromLeft (22).toFloat().withSizeKeepingCentre (9.0f, 9.0f);
+        juce::Path p;
+        if (open) p.addTriangle (tri.getX(), tri.getY() + 1.5f, tri.getRight(), tri.getY() + 1.5f, tri.getCentreX(), tri.getBottom() - 0.5f);
+        else      p.addTriangle (tri.getX() + 1.5f, tri.getY(), tri.getX() + 1.5f, tri.getBottom(), tri.getRight() - 0.5f, tri.getCentreY());
+        g.setColour (colour);
+        g.fillPath (p);
+    }
+
+    if (! button.isEnabled())
+        colour = colour.withMultipliedAlpha (0.5f);
+
+    g.setColour (colour);
+    g.setFont (getTextButtonFont (button, button.getHeight()));
+    const bool down = button.isDown() && kind == "raised";
+    g.drawFittedText (button.getButtonText(), r.translated (0, down ? 1 : 0),
+                      kind == "plain" && button.getProperties().contains ("open") ? juce::Justification::centredLeft
+                                                                                  : juce::Justification::centred, 1);
+}
+
+void MeteringABLookAndFeel::drawComboBox (juce::Graphics& g, int w, int h, bool, int, int, int, int, juce::ComboBox& box)
+{
+    auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) w, (float) h).reduced (0.5f);
+    const float radius = r.getHeight() * 0.5f;
+    const bool dark = box.getProperties()["kind"].toString() == "chip";
+
+    if (dark)
+    {
+        g.setColour (Theme::darkBg.brighter (box.isMouseOver (true) ? 0.06f : 0.0f));
+        g.fillRoundedRectangle (r, radius);
+        g.setColour (Theme::chipLine.brighter (box.isMouseOver (true) ? 0.25f : 0.0f));
+        g.drawRoundedRectangle (r, radius, 1.0f);
+    }
+    else
+    {
+        g.setColour (Theme::pill.darker (box.isMouseOver (true) ? 0.03f : 0.0f));
+        g.fillRoundedRectangle (r, radius);
+    }
+
+    // Flechita ⌄
+    const float cx = (float) w - radius - 4.0f, cy = (float) h * 0.5f;
+    juce::Path arrow;
+    arrow.startNewSubPath (cx - 4.5f, cy - 2.0f);
+    arrow.lineTo (cx, cy + 2.5f);
+    arrow.lineTo (cx + 4.5f, cy - 2.0f);
+    g.setColour (dark ? Theme::chipText : Theme::ink);
+    g.strokePath (arrow, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+}
+
+juce::Font MeteringABLookAndFeel::getComboBoxFont (juce::ComboBox& box)
+{
+    return Theme::font (box.getProperties()["kind"].toString() == "chip" ? 12.5f : 14.0f, 400);
+}
+
+void MeteringABLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
+{
+    const int pad = box.getHeight() / 2 + 2;
+    label.setBounds (pad - 4, 1, box.getWidth() - pad - 26, box.getHeight() - 2);
+    label.setFont (getComboBoxFont (box));
+    label.setColour (juce::Label::textColourId, box.getProperties()["kind"].toString() == "chip" ? Theme::chipText : Theme::ink);
+}
+
+juce::Font MeteringABLookAndFeel::getPopupMenuFont()
+{
+    return Theme::font (14.0f, 400);
+}
+
+juce::Label* MeteringABLookAndFeel::createSliderTextBox (juce::Slider& slider)
+{
+    auto* label = LookAndFeel_V4::createSliderTextBox (slider);
+    label->getProperties().set ("well", true);
+    label->setFont (Theme::font (14.5f, 400));
+    label->setColour (juce::Label::textColourId, Theme::inkStrong);
+    label->setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
+    label->setColour (juce::Label::outlineColourId, juce::Colours::transparentBlack);
+    label->setColour (juce::Label::backgroundWhenEditingColourId, Theme::well);
+    label->setColour (juce::Label::textWhenEditingColourId, Theme::inkStrong);
+    label->setColour (juce::Label::outlineWhenEditingColourId, Theme::teal);
+    return label;
+}
+
+void MeteringABLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
+{
+    if (label.getProperties()["well"] && ! label.isBeingEdited())
+    {
+        // Casillero hundido con el valor (se puede hacer clic para escribir).
+        auto r = label.getLocalBounds().toFloat().reduced (1.0f, 0.0f);
+        Theme::drawWell (g, r, r.getHeight() * 0.5f);
+        g.setColour (label.findColour (juce::Label::textColourId));
+        g.setFont (getLabelFont (label));
+        g.drawFittedText (label.getText(), label.getLocalBounds(), juce::Justification::centred, 1);
+        return;
+    }
+
+    LookAndFeel_V4::drawLabel (g, label);
+}
+
+juce::Font MeteringABLookAndFeel::getLabelFont (juce::Label& label)
+{
+    return label.getFont();
 }
 
 void MeteringABLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, float pos,
                                           float startAngle, float endAngle, juce::Slider&)
 {
-    const auto bounds = juce::Rectangle<int> (x, y, w, h).toFloat().reduced (6.0f);
+    const auto bounds = juce::Rectangle<int> (x, y, w, h).toFloat().reduced (4.0f);
     const auto radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
     const auto centre = bounds.getCentre();
     const auto angle  = startAngle + pos * (endAngle - startAngle);
-    const float track = 4.0f;
+    const float track = 5.0f;
 
+    // Arco de fondo y arco del valor (turquesa).
     juce::Path back;
-    back.addCentredArc (centre.x, centre.y, radius - track, radius - track, 0.0f, startAngle, endAngle, true);
-    g.setColour (Colours::outline);
+    back.addCentredArc (centre.x, centre.y, radius - track * 0.5f, radius - track * 0.5f, 0.0f, startAngle, endAngle, true);
+    g.setColour (Theme::track);
     g.strokePath (back, juce::PathStrokeType (track, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     juce::Path value;
-    value.addCentredArc (centre.x, centre.y, radius - track, radius - track, 0.0f, startAngle, angle, true);
-    g.setColour (Colours::accent);
+    value.addCentredArc (centre.x, centre.y, radius - track * 0.5f, radius - track * 0.5f, 0.0f, startAngle, angle, true);
+    g.setColour (Theme::teal.brighter (0.15f));
     g.strokePath (value, juce::PathStrokeType (track, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-    const auto knobRadius = radius - track * 3.0f;
-    g.setColour (Colours::panel);
-    g.fillEllipse (centre.x - knobRadius, centre.y - knobRadius, knobRadius * 2, knobRadius * 2);
+    // Perilla clara en relieve.
+    const auto knobRadius = radius - track - 6.0f;
+    juce::Path knob;
+    knob.addEllipse (centre.x - knobRadius, centre.y - knobRadius, knobRadius * 2, knobRadius * 2);
+    juce::DropShadow (juce::Colours::black.withAlpha (0.25f), 7, { 0, 2 }).drawForPath (g, knob);
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xfffafbfb), centre.x, centre.y - knobRadius,
+                                             juce::Colour (0xffe0e3e6), centre.x, centre.y + knobRadius, false));
+    g.fillPath (knob);
 
-    const auto tip = centre.getPointOnCircumference (knobRadius - 4.0f, angle);
-    g.setColour (Colours::text);
-    g.drawLine ({ centre.getPointOnCircumference (knobRadius * 0.35f, angle), tip }, 2.5f);
+    // Rayita que marca la posición.
+    g.setColour (Theme::ink);
+    g.drawLine ({ centre.getPointOnCircumference (knobRadius * 0.45f, angle), centre.getPointOnCircumference (knobRadius * 0.85f, angle) }, 2.6f);
 }
 
 // ---------------------------------------------------------------------------
@@ -140,32 +306,58 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     addCombo (modeBox, ParamIDs::mode, modeAtt);
 
 
-    // Link ID: flechitas + número editable.
-    linkSlider.setSliderStyle (juce::Slider::IncDecButtons);
-    linkSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 44, 26);
-    linkSlider.setIncDecButtonsMode (juce::Slider::incDecButtonsDraggable_Vertical);
+    // Link ID: pastilla "−  1  +" (el número se puede escribir con un clic).
+    linkSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    linkSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    addChildComponent (linkSlider);                   // invisible: solo guarda el valor
+    linkAtt = std::make_unique<SliderAttachment> (apvts, ParamIDs::link, linkSlider);
+
     linkLabel.setText ("Link ID", juce::dontSendNotification);
     linkLabel.setColour (juce::Label::textColourId, Colours::dim);
+    linkLabel.setFont (Theme::font (13.0f, 300));
     linkLabel.setJustificationType (juce::Justification::centredRight);
-    addAndMakeVisible (linkSlider);
     addAndMakeVisible (linkLabel);
-    linkAtt = std::make_unique<SliderAttachment> (apvts, ParamIDs::link, linkSlider);
+
+    auto stepLink = [this] (int delta)
+    {
+        linkSlider.setValue (juce::jlimit (linkSlider.getMinimum(), linkSlider.getMaximum(), linkSlider.getValue() + delta),
+                             juce::sendNotificationSync);
+    };
+
+    for (auto* b : { &linkMinus, &linkPlus })
+    {
+        b->getProperties().set ("kind", "plain");
+        b->setColour (juce::TextButton::textColourOffId, Theme::ink);
+        addAndMakeVisible (*b);
+    }
+
+    linkMinus.onClick = [stepLink] { stepLink (-1); };
+    linkPlus.onClick  = [stepLink] { stepLink (+1); };
+
+    linkValueLabel.setEditable (true);
+    linkValueLabel.setJustificationType (juce::Justification::centred);
+    linkValueLabel.setFont (Theme::font (14.0f, 500));
+    linkValueLabel.setColour (juce::Label::textColourId, Theme::ink);
+    linkValueLabel.onTextChange = [this]
+    {
+        const int typed = linkValueLabel.getText().retainCharacters ("0123456789").getIntValue();
+        if (typed > 0)
+            linkSlider.setValue (juce::jlimit (linkSlider.getMinimum(), linkSlider.getMaximum(), (double) typed), juce::sendNotificationSync);
+    };
+    addAndMakeVisible (linkValueLabel);
 
     setupKnob (windowSlider,  windowLabel,  "Ventana");
     // Latencia: sin perilla, solo el botón Medir y el valor medido.
     latencyLabel.setText ("Latencia", juce::dontSendNotification);
     latencyLabel.setJustificationType (juce::Justification::centred);
     latencyLabel.setColour (juce::Label::textColourId, Colours::dim);
-    latencyLabel.setFont (juce::FontOptions (12.0f));
+    latencyLabel.setFont (Theme::font (12.5f, 300));
     addAndMakeVisible (latencyLabel);
 
-    latencyValueLabel.setJustificationType (juce::Justification::centred);
-    latencyValueLabel.setFont (juce::FontOptions (21.0f, juce::Font::bold));
-    latencyValueLabel.setColour (juce::Label::textColourId, Colours::text);
-    addAndMakeVisible (latencyValueLabel);
+    // El número de latencia se dibuja en paint (número grande + "muestras" chico).
 
     latencyMsLabel.setJustificationType (juce::Justification::centred);
-    latencyMsLabel.setFont (juce::FontOptions (12.0f));
+    latencyMsLabel.setFont (Theme::font (11.5f, 300));
     latencyMsLabel.setColour (juce::Label::textColourId, Colours::dim);
     addAndMakeVisible (latencyMsLabel);
 
@@ -191,6 +383,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
 
     for (int i = 0; i < 2; ++i)
     {
+        syncButtons[i].getProperties().set ("kind", "segment");
         syncButtons[i].setClickingTogglesState (false);
         syncButtons[i].onClick = [this, i] { setSync (i == 1); };
         addAndMakeVisible (syncButtons[i]);
@@ -198,7 +391,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
 
     windowInfoLabel.setJustificationType (juce::Justification::centred);
     windowInfoLabel.setColour (juce::Label::textColourId, Colours::dim);
-    windowInfoLabel.setFont (juce::FontOptions (11.0f));
+    windowInfoLabel.setFont (Theme::font (11.0f, 300));
     addAndMakeVisible (windowInfoLabel);
 
     // Botón único PRE FX / POST FX (cada clic alterna).
@@ -210,17 +403,16 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     matchInfoLabel.setText ("Nivelado en LUFS (filtro K)"_u, juce::dontSendNotification);
     matchInfoLabel.setJustificationType (juce::Justification::centred);
     matchInfoLabel.setColour (juce::Label::textColourId, Colours::dim);
-    matchInfoLabel.setFont (juce::FontOptions (11.0f));
+    matchInfoLabel.setFont (Theme::font (11.0f, 300));
     addAndMakeVisible (matchInfoLabel);
 
     listenLabel.setText ("Escuchar  ·  clic para alternar"_u, juce::dontSendNotification);
     listenLabel.setColour (juce::Label::textColourId, Colours::dim);
-    listenLabel.setFont (juce::FontOptions (12.0f));
+    listenLabel.setFont (Theme::font (12.5f, 300));
     addAndMakeVisible (listenLabel);
 
     // Medir latencia
     measureButton.setButtonText ("Medir");
-    measureButton.setColour (juce::TextButton::textColourOffId, Colours::accent);
     measureButton.onClick = [this] { processor.startLatencyMeasurement(); };
     addAndMakeVisible (measureButton);
 
@@ -232,7 +424,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     polarityAtt = std::make_unique<ButtonAttachment> (apvts, ParamIDs::polarity, polarityButton);
 
     latencyInfoLabel.setJustificationType (juce::Justification::centred);
-    latencyInfoLabel.setFont (juce::FontOptions (11.0f));
+    latencyInfoLabel.setFont (Theme::font (11.0f, 400));
     addAndMakeVisible (latencyInfoLabel);
 
 
@@ -240,8 +432,8 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     addAndMakeVisible (scope);
     scopeLabel.setText ({}, juce::dontSendNotification);
     scope.setTooltip ("Clic para congelar / descongelar");
-    scopeLabel.setColour (juce::Label::textColourId, Colours::dim);
-    scopeLabel.setFont (juce::FontOptions (12.0f));
+    scopeLabel.setColour (juce::Label::textColourId, Theme::darkDim);
+    scopeLabel.setFont (Theme::font (12.0f, 300));
     addAndMakeVisible (scopeLabel);
 
     zoomBox.addItemList (ScopeLengths::names, 1);
@@ -260,6 +452,11 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     // Botones para mostrar u ocultar cada onda (se guardan con el proyecto).
     scope.setShowPre  ((bool) apvts.state.getProperty ("scopeShowPre",  true));
     scope.setShowPost ((bool) apvts.state.getProperty ("scopeShowPost", true));
+
+    for (auto* b : { &showPreButton, &showPostButton, &linkButton, &scopeStyleButton })
+        b->getProperties().set ("kind", "chip");
+
+    zoomBox.getProperties().set ("kind", "chip");
 
     for (auto* b : { &showPreButton, &showPostButton })
     {
@@ -286,9 +483,8 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
 
     // ▾ Osciloscopio: mostrar u ocultar toda la sección (se guarda con el proyecto).
     scopeToggleButton.setClickingTogglesState (false);
-    scopeToggleButton.setColour (juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-    scopeToggleButton.setColour (juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
-    scopeToggleButton.setColour (juce::TextButton::textColourOffId, Colours::text);
+    scopeToggleButton.getProperties().set ("kind", "plain");
+    scopeToggleButton.setColour (juce::TextButton::textColourOffId, Theme::darkText);
     scopeToggleButton.setTooltip ("Mostrar u ocultar el osciloscopio");
     scopeToggleButton.onClick = [this]
     {
@@ -313,7 +509,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     addAndMakeVisible (scopeStyleButton);
     applyScopeLook();
 
-    statusLabel.setFont (juce::FontOptions (13.0f));
+    statusLabel.setFont (Theme::font (12.5f, 400));
     statusLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (statusLabel);
 
@@ -344,14 +540,15 @@ MeteringABEditor::~MeteringABEditor()
 void DetachButton::paintButton (juce::Graphics& g, bool isOver, bool isDown)
 {
     auto r = getLocalBounds().toFloat().reduced (0.5f);
-    g.setColour (detached ? Colours::accent : Colours::panel.brighter (isDown ? 0.2f : isOver ? 0.1f : 0.0f));
-    g.fillRoundedRectangle (r, 5.0f);
-    g.setColour (Colours::outline);
-    g.drawRoundedRectangle (r, 5.0f, 1.0f);
+    const float radius = r.getHeight() * 0.5f;
+    g.setColour (detached ? Theme::tealBright.withAlpha (0.16f) : Theme::darkBg.brighter (isDown ? 0.1f : isOver ? 0.06f : 0.0f));
+    g.fillRoundedRectangle (r, radius);
+    g.setColour (detached ? Theme::tealBright.withAlpha (0.6f) : Theme::chipLine.brighter (isOver ? 0.25f : 0.0f));
+    g.drawRoundedRectangle (r, radius, 1.0f);
 
     // Ícono: cuadro abierto arriba a la derecha con una flecha saliendo.
-    const auto ink = detached ? Colours::background : Colours::text;
-    auto icon = r.withSizeKeepingCentre (14.0f, 14.0f);
+    const auto ink = detached ? Theme::tealBright.brighter (0.25f) : Theme::chipText;
+    auto icon = r.withSizeKeepingCentre (12.0f, 12.0f);
     juce::Path box;
     box.startNewSubPath (icon.getX() + 6.0f, icon.getY());
     box.lineTo (icon.getX(), icon.getY());
@@ -467,7 +664,7 @@ void MeteringABEditor::setupKnob (PreciseSlider& s, juce::Label& label, const ju
     label.setText (text, juce::dontSendNotification);
     label.setJustificationType (juce::Justification::centred);
     label.setColour (juce::Label::textColourId, Colours::dim);
-    label.setFont (juce::FontOptions (12.0f));
+    label.setFont (Theme::font (12.5f, 300));
     addAndMakeVisible (s);
     addAndMakeVisible (label);
 }
@@ -598,7 +795,9 @@ void MeteringABEditor::updateScopeSection()
     const bool open = scopeOpen && ! scopeDetached;
 
     scopeToggleButton.setVisible (showSection);
-    scopeToggleButton.setButtonText (juce::String::fromUTF8 (open ? "\xe2\x96\xbe" : "\xe2\x96\xb8") + "  Osciloscopio");
+    scopeToggleButton.setButtonText ("Osciloscopio");
+    scopeToggleButton.getProperties().set ("open", open);     // triángulo ▾ / ▸
+    scopeToggleButton.repaint();
     detachButton.setVisible (showSection);
 
     if (! scopeDetached)
@@ -634,8 +833,9 @@ void MeteringABEditor::updateWaveButtons()
 {
     auto style = [] (juce::TextButton& b, bool on, juce::Colour colour)
     {
-        b.setColour (juce::TextButton::buttonColourId, on ? colour : Colours::panel);
-        b.setColour (juce::TextButton::textColourOffId, on ? Colours::background : Colours::dim);
+        b.getProperties().set ("chipColour", (juce::int64) colour.getARGB());
+        b.setToggleState (on, juce::dontSendNotification);
+        b.repaint();
     };
 
     style (showPreButton,  scope.getShowPre(),  scope.getPreColour());
@@ -722,7 +922,7 @@ void MeteringABEditor::timerCallback()
         isSendMode = sendMode;
 
         for (juce::Component* c : std::initializer_list<juce::Component*> {
-                 &windowSlider, &windowLabel, &latencyLabel, &polarityButton, &latencyValueLabel, &latencyMsLabel,
+                 &windowSlider, &windowLabel, &latencyLabel, &polarityButton, &latencyMsLabel,
                  &abButton, &listenLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel,
 
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
@@ -755,11 +955,8 @@ void MeteringABEditor::timerCallback()
 
     // Botón PRE FX / POST FX
     const bool pre = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f;
-    const juce::Colour preColour { 0xff5dcaa5 }, preText { 0xff04342c };
-
     abButton.setButtonText (pre ? "PRE FX" : "POST FX");
-    abButton.setColour (juce::TextButton::buttonColourId, pre ? preColour : Colours::accent);
-    abButton.setColour (juce::TextButton::textColourOffId, pre ? preText : Colours::background);
+    abButton.setColour (juce::TextButton::textColourOffId, pre ? Theme::preInk : Theme::teal);   // PRE gris, POST turquesa
 
     // Estado de la medición de latencia
     {
@@ -802,7 +999,11 @@ void MeteringABEditor::timerCallback()
         latencyInfoLabel.setText (text, juce::dontSendNotification);
         latencyInfoLabel.setColour (juce::Label::textColourId, colour);
 
-        latencyValueLabel.setText (samplesText + " muestras", juce::dontSendNotification);
+        if (latencyNumberText != samplesText)
+        {
+            latencyNumberText = samplesText;
+            repaint (latencyNumberArea);
+        }
         latencyMsLabel.setText ("= " + msText, juce::dontSendNotification);
 
         const bool busy = m.getState() == State::measuring || m.getState() == State::analysing;
@@ -812,6 +1013,9 @@ void MeteringABEditor::timerCallback()
 
     // Mensaje de estado.
     const int link = (int) processor.apvts.getRawParameterValue (ParamIDs::link)->load();
+
+    if (! linkValueLabel.isBeingEdited())
+        linkValueLabel.setText (juce::String (link), juce::dontSendNotification);
 
     if (processor.duplicateSend.load())
     {
@@ -835,6 +1039,7 @@ void MeteringABEditor::timerCallback()
     }
 
     repaint (0, 76, getWidth(), 80);
+    repaint (statusLabel.getBounds().withX (0).withWidth (40));   // puntito del estado
 
     if (scopeWindow != nullptr)                    // título con el Link ID actual
     {
@@ -848,79 +1053,123 @@ void MeteringABEditor::timerCallback()
         scope.repaint();
 }
 
+// Número grande (letra fina) con la unidad chica al lado, centrados juntos.
+static void drawNumberWithUnit (juce::Graphics& g, const juce::String& number, const juce::String& unit,
+                                juce::Rectangle<int> area, float size, juce::Colour colour)
+{
+    const auto numberFont = Theme::font (size, 300);
+    const auto unitFont   = Theme::font (size * 0.44f, 400);
+    const float gap = unit.isEmpty() ? 0.0f : 4.0f;
+    const float wNum  = juce::GlyphArrangement::getStringWidth (numberFont, number);
+    const float wUnit = unit.isEmpty() ? 0.0f : juce::GlyphArrangement::getStringWidth (unitFont, unit);
+    float x = (float) area.getCentreX() - (wNum + gap + wUnit) * 0.5f;
+    const float baseline = (float) area.getCentreY() + size * 0.36f;
+
+    g.setColour (colour);
+    g.setFont (numberFont);
+    g.drawSingleLineText (number, juce::roundToInt (x), juce::roundToInt (baseline));
+
+    if (unit.isNotEmpty())
+    {
+        g.setColour (Theme::inkDim);
+        g.setFont (unitFont);
+        g.drawSingleLineText (unit, juce::roundToInt (x + wNum + gap), juce::roundToInt (baseline));
+    }
+}
+
 void MeteringABEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (Colours::background);
+    const int topHeight = isSendMode ? getHeight() : mainHeight;
+
+    // Parte de arriba en gris claro; el osciloscopio, abajo, en oscuro.
+    g.setGradientFill (juce::ColourGradient (Theme::topLight, 0.0f, 0.0f, Theme::topDark, 0.0f, (float) topHeight, false));
+    g.fillRect (0, 0, getWidth(), topHeight);
+
+    if (! isSendMode)
+    {
+        g.setColour (Theme::darkBg);
+        g.fillRect (0, topHeight, getWidth(), getHeight() - topHeight);
+    }
 
     // Título
-    g.setColour (Colours::accent);
-    g.setFont (juce::FontOptions (24.0f, juce::Font::bold));
-    g.drawText ("METERING A/B", 20, 10, 210, 32, juce::Justification::centredLeft);
+    g.setColour (juce::Colour (0xff3a3d42));
+    g.setFont (Theme::font (16.0f, 600, 0.16f));
+    g.drawText ("METERING A/B", 20, 10, 220, 32, juce::Justification::centredLeft);
+
+    // Pastilla del Link ID (− 1 +)
+    {
+        const auto r = linkMinus.getBounds().getUnion (linkPlus.getBounds()).toFloat();
+        g.setColour (Theme::pill);
+        g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
+    }
+
+    // Puntito de color al lado del estado
+    {
+        const auto lb = statusLabel.getBounds().toFloat();
+        g.setColour (statusLabel.findColour (juce::Label::textColourId));
+        g.fillEllipse (lb.getX() - 13.0f, lb.getCentreY() - 3.5f, 7.0f, 7.0f);
+    }
 
     // Send: solo título, modo, Link ID y estado (ventana chica).
     if (isSendMode)
         return;
 
-    // Panel de medidores
+    // Números: Original | Ganancia | Procesado, en un recuadro hundido.
     auto meterArea = juce::Rectangle<int> (20, 80, getWidth() - 40, 70);
-    g.setColour (Colours::panel);
-    g.fillRoundedRectangle (meterArea.toFloat(), 8.0f);
+    Theme::drawWell (g, meterArea.toFloat(), 14.0f);
 
-    const auto unit = " LUFS";
-
-    auto formatLevel = [unit] (float db)
-    {
-        return db <= -119.0f ? juce::String ("—"_u) : juce::String (db, 1) + unit;
+    auto level = [] (float db) { return db <= -119.0f ? juce::String ("—"_u) : juce::String (db, 1); };
+    struct Readout { juce::String title, number, unit; juce::Colour colour; };
+    const bool hasPre = shownPre > -119.0f, hasPost = shownPost > -119.0f;
+    const Readout readouts[] = {
+        { "Original (Send)",   level (shownPre),  hasPre  ? "LUFS" : "", Theme::inkStrong },
+        { "Ganancia aplicada", (shownGain >= 0 ? "+" : "") + juce::String (shownGain, 2), "dB", Theme::teal },
+        { "Procesado",         level (shownPost), hasPost ? "LUFS" : "", Theme::inkStrong },
     };
 
-    struct Readout { juce::String title, value; juce::Colour colour; };
-    std::vector<Readout> readouts;
+    const int colWidth = meterArea.getWidth() / 3;
 
+    for (int i = 0; i < 3; ++i)
     {
-        const auto gainText = (shownGain >= 0 ? "+" : "") + juce::String (shownGain, 2) + " dB";
-        readouts.push_back ({ "Original (Send)",   formatLevel (shownPre),  Colours::text });
-        readouts.push_back ({ "Ganancia aplicada", gainText,                Colours::accent });
-        readouts.push_back ({ "Procesado",         formatLevel (shownPost), Colours::text });
-    }
-
-    const int colWidth = meterArea.getWidth() / (int) readouts.size();
-
-    for (size_t i = 0; i < readouts.size(); ++i)
-    {
-        auto col = meterArea.withX (meterArea.getX() + (int) i * colWidth).withWidth (colWidth).reduced (10, 8);
-        g.setColour (Colours::dim);
-        g.setFont (juce::FontOptions (12.0f));
+        auto col = meterArea.withX (meterArea.getX() + i * colWidth).withWidth (colWidth).reduced (8, 7);
+        g.setColour (Theme::inkDim);
+        g.setFont (Theme::font (12.0f, 300));
         g.drawText (readouts[i].title, col.removeFromTop (16), juce::Justification::centred);
-        g.setColour (readouts[i].colour);
-        g.setFont (juce::FontOptions (23.0f, juce::Font::bold));
-        g.drawText (readouts[i].value, col, juce::Justification::centred);
+        drawNumberWithUnit (g, readouts[i].number, readouts[i].unit, col, 29.0f, readouts[i].colour);
     }
 
+    // Fondo de ms | Sync
     {
-        g.setColour (Colours::dim);
-        g.setFont (juce::FontOptions (11.0f));
-        g.drawText ("Clic en un número para escribir el valor exacto  ·  Shift + arrastrar = ajuste fino  ·  Doble clic = valor por defecto"_u,
-                    20, mainHeight - 24, getWidth() - 40, 16, juce::Justification::centred);
-
-        // Línea que separa la sección del osciloscopio
-        g.setColour (Colours::outline);
-        g.fillRect (0, mainHeight, getWidth(), 1);
+        const auto r = syncButtons[0].getBounds().getUnion (syncButtons[1].getBounds()).toFloat();
+        g.setColour (Theme::pill);
+        g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
     }
+
+    // Latencia medida: número grande + "muestras"
+    drawNumberWithUnit (g, latencyNumberText, "muestras", latencyNumberArea, 26.0f, Theme::inkStrong);
+
+    // Ayuda
+    g.setColour (Theme::inkFaint);
+    g.setFont (Theme::font (10.5f, 300));
+    g.drawText ("Clic en un número para escribir el valor exacto  ·  Shift + arrastrar = ajuste fino  ·  Doble clic = valor por defecto"_u,
+                20, mainHeight - 24, getWidth() - 40, 16, juce::Justification::centred);
 }
 
 void MeteringABEditor::resized()
 {
     auto area = getLocalBounds().reduced (20, 0);
 
-    // Fila superior: título | modo | link ID
+    // Fila superior: título | modo | Link ID (− 1 +)
     auto top = area.removeFromTop (52).withTrimmedTop (10).withHeight (32);
-    top.removeFromLeft (210);
-    linkSlider.setBounds (top.removeFromRight (110));
-    linkLabel.setBounds (top.removeFromRight (60));
-    top.removeFromRight (12);
+    top.removeFromLeft (200);
+    linkPlus.setBounds (top.removeFromRight (32));
+    linkValueLabel.setBounds (top.removeFromRight (40));
+    linkMinus.setBounds (top.removeFromRight (32));
+    linkLabel.setBounds (top.removeFromRight (62));
+    top.removeFromRight (10);
     modeBox.setBounds (top);
 
-    statusLabel.setBounds (area.removeFromTop (22));
+    statusLabel.setBounds (area.removeFromTop (22).withTrimmedLeft (14));
     area.removeFromTop (6);
     area.removeFromTop (70);   // medidores (se dibujan en paint)
     area.removeFromTop (12);
@@ -937,8 +1186,8 @@ void MeteringABEditor::resized()
         auto k = left;
         listenLabel.setBounds (k.removeFromTop (22));
         k.removeFromTop (4);
-        abButton.setBounds (k.removeFromTop (80));
-        k.removeFromTop (8);
+        abButton.setBounds (k.removeFromTop (88).expanded (4, 0));
+        k.removeFromTop (4);
         matchInfoLabel.setBounds (k.removeFromTop (16));
     }
 
@@ -959,14 +1208,14 @@ void MeteringABEditor::resized()
     {
         auto k = right;
         latencyLabel.setBounds (k.removeFromTop (22));
-        latencyValueLabel.setBounds (k.removeFromTop (28));
+        latencyNumberArea = k.removeFromTop (30);
         latencyMsLabel.setBounds (k.removeFromTop (16));
-        k.removeFromTop (10);
-        auto buttons = k.removeFromTop (34).withSizeKeepingCentre (176, 34);
-        measureButton.setBounds (buttons.removeFromLeft (132));
-        buttons.removeFromLeft (8);
+        k.removeFromTop (6);
+        auto buttons = k.removeFromTop (40).withSizeKeepingCentre (186, 40);
+        measureButton.setBounds (buttons.removeFromLeft (136));
+        buttons.removeFromLeft (4);
         polarityButton.setBounds (buttons);
-        k.removeFromTop (8);
+        k.removeFromTop (2);
         latencyInfoLabel.setBounds (k.removeFromTop (16));
     }
 

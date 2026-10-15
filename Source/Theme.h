@@ -1,0 +1,94 @@
+#pragma once
+#include <juce_gui_basics/juce_gui_basics.h>
+#include "BinaryData.h"
+
+// ---------------------------------------------------------------------------
+//  Estilo visual: parte de arriba en gris claro (controles en relieve y
+//  pastillas), osciloscopio en oscuro, turquesa como color principal y la
+//  letra Inter incluida en el plugin.
+// ---------------------------------------------------------------------------
+namespace Theme
+{
+    // Parte de arriba (clara)
+    const juce::Colour topLight   { 0xffe9ebed };     // degradé de arriba...
+    const juce::Colour topDark    { 0xffdcdfe2 };     // ...hacia abajo
+    const juce::Colour ink        { 0xff2b2e33 };     // texto principal
+    const juce::Colour inkStrong  { 0xff23262b };     // números grandes
+    const juce::Colour inkDim     { 0xff6b7078 };     // títulos chicos
+    const juce::Colour inkFaint   { 0xff8b9096 };     // ayudas
+    const juce::Colour pill       { 0xffd3d6da };     // pastillas (menú, Link ID, ms|Sync)
+    const juce::Colour well       { 0xfff1f2f3 };     // recuadros hundidos (números)
+    const juce::Colour raisedTop  { 0xfff8f9fa };     // botones en relieve
+    const juce::Colour raisedBot  { 0xffe6e8ea };
+    const juce::Colour track      { 0xffc9ccd1 };     // arco de fondo de la perilla
+    const juce::Colour teal       { 0xff179486 };     // turquesa sobre fondo claro
+    const juce::Colour good       { 0xff1f9484 };
+    const juce::Colour bad        { 0xffd04848 };
+    const juce::Colour preInk     { 0xff6b7078 };     // botón grande en PRE FX (gris)
+
+    // Osciloscopio (oscuro)
+    const juce::Colour darkBg     { 0xff0b0c0e };
+    const juce::Colour darkPanel  { 0xff0f1114 };
+    const juce::Colour chipLine   { 0xff2c3036 };
+    const juce::Colour chipText   { 0xff9a9fa6 };
+    const juce::Colour darkText   { 0xffd5d7da };
+    const juce::Colour darkDim    { 0xff7c8188 };
+    const juce::Colour tealBright { 0xff4fc2b9 };     // turquesa sobre fondo oscuro
+
+    // Letra Inter
+    inline juce::Typeface::Ptr typeface (int weight)
+    {
+        static juce::Typeface::Ptr light    = juce::Typeface::createSystemTypefaceFor (BinaryData::InterLight_otf,    BinaryData::InterLight_otfSize);
+        static juce::Typeface::Ptr regular  = juce::Typeface::createSystemTypefaceFor (BinaryData::InterRegular_otf,  BinaryData::InterRegular_otfSize);
+        static juce::Typeface::Ptr medium   = juce::Typeface::createSystemTypefaceFor (BinaryData::InterMedium_otf,   BinaryData::InterMedium_otfSize);
+        static juce::Typeface::Ptr semibold = juce::Typeface::createSystemTypefaceFor (BinaryData::InterSemiBold_otf, BinaryData::InterSemiBold_otfSize);
+
+        switch (weight)
+        {
+            case 300: return light;
+            case 500: return medium;
+            case 600: return semibold;
+            default:  return regular;
+        }
+    }
+
+    inline juce::Font font (float height, int weight = 400, float kerning = 0.0f)
+    {
+        return juce::Font (juce::FontOptions (typeface (weight)).withHeight (height).withKerningFactor (kerning));
+    }
+
+    // Recuadro hundido (fondo claro con sombra interior arriba).
+    inline void drawWell (juce::Graphics& g, juce::Rectangle<float> r, float radius)
+    {
+        g.setColour (well);
+        g.fillRoundedRectangle (r, radius);
+
+        juce::Graphics::ScopedSaveState save (g);
+        juce::Path clip;
+        clip.addRoundedRectangle (r, radius);
+        g.reduceClipRegion (clip);
+        g.setGradientFill (juce::ColourGradient (juce::Colours::black.withAlpha (0.13f), 0.0f, r.getY(),
+                                                 juce::Colours::transparentBlack, 0.0f, r.getY() + 5.0f, false));
+        g.fillRect (r.withHeight (6.0f));
+        g.setColour (juce::Colours::black.withAlpha (0.06f));
+        g.drawRoundedRectangle (r.reduced (0.5f), radius, 1.0f);
+    }
+
+    // Botón en relieve (claro, con sombra abajo).
+    inline void drawRaised (juce::Graphics& g, juce::Rectangle<float> r, float radius, bool over, bool down)
+    {
+        juce::Path shape;
+        shape.addRoundedRectangle (r, radius);
+
+        if (! down)
+            juce::DropShadow (juce::Colours::black.withAlpha (0.2f), 5, { 0, 2 }).drawForPath (g, shape);
+
+        const float lift = over && ! down ? 0.02f : 0.0f;
+        g.setGradientFill (juce::ColourGradient (raisedTop.brighter (lift), 0.0f, r.getY(),
+                                                 down ? raisedBot.darker (0.04f) : raisedBot.brighter (lift), 0.0f, r.getBottom(), false));
+        g.fillPath (shape);
+
+        g.setColour (juce::Colours::white.withAlpha (down ? 0.3f : 0.9f));
+        g.drawLine (r.getX() + radius, r.getY() + 0.75f, r.getRight() - radius, r.getY() + 0.75f, 1.0f);
+    }
+}

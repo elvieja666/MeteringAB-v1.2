@@ -2,6 +2,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
 #include "Scope.h"
+#include "Theme.h"
 
 // ---------------------------------------------------------------------------
 //  Perilla con valor exacto:
@@ -16,6 +17,11 @@ public:
     void mouseDown (const juce::MouseEvent& e) override;
 };
 
+// Estilo de los controles. Cada botón dice qué tipo es con la propiedad "kind":
+//   raised  = en relieve sobre el gris (Medir, Ø, el botón grande)
+//   segment = mitad de ms | Sync (la elegida queda en relieve)
+//   chip    = pastilla oscura del osciloscopio (color en "chipColour")
+//   plain   = solo texto (▸ Osciloscopio)
 class MeteringABLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -23,6 +29,15 @@ public:
     void drawRotarySlider (juce::Graphics&, int x, int y, int w, int h, float pos,
                            float startAngle, float endAngle, juce::Slider&) override;
     juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override;
+    void drawButtonBackground (juce::Graphics&, juce::Button&, const juce::Colour&, bool over, bool down) override;
+    void drawButtonText (juce::Graphics&, juce::TextButton&, bool over, bool down) override;
+    void drawComboBox (juce::Graphics&, int w, int h, bool down, int bx, int by, int bw, int bh, juce::ComboBox&) override;
+    juce::Font getComboBoxFont (juce::ComboBox&) override;
+    void positionComboBoxText (juce::ComboBox&, juce::Label&) override;
+    juce::Font getPopupMenuFont() override;
+    juce::Label* createSliderTextBox (juce::Slider&) override;
+    void drawLabel (juce::Graphics&, juce::Label&) override;
+    juce::Font getLabelFont (juce::Label&) override;
 };
 
 // Botón con el ícono "abrir en ventana aparte" (cuadro con una flecha).
@@ -40,7 +55,7 @@ class ScopeWindowContent : public juce::Component
 {
 public:
     std::function<void (juce::Rectangle<int>)> layout;
-    void paint (juce::Graphics& g) override       { g.fillAll (juce::Colour (0xff16181d)); }
+    void paint (juce::Graphics& g) override       { g.fillAll (Theme::darkBg); }
     void resized() override                         { if (layout) layout (getLocalBounds()); }
 };
 
@@ -49,7 +64,7 @@ class ScopeWindow : public juce::DocumentWindow
 {
 public:
     explicit ScopeWindow (const juce::String& title)
-        : juce::DocumentWindow (title, juce::Colour (0xff16181d), juce::DocumentWindow::allButtons) {}
+        : juce::DocumentWindow (title, Theme::darkBg, juce::DocumentWindow::allButtons) {}
     std::function<void()> onClose;
     void closeButtonPressed() override              { if (onClose) onClose(); }
 };
@@ -97,10 +112,14 @@ private:
     juce::TextButton abButton, measureButton;
     juce::TextButton polarityButton { juce::String::fromUTF8 ("\xc3\x98") };   // "Ø": polaridad invertida
     juce::Label listenLabel, latencyInfoLabel, matchInfoLabel;
-    juce::Label latencyValueLabel, latencyMsLabel;    // valor medido, en grande (sin perilla)
+    juce::Label latencyMsLabel;                       // "= 1,33 ms" debajo del valor medido
     juce::TextButton syncButtons[2];                  // [0] = ms, [1] = Sync
     juce::Label windowInfoLabel;                      // equivalencia ms <-> compases
     juce::Label statusLabel;
+    juce::TextButton linkMinus { juce::String::fromUTF8 ("\xe2\x88\x92") }, linkPlus { "+" };   // − / +
+    juce::Label linkValueLabel;
+    juce::String latencyNumberText;                   // número de latencia (se dibuja en paint)
+    juce::Rectangle<int> latencyNumberArea;
 
     juce::TooltipWindow tooltipWindow { this, 700 };
     ScopeView scope { processor };

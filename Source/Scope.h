@@ -2,6 +2,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "PluginProcessor.h"
 #include "Text.h"
+#include "Theme.h"
 
 // ---------------------------------------------------------------------------
 //  Osciloscopio sincronizado al tempo del proyecto.
@@ -19,12 +20,12 @@ class ScopeView : public juce::Component, public juce::SettableTooltipClient
 public:
     // Formas de dibujar la onda.
     enum class Style { contour = 0, detailed = 1, lines = 2 };
-    static inline const juce::StringArray styleNames { "Contorno", "Detallado (picos + RMS)", juce::String::fromUTF8 ("Solo l\xc3\xadneas") };
+    static inline const juce::StringArray styleNames { "Contorno", "Detallado (picos)", juce::String::fromUTF8 ("Solo l\xc3\xadneas") };
 
     // Paletas de colores: { nombre, PRE, POST }.
     struct Palette { const char* name; juce::uint32 pre, post; };
     static constexpr std::array<Palette, 5> palettes {{
-        { "Verde agua / Ambar",  0xff5dcaa5, 0xfff2b544 },
+        { "Gris / Turquesa",     0xffa9aeb6, 0xff4fc2b9 },
         { "Grises (clasico)",    0xff6c7077, 0xffb8bbc1 },
         { "Azul / Rosa",         0xff5aa9ff, 0xffff6fa8 },
         { "Blanco / Rojo",       0xffd9d7d3, 0xffeb5757 },
@@ -73,8 +74,8 @@ public:
             capture();
 
         const auto bounds = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (0xff121316));
-        g.fillRoundedRectangle (bounds, 8.0f);
+        g.setColour (Theme::darkPanel);
+        g.fillRoundedRectangle (bounds, 12.0f);
 
         const auto plot = bounds.withTrimmedLeft (38.0f).withTrimmedTop (20.0f).withTrimmedRight (10.0f).withTrimmedBottom (8.0f);
         drawTimeGrid (g, plot);
@@ -132,7 +133,7 @@ public:
             {
                 const char* name = channels == Channels::left ? "L" : channels == Channels::right ? "R" : (lane == 0 ? "L" : "R");
                 g.setColour (juce::Colour (0xffe8e6e3).withAlpha (0.8f));
-                g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+                g.setFont (Theme::font (13.0f, 600));
                 g.drawText (name, juce::Rectangle<float> (area.getX() + 6.0f, area.getY() + 4.0f, 20.0f, 16.0f).toNearestInt(),
                             juce::Justification::centredLeft);
             }
@@ -153,7 +154,7 @@ public:
         }
 
         // Estado (la leyenda ahora son los botones PRE FX / POST FX de arriba)
-        g.setFont (juce::FontOptions (11.0f));
+        g.setFont (Theme::font (11.0f, 400));
 
         if (! showPre && ! showPost)
         {
@@ -217,7 +218,7 @@ private:
         const float minLabelGap = 34.0f;
         float lastLabelX = -1000.0f;
 
-        g.setFont (juce::FontOptions (11.0f));
+        g.setFont (Theme::font (11.0f, 400));
 
         for (int k = 0; k <= totalLines; ++k)
         {
@@ -255,7 +256,7 @@ private:
     // Escala en dB: 0, -6, -12, -18 arriba y abajo, -∞ en el centro.
     void drawLevelGrid (juce::Graphics& g, juce::Rectangle<float> plot, float midY, float half) const
     {
-        g.setFont (juce::FontOptions (11.0f));
+        g.setFont (Theme::font (11.0f, 400));
         float lastLabelOffset = 1.0e9f;                   // distancia al centro de la última etiqueta
 
         for (int db : { 0, -6, -12, -18 })
