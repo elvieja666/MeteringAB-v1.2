@@ -253,6 +253,8 @@ static Result runMeasureCase (int link, std::unique_ptr<Fx> fx)
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
+    // Sin pantalla, la ventana aparte se prueba por dentro (con METERINGAB_REAL_WINDOW=1 se abre de verdad).
+    MeteringABEditor::createSeparateWindows = juce::SystemStats::getEnvironmentVariable ("METERINGAB_REAL_WINDOW", {}) == "1";
 
     if (argc > 1) // Metering A/BTests <carpeta>: guarda capturas de la interfaz
     {
@@ -309,9 +311,23 @@ int main (int argc, char** argv)
                 auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
                 e->refreshNow(); setParam (*a, ParamIDs::pre, 1); e->refreshNow();
             }
-            auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 2.0f);
-            juce::File f (juce::String (argv[1]) + names[shot]);
-            f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+            auto save = [&] (juce::Component& comp, const char* name)
+            {
+                auto img = comp.createComponentSnapshot (comp.getLocalBounds(), true, 2.0f);
+                juce::File f (juce::String (argv[1]) + name);
+                f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+            };
+            save (*ed, names[shot]);
+
+            if (shot == 2)   // osciloscopio en ventana aparte
+            {
+                auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
+                e->setScopeDetachedForTests (true);
+                auto& content = e->getDetachedContentForTests();
+                content.setSize (1000, 500);
+                save (content, "/ventana-grande.png");
+                save (*ed, "/receive-ventana.png");
+            }
         }
         return 0;
     }
@@ -377,6 +393,22 @@ int main (int argc, char** argv)
         MeteringABProcessor sendP;
         std::unique_ptr<juce::AudioProcessorEditor> ed2 (sendP.createEditor());
         check (ed2->getHeight() == MeteringABEditor::sendHeight, "Modo Send: sin sección de osciloscopio (alto px)", ed2->getHeight());
+    }
+    {
+        // Ventana aparte: el osciloscopio se muda a la ventana y vuelve al cerrarla.
+        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
+        a.apvts.state.setProperty ("scopeOpen", true, nullptr);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+        auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
+        e->setScopeDetachedForTests (true);
+        check (e->isScopeDetached() && e->isScopeInsideDetachedContent() && ed->getHeight() == MeteringABEditor::mainHeight + 44,
+               "Ventana aparte: el osciloscopio se va y el plugin se achica (alto px)", ed->getHeight());
+        e->setScopeDetachedForTests (false);
+        check (! e->isScopeInsideDetachedContent() && ed->getHeight() == MeteringABEditor::mainHeight + 44 + 316,
+               "Al cerrar la ventana vuelve al plugin, abierto (alto px)", ed->getHeight());
+        e->setScopeDetachedForTests (true);
+        setParam (a, ParamIDs::mode, 0); e->refreshNow();
+        check (! e->isScopeDetached() && ed->getHeight() == MeteringABEditor::sendHeight, "Pasar a Send cierra la ventana aparte", ed->getHeight());
     }
     {
         // Osciloscopio linkeado a la escucha: al alternar PRE/POST FX muestra solo esa onda.

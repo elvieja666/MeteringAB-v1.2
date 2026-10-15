@@ -25,6 +25,35 @@ public:
     juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override;
 };
 
+// Botón con el ícono "abrir en ventana aparte" (cuadro con una flecha).
+class DetachButton : public juce::Button
+{
+public:
+    DetachButton() : juce::Button ("Ventana aparte") {}
+    bool detached = false;                            // resaltado mientras está en la ventana
+    void paintButton (juce::Graphics&, bool isOver, bool isDown) override;
+};
+
+// Contenido de la ventana grande: el osciloscopio arriba y sus controles abajo.
+// Los componentes son los mismos del plugin (se mudan de lugar, no se copian).
+class ScopeWindowContent : public juce::Component
+{
+public:
+    std::function<void (juce::Rectangle<int>)> layout;
+    void paint (juce::Graphics& g) override       { g.fillAll (juce::Colour (0xff16181d)); }
+    void resized() override                         { if (layout) layout (getLocalBounds()); }
+};
+
+// Ventana aparte (flota sobre Logic, se puede agrandar).
+class ScopeWindow : public juce::DocumentWindow
+{
+public:
+    explicit ScopeWindow (const juce::String& title)
+        : juce::DocumentWindow (title, juce::Colour (0xff16181d), juce::DocumentWindow::allButtons) {}
+    std::function<void()> onClose;
+    void closeButtonPressed() override              { if (onClose) onClose(); }
+};
+
 class MeteringABEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
@@ -42,6 +71,11 @@ public:
     // Para las pruebas: ejecuta una actualización de la interfaz (lo que hace el timer).
     void refreshNow() { timerCallback(); }
     const ScopeView& getScopeForTests() const { return scope; }
+    void setScopeDetachedForTests (bool on)       { setScopeDetached (on); }
+    bool isScopeDetached() const                  { return scopeDetached; }
+    bool isScopeInsideDetachedContent() const     { return scope.getParentComponent() == &detachedContent; }
+    juce::Component& getDetachedContentForTests() { return detachedContent; }
+    static inline bool createSeparateWindows = true;   // las pruebas sin pantalla lo apagan
 
 private:
     void timerCallback() override;
@@ -86,6 +120,15 @@ private:
     bool scopeOpen = false;
     void setScopeOpen (bool open);
     void updateScopeSection();
+
+    // Osciloscopio en una ventana aparte, grande.
+    DetachButton detachButton;
+    ScopeWindowContent detachedContent;
+    std::unique_ptr<ScopeWindow> scopeWindow;
+    bool scopeDetached = false;
+    void setScopeDetached (bool detached);
+    void layoutDetached (juce::Rectangle<int> area);
+    juce::Component* scopeParts[6] = { &scope, &zoomBox, &scopeStyleButton, &linkButton, &showPreButton, &showPostButton };
 
     static constexpr int editorWidth = 640;
     static constexpr int scopeHeaderHeight = 44;      // barra "Osciloscopio" (siempre visible)

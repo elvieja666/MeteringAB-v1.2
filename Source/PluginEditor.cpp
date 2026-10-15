@@ -291,9 +291,22 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     scopeToggleButton.setColour (juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
     scopeToggleButton.setColour (juce::TextButton::textColourOffId, Colours::text);
     scopeToggleButton.setTooltip ("Mostrar u ocultar el osciloscopio");
-    scopeToggleButton.onClick = [this] { setScopeOpen (! scopeOpen); };
+    scopeToggleButton.onClick = [this]
+    {
+        if (scopeDetached)
+            setScopeDetached (false);              // estaba en la ventana aparte: traerlo de vuelta
+        else
+            setScopeOpen (! scopeOpen);
+    };
     addAndMakeVisible (scopeToggleButton);
     scopeOpen = (bool) apvts.state.getProperty ("scopeOpen", false);   // arranca cerrado
+
+    // ⧉ Abrir el osciloscopio en una ventana aparte, grande.
+    detachButton.setTooltip ("Abrir el osciloscopio en una ventana aparte");
+    detachButton.onClick = [this] { setScopeDetached (! scopeDetached); };
+    addAndMakeVisible (detachButton);
+    detachedContent.setLookAndFeel (&lnf);
+    detachedContent.layout = [this] (juce::Rectangle<int> area) { layoutDetached (area); };
 
     // Estilo: forma de dibujar, colores y grilla (se guardan con el proyecto).
     scopeStyleButton.setTooltip ("Forma, colores y grilla del osciloscopio");
@@ -317,7 +330,137 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
 MeteringABEditor::~MeteringABEditor()
 {
     stopTimer();
+
+    if (scopeWindow != nullptr)
+    {
+        processor.apvts.state.setProperty ("scopeWindowBounds", scopeWindow->getBounds().toString(), nullptr);
+        scopeWindow->clearContentComponent();
+        scopeWindow.reset();
+    }
+
+    detachedContent.setLookAndFeel (nullptr);
     setLookAndFeel (nullptr);
+}
+
+void DetachButton::paintButton (juce::Graphics& g, bool isOver, bool isDown)
+{
+    auto r = getLocalBounds().toFloat().reduced (0.5f);
+    g.setColour (detached ? Colours::accent : Colours::panel.brighter (isDown ? 0.2f : isOver ? 0.1f : 0.0f));
+    g.fillRoundedRectangle (r, 5.0f);
+    g.setColour (Colours::outline);
+    g.drawRoundedRectangle (r, 5.0f, 1.0f);
+
+    // Ícono: cuadro abierto arriba a la derecha con una flecha saliendo.
+    const auto ink = detached ? Colours::background : Colours::text;
+    auto icon = r.withSizeKeepingCentre (14.0f, 14.0f);
+    juce::Path box;
+    box.startNewSubPath (icon.getX() + 6.0f, icon.getY());
+    box.lineTo (icon.getX(), icon.getY());
+    box.lineTo (icon.getX(), icon.getBottom());
+    box.lineTo (icon.getRight(), icon.getBottom());
+    box.lineTo (icon.getRight(), icon.getY() + 8.0f);
+    g.setColour (ink);
+    g.strokePath (box, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    juce::Path arrow;
+    arrow.startNewSubPath (icon.getX() + 6.0f, icon.getBottom() - 6.0f);
+    arrow.lineTo (icon.getRight() + 1.0f, icon.getY() - 1.0f);
+    arrow.startNewSubPath (icon.getRight() - 5.0f, icon.getY() - 1.0f);
+    arrow.lineTo (icon.getRight() + 1.0f, icon.getY() - 1.0f);
+    arrow.lineTo (icon.getRight() + 1.0f, icon.getY() + 5.0f);
+    g.strokePath (arrow, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+}
+
+// Lleva el osciloscopio (y sus botones) a una ventana aparte, o lo trae de vuelta.
+void MeteringABEditor::setScopeDetached (bool detached)
+{
+    if (detached == scopeDetached)
+        return;
+
+    scopeDetached = detached;
+    detachButton.detached = detached;
+    detachButton.setTooltip (detached ? "Traer el osciloscopio de vuelta al plugin" : "Abrir el osciloscopio en una ventana aparte");
+    auto& state = processor.apvts.state;
+
+    if (detached)
+    {
+        for (auto* c : scopeParts)
+            detachedContent.addAndMakeVisible (c);
+
+        const auto saved = juce::Rectangle<int>::fromString (state.getProperty ("scopeWindowBounds", "").toString());
+        detachedContent.setSize (1000, 520);
+
+        if (createSeparateWindows)
+        {
+            const int link = (int) processor.apvts.getRawParameterValue (ParamIDs::link)->load();
+            scopeWindow = std::make_unique<ScopeWindow> ("Metering A/B  ·  Osciloscopio  ·  Link ID "_u + juce::String (link));
+            scopeWindow->setUsingNativeTitleBar (true);
+            scopeWindow->setContentNonOwned (&detachedContent, true);
+            scopeWindow->setResizable (true, false);
+            scopeWindow->setResizeLimits (600, 320, 4000, 2500);
+           #if JUCE_MAC || JUCE_WINDOWS
+            scopeWindow->setAlwaysOnTop (true);             // que no quede detrás de Logic
+           #endif
+
+            const bool savedFits = ! saved.isEmpty()
+                && juce::Desktop::getInstance().getDisplays().getDisplayForRect (saved) != nullptr;
+
+            if (savedFits)
+                scopeWindow->setBounds (saved);
+            else
+                scopeWindow->centreAroundComponent (this, scopeWindow->getWidth(), scopeWindow->getHeight());
+
+            scopeWindow->onClose = [safe = juce::Component::SafePointer<MeteringABEditor> (this)]
+            {
+                juce::MessageManager::callAsync ([safe]
+                {
+                    if (safe != nullptr)
+                        safe->setScopeDetached (false);
+                });
+            };
+
+            scopeWindow->setVisible (true);
+            scopeWindow->toFront (true);
+        }
+        else
+        {
+            detachedContent.resized();
+        }
+    }
+    else
+    {
+        if (scopeWindow != nullptr)
+        {
+            state.setProperty ("scopeWindowBounds", scopeWindow->getBounds().toString(), nullptr);
+            scopeWindow->clearContentComponent();
+            scopeWindow.reset();
+        }
+
+        for (auto* c : scopeParts)
+            addChildComponent (c);
+
+        scopeOpen = true;                                   // vuelve abierto al plugin
+        state.setProperty ("scopeOpen", true, nullptr);
+    }
+
+    updateScopeSection();
+}
+
+// Ventana grande: osciloscopio arriba, controles abajo.
+void MeteringABEditor::layoutDetached (juce::Rectangle<int> area)
+{
+    auto bar = area.removeFromBottom (52).reduced (14, 10);
+    scope.setBounds (area.reduced (12, 0).withTrimmedTop (12));
+
+    zoomBox.setBounds (bar.removeFromLeft (110));
+    bar.removeFromLeft (8);
+    scopeStyleButton.setBounds (bar.removeFromLeft (72));
+
+    showPostButton.setBounds (bar.removeFromRight (84));
+    bar.removeFromRight (6);
+    showPreButton.setBounds (bar.removeFromRight (76));
+    bar.removeFromRight (6);
+    linkButton.setBounds (bar.removeFromRight (70));
 }
 
 void MeteringABEditor::setupKnob (PreciseSlider& s, juce::Label& label, const juce::String& text)
@@ -428,7 +571,10 @@ void MeteringABEditor::pickCustomColour (bool forPre)
             applyScopeLook();
         });
 
-    juce::CallOutBox::launchAsynchronously (std::move (selector), scopeStyleButton.getBounds(), this);
+    // Funciona tanto en el plugin como en la ventana aparte.
+    auto* host = scopeStyleButton.getTopLevelComponent();
+    juce::CallOutBox::launchAsynchronously (std::move (selector),
+                                            host->getLocalArea (&scopeStyleButton, scopeStyleButton.getLocalBounds()), host);
 }
 
 void MeteringABEditor::setScopeOpen (bool open)
@@ -442,16 +588,29 @@ void MeteringABEditor::setScopeOpen (bool open)
 void MeteringABEditor::updateScopeSection()
 {
     const bool showSection = ! isSendMode;
-    const bool showBody = showSection && scopeOpen;
+
+    if (! showSection && scopeDetached)
+    {
+        setScopeDetached (false);                  // en Send no hay osciloscopio: cerrar la ventana
+        return;
+    }
+
+    const bool showBody = showSection && scopeOpen && ! scopeDetached;
+    const bool open = scopeOpen && ! scopeDetached;
 
     scopeToggleButton.setVisible (showSection);
-    scopeToggleButton.setButtonText (juce::String::fromUTF8 (scopeOpen ? "\xe2\x96\xbe" : "\xe2\x96\xb8") + "  Osciloscopio");
+    scopeToggleButton.setButtonText (juce::String::fromUTF8 (open ? "\xe2\x96\xbe" : "\xe2\x96\xb8") + "  Osciloscopio");
+    detachButton.setVisible (showSection);
 
-    for (juce::Component* c : std::initializer_list<juce::Component*> { &scope, &scopeLabel, &zoomBox, &showPreButton, &showPostButton, &linkButton, &scopeStyleButton })
-        c->setVisible (showBody);
+    if (! scopeDetached)
+        for (auto* c : scopeParts)
+            c->setVisible (showBody);
+
+    scopeLabel.setText (scopeDetached ? "En una ventana aparte" : "", juce::dontSendNotification);
+    scopeLabel.setVisible (showSection && scopeDetached);
 
     const int height = ! showSection ? sendHeight
-                     : scopeOpen     ? mainHeight + scopeHeaderHeight + scopeBodyHeight
+                     : showBody      ? mainHeight + scopeHeaderHeight + scopeBodyHeight
                                      : mainHeight + scopeHeaderHeight;
 
     if (getWidth() != editorWidth || getHeight() != height)
@@ -678,7 +837,15 @@ void MeteringABEditor::timerCallback()
 
     repaint (0, 76, getWidth(), 80);
 
-    if (! isSendMode && scopeOpen && ! scope.isFrozen())
+    if (scopeWindow != nullptr)                    // título con el Link ID actual
+    {
+        const auto title = "Metering A/B  ·  Osciloscopio  ·  Link ID "_u
+                         + juce::String ((int) processor.apvts.getRawParameterValue (ParamIDs::link)->load());
+        if (scopeWindow->getName() != title)
+            scopeWindow->setName (title);
+    }
+
+    if (! isSendMode && (scopeOpen || scopeDetached) && ! scope.isFrozen())
         scope.repaint();
 }
 
@@ -812,15 +979,24 @@ void MeteringABEditor::resized()
 
     auto scopeHeader = section.removeFromTop (scopeHeaderHeight - 1).withSizeKeepingCentre (section.getWidth(), 28);
     scopeToggleButton.setBounds (scopeHeader.removeFromLeft (128).translated (-8, 0));
-    zoomBox.setBounds (scopeHeader.removeFromRight (100));
-    scopeHeader.removeFromRight (10);
+    detachButton.setBounds (scopeHeader.removeFromRight (34));
+    scopeHeader.removeFromRight (8);
+
+    if (scopeDetached)                             // los controles están en la ventana aparte
+    {
+        scopeLabel.setBounds (scopeHeader);
+        return;
+    }
+
+    zoomBox.setBounds (scopeHeader.removeFromRight (96));
+    scopeHeader.removeFromRight (8);
     showPostButton.setBounds (scopeHeader.removeFromRight (74));
     scopeHeader.removeFromRight (6);
     showPreButton.setBounds (scopeHeader.removeFromRight (66));
     scopeHeader.removeFromRight (6);
-    linkButton.setBounds (scopeHeader.removeFromRight (64));
+    linkButton.setBounds (scopeHeader.removeFromRight (60));
     scopeHeader.removeFromRight (6);
-    scopeStyleButton.setBounds (scopeHeader.removeFromRight (64));
+    scopeStyleButton.setBounds (scopeHeader.removeFromRight (60));
     scopeLabel.setBounds (scopeHeader);
 
     scope.setBounds (section.removeFromTop (scopeBodyHeight - 16));

@@ -86,6 +86,7 @@ Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivela
   - *Mostrar grilla*: prende o apaga las líneas de fondo (las de cada compás quedan siempre).
   - Todo se guarda con el proyecto.
 - **Clic sobre el osciloscopio** para congelarlo; otro clic lo descongela.
+- **Ventana aparte** (el botón con el cuadrito y la flecha, a la derecha): abre el osciloscopio en una ventana grande que flota sobre Logic y la podés agrandar como quieras, con sus controles abajo. Para traerlo de vuelta cerrá esa ventana, o tocá otra vez el botón o **▸ Osciloscopio**. La ventana recuerda su tamaño y lugar.
 - Sirve para ver, por ejemplo, cuánto achica un compresor o un saturador los golpes: los picos verdes que sobresalen por encima de los ámbar son lo que el efecto recortó.
 
 ### Valores exactos
