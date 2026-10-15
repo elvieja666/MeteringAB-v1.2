@@ -419,14 +419,16 @@ private:
             b = end;
         }
 
+        // Contorno: color plano, sin línea de borde. Solo líneas: solo el borde.
         if (filled)
         {
-            g.setColour (colour.withAlpha (0.42f));
+            g.setColour (colour.withAlpha (0.6f));
             g.fillPath (fill);
+            return;
         }
 
         g.setColour (colour);
-        g.strokePath (lines, juce::PathStrokeType (filled ? 1.2f : 1.5f));
+        g.strokePath (lines, juce::PathStrokeType (1.5f));
     }
 
     // Detallado: cada medio píxel muestra el pico real (sin suavizar, se ven
