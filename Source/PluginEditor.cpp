@@ -210,7 +210,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
 
     // Osciloscopio sincronizado + largo en compases (se guarda con el proyecto).
     addAndMakeVisible (scope);
-    scopeLabel.setText ("Osciloscopio  ·  sincronizado al tempo  ·  clic para congelar"_u, juce::dontSendNotification);
+    scopeLabel.setText ("Osciloscopio  ·  clic para congelar"_u, juce::dontSendNotification);
     scopeLabel.setColour (juce::Label::textColourId, Colours::dim);
     scopeLabel.setFont (juce::FontOptions (12.0f));
     addAndMakeVisible (scopeLabel);
@@ -227,6 +227,31 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
         processor.apvts.state.setProperty ("scopeLength", index, nullptr);
     };
     addAndMakeVisible (zoomBox);
+
+    // Botones para mostrar u ocultar cada onda (se guardan con el proyecto).
+    scope.setShowPre  ((bool) apvts.state.getProperty ("scopeShowPre",  true));
+    scope.setShowPost ((bool) apvts.state.getProperty ("scopeShowPost", true));
+
+    for (auto* b : { &showPreButton, &showPostButton })
+    {
+        b->setClickingTogglesState (false);
+        b->setTooltip ("Mostrar u ocultar esta onda en el osciloscopio");
+        addAndMakeVisible (*b);
+    }
+
+    showPreButton.onClick = [this]
+    {
+        scope.setShowPre (! scope.getShowPre());
+        processor.apvts.state.setProperty ("scopeShowPre", scope.getShowPre(), nullptr);
+        updateWaveButtons();
+    };
+    showPostButton.onClick = [this]
+    {
+        scope.setShowPost (! scope.getShowPost());
+        processor.apvts.state.setProperty ("scopeShowPost", scope.getShowPost(), nullptr);
+        updateWaveButtons();
+    };
+    updateWaveButtons();
 
     statusLabel.setFont (juce::FontOptions (13.0f));
     statusLabel.setJustificationType (juce::Justification::centredLeft);
@@ -255,6 +280,19 @@ void MeteringABEditor::setupKnob (PreciseSlider& s, juce::Label& label, const ju
     label.setFont (juce::FontOptions (12.0f));
     addAndMakeVisible (s);
     addAndMakeVisible (label);
+}
+
+// Encendido: relleno con el color de su onda. Apagado: gris, texto tachado-tenue.
+void MeteringABEditor::updateWaveButtons()
+{
+    auto style = [] (juce::TextButton& b, bool on, juce::Colour colour)
+    {
+        b.setColour (juce::TextButton::buttonColourId, on ? colour : Colours::panel);
+        b.setColour (juce::TextButton::textColourOffId, on ? Colours::background : Colours::dim);
+    };
+
+    style (showPreButton,  scope.getShowPre(),  ScopeView::preColour);
+    style (showPostButton, scope.getShowPost(), ScopeView::postColour);
 }
 
 void MeteringABEditor::setBoolParam (const char* paramId, bool on)
@@ -305,7 +343,7 @@ void MeteringABEditor::timerCallback()
         for (juce::Component* c : std::initializer_list<juce::Component*> {
                  &measureBox, &measureLabel, &windowSlider, &latencySlider, &windowLabel, &latencyLabel, &polarityButton,
                  &abButton, &deltaButton, &listenLabel, &measureButton, &latencyInfoLabel, &holdButton,
-                 &scope, &scopeLabel, &zoomBox,
+                 &scope, &scopeLabel, &zoomBox, &showPreButton, &showPostButton,
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
             c->setVisible (! isSendMode);
     }
@@ -511,6 +549,10 @@ void MeteringABEditor::resized()
     // Osciloscopio
     auto scopeHeader = area.removeFromTop (26);
     zoomBox.setBounds (scopeHeader.removeFromRight (100).withTrimmedBottom (4));
+    scopeHeader.removeFromRight (10);
+    showPostButton.setBounds (scopeHeader.removeFromRight (74).withTrimmedBottom (4));
+    scopeHeader.removeFromRight (6);
+    showPreButton.setBounds (scopeHeader.removeFromRight (66).withTrimmedBottom (4));
     scopeLabel.setBounds (scopeHeader);
     scope.setBounds (area.removeFromTop (210));
     area.removeFromTop (14);

@@ -76,6 +76,7 @@ Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivela
 - Está **sincronizado al tempo del proyecto**: el ancho es un largo musical que elegís arriba a la derecha (1/4 bar, 1/2 bar, 1 bar, 2 bars o 4 bars). Arriba tiene la grilla de tiempos (0, 1/4, 2/4, 3/4, 4/4) con subdivisiones.
 - **Barre de izquierda a derecha** siguiendo la canción (la línea blanca es el cabezal). Al llegar al final vuelve a empezar y va reemplazando lo del compás anterior, así cada compás va cambiando. Con Logic detenido sigue barriendo al tempo del proyecto.
 - **Escala fija en dB**: 0 arriba y abajo, −6, −12, −18 y −∞ en el centro.
+- **Botones PRE FX y POST FX** (arriba, al lado del largo): muestran u ocultan cada onda. Encendido tiene el color de su onda; apagado queda gris. Se guardan con el proyecto.
 - **Clic sobre el osciloscopio** para congelarlo; otro clic lo descongela.
 - Sirve para ver, por ejemplo, cuánto achica un compresor o un saturador los golpes: los picos verdes que sobresalen por encima de los ámbar son lo que el efecto recortó.
 

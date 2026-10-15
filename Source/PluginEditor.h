@@ -62,6 +62,8 @@ private:
     ScopeView scope { processor };
     juce::Label scopeLabel;
     juce::ComboBox zoomBox;
+    juce::TextButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };
+    void updateWaveButtons();
 
     std::unique_ptr<ComboAttachment>  modeAtt, measureAtt;
     std::unique_ptr<SliderAttachment> linkAtt, windowAtt, windowSyncAtt, latencyAtt;

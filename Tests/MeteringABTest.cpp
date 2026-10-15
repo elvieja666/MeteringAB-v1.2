@@ -281,6 +281,7 @@ int main (int argc, char** argv)
                 a = &chain->recv;
                 a->apvts.state.setProperty ("scopeLength", shot == 1 ? 2 : 3, nullptr);   // 1 bar / 2 bars
                 a->scopeLengthIndex = shot == 1 ? 2 : 3;
+                if (shot == 2) a->apvts.state.setProperty ("scopeShowPre", false, nullptr);   // captura con PRE oculto
                 chain->run (shot == 1 ? 3.3 : 5.3);
             }
 
@@ -333,6 +334,15 @@ int main (int argc, char** argv)
         setParam (c.recv, ParamIDs::latency, 0);
         out = c.run (1.0);
         check (rmsDb (out) > -40, "Latencia sin compensar: Delta NO es silencio (dB)", rmsDb (out));
+    }
+    {
+        // Mostrar/ocultar ondas: se guarda con el proyecto.
+        MeteringABProcessor a;
+        a.apvts.state.setProperty ("scopeShowPost", false, nullptr);
+        juce::MemoryBlock mb; a.getStateInformation (mb);
+        MeteringABProcessor b2; b2.setStateInformation (mb.getData(), (int) mb.getSize());
+        check (! (bool) b2.apvts.state.getProperty ("scopeShowPost", true) && (bool) b2.apvts.state.getProperty ("scopeShowPre", true),
+               "Osciloscopio: ocultar POST FX se guarda con el proyecto", 1);
     }
     {
         MeteringABProcessor fresh;

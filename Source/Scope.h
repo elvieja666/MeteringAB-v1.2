@@ -24,6 +24,12 @@ public:
 
     bool isFrozen() const { return frozen; }
 
+    // Mostrar u ocultar cada onda (botones PRE FX / POST FX).
+    void setShowPre (bool shouldShow)  { showPre = shouldShow;  repaint(); }
+    void setShowPost (bool shouldShow) { showPost = shouldShow; repaint(); }
+    bool getShowPre() const            { return showPre; }
+    bool getShowPost() const           { return showPost; }
+
     void mouseDown (const juce::MouseEvent&) override
     {
         frozen = ! frozen;
@@ -48,8 +54,11 @@ public:
 
         auto yFor = [&] (float v) { return midY - juce::jlimit (-1.0f, 1.0f, v) * half; };
 
-        drawEnvelope (g, plot, preMin, preMax, yFor, preColour);
-        drawEnvelope (g, plot, postMin, postMax, yFor, postColour);    // POST encima
+        if (showPre)
+            drawEnvelope (g, plot, preMin, preMax, yFor, preColour);
+
+        if (showPost)
+            drawEnvelope (g, plot, postMin, postMax, yFor, postColour);    // POST encima
 
         // Cabezal del barrido
         if (! frozen)
@@ -59,15 +68,14 @@ public:
             g.drawVerticalLine ((int) x, plot.getY(), plot.getBottom());
         }
 
-        // Leyenda y estado
+        // Estado (la leyenda ahora son los botones PRE FX / POST FX de arriba)
         g.setFont (juce::FontOptions (11.0f));
-        auto legend = juce::Rectangle<float> (plot.getX() + 8.0f, plot.getY() + 6.0f, 200.0f, 14.0f).toNearestInt();
-        g.setColour (preColour);
-        g.fillEllipse ((float) legend.getX(), (float) legend.getY() + 3.0f, 8.0f, 8.0f);
-        g.drawText ("PRE FX", legend.withTrimmedLeft (12).withWidth (50), juce::Justification::centredLeft);
-        g.setColour (postColour);
-        g.fillEllipse ((float) legend.getX() + 64.0f, (float) legend.getY() + 3.0f, 8.0f, 8.0f);
-        g.drawText ("POST FX", legend.withTrimmedLeft (76).withWidth (60), juce::Justification::centredLeft);
+
+        if (! showPre && ! showPost)
+        {
+            g.setColour (juce::Colour (0xff8a8f98));
+            g.drawText ("Ambas ondas ocultas", plot.toNearestInt(), juce::Justification::centred);
+        }
 
         if (frozen)
         {
@@ -220,4 +228,5 @@ private:
     double lengthBars = 1.0;
     int beatsPerBar = 4;
     bool frozen = false;
+    bool showPre = true, showPost = true;
 };
