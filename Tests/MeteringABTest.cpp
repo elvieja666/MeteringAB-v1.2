@@ -656,8 +656,9 @@ int main (int argc, char** argv)
     }
 
     {
-        // Como en Logic: FX con 4400 muestras de latencia, arranque un poco antes
-        // del play (compensación) y un golpe en el tiempo 2 del compás.
+        // Como en Logic (compensación de latencia): FX con 4400 muestras, Logic lee
+        // el audio de la pista 4400 muestras adelantado y arranca 4400 muestras
+        // antes del play; los dos plugins reciben la misma posición. Golpe en el tiempo 2.
         MeteringABProcessor send, recv; juce::MidiBuffer m;
         setParam (send, ParamIDs::link, 15); setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 15);
         setParam (recv, ParamIDs::latency, 4400.0f);
@@ -687,7 +688,7 @@ int main (int argc, char** argv)
             head.ppq = ppq;
             for (int i = 0; i < 512; ++i)
             {
-                const double t = ppq + i * qps;
+                const double t = ppq + (i + 4400) * qps;                          // audio leído adelantado
                 const float x = (t >= 1.0 && t < 1.0 + 0.02) ? 0.9f : 0.001f;   // golpe en el tiempo 2
                 b.setSample (0, i, x); b.setSample (1, i, x);
             }

@@ -520,12 +520,9 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     const double loopQuarters = getScopeLengthBars() * timeSigNum.load() * 4.0 / timeSigDen.load();
     const double quartersPerSample = hostBpm.load() / 60.0 / currentSampleRate;
 
-    // El audio que llega acá viene atrasado por la latencia de tus efectos:
-    // se dibuja en su lugar real del compás restando esa latencia.
-    const double latencyQuarters = scopeRunning ? latencyExact * quartersPerSample : 0.0;
-    scopeQuarters = std::fmod (scopeQuarters - latencyQuarters, loopQuarters);
-    if (scopeQuarters < 0.0)
-        scopeQuarters += loopQuarters;
+    // Logic ya compensa la latencia de los efectos (lee el audio adelantado),
+    // así que la posición que informa coincide con el audio que llega acá:
+    // no hay que restar nada.
 
     // Al dar play: limpiar y dibujar solo desde el punto de play (Logic
     // empieza a procesar un poco antes para compensar la latencia).
@@ -544,7 +541,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     }
 
     scopeWasPlaying = scopeRunning;
-    double songQuarters = (hostHasPpq ? hostPpq : scopePlayStartQuarters) - latencyQuarters;   // posición real del audio
+    double songQuarters = hostHasPpq ? hostPpq : scopePlayStartQuarters;   // posición del audio que llega
 
     for (int i = 0; i < n; ++i)
     {
