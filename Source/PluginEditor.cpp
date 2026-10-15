@@ -239,18 +239,20 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
         addAndMakeVisible (*b);
     }
 
-    showPreButton.onClick = [this]
+    showPreButton.onClick  = [this] { setWaves (! scope.getShowPre(), scope.getShowPost()); };
+    showPostButton.onClick = [this] { setWaves (scope.getShowPre(), ! scope.getShowPost()); };
+
+    // Botón de alternar, como el de escucha: cada clic muestra solo una onda.
+    // Si se ve solo PRE pasa a solo POST; en cualquier otro caso, a solo PRE.
+    waveSwapButton.setClickingTogglesState (false);
+    waveSwapButton.setTooltip ("Clic para alternar entre ver solo PRE FX y ver solo POST FX");
+    waveSwapButton.onClick = [this]
     {
-        scope.setShowPre (! scope.getShowPre());
-        processor.apvts.state.setProperty ("scopeShowPre", scope.getShowPre(), nullptr);
-        updateWaveButtons();
+        const bool onlyPre = scope.getShowPre() && ! scope.getShowPost();
+        setWaves (! onlyPre, onlyPre);
     };
-    showPostButton.onClick = [this]
-    {
-        scope.setShowPost (! scope.getShowPost());
-        processor.apvts.state.setProperty ("scopeShowPost", scope.getShowPost(), nullptr);
-        updateWaveButtons();
-    };
+    addAndMakeVisible (waveSwapButton);
+
     updateWaveButtons();
 
     statusLabel.setFont (juce::FontOptions (13.0f));
@@ -282,7 +284,16 @@ void MeteringABEditor::setupKnob (PreciseSlider& s, juce::Label& label, const ju
     addAndMakeVisible (label);
 }
 
-// Encendido: relleno con el color de su onda. Apagado: gris, texto tachado-tenue.
+void MeteringABEditor::setWaves (bool pre, bool post)
+{
+    scope.setShowPre (pre);
+    scope.setShowPost (post);
+    processor.apvts.state.setProperty ("scopeShowPre",  pre,  nullptr);
+    processor.apvts.state.setProperty ("scopeShowPost", post, nullptr);
+    updateWaveButtons();
+}
+
+// Encendido: relleno con el color de su onda. Apagado: gris.
 void MeteringABEditor::updateWaveButtons()
 {
     auto style = [] (juce::TextButton& b, bool on, juce::Colour colour)
@@ -293,6 +304,28 @@ void MeteringABEditor::updateWaveButtons()
 
     style (showPreButton,  scope.getShowPre(),  ScopeView::preColour);
     style (showPostButton, scope.getShowPost(), ScopeView::postColour);
+
+    // El botón de alternar dice qué onda se está viendo sola, con su color.
+    const bool onlyPre  = scope.getShowPre() && ! scope.getShowPost();
+    const bool onlyPost = scope.getShowPost() && ! scope.getShowPre();
+    const auto arrows = juce::String::fromUTF8 ("\xe2\x87\x84");   // ⇄
+
+    if (onlyPre)
+    {
+        waveSwapButton.setButtonText (arrows + " PRE");
+        style (waveSwapButton, true, ScopeView::preColour);
+    }
+    else if (onlyPost)
+    {
+        waveSwapButton.setButtonText (arrows + " POST");
+        style (waveSwapButton, true, ScopeView::postColour);
+    }
+    else
+    {
+        waveSwapButton.setButtonText (arrows + " A/B");
+        waveSwapButton.setColour (juce::TextButton::buttonColourId, Colours::panel);
+        waveSwapButton.setColour (juce::TextButton::textColourOffId, Colours::text);
+    }
 }
 
 void MeteringABEditor::setBoolParam (const char* paramId, bool on)
@@ -343,7 +376,7 @@ void MeteringABEditor::timerCallback()
         for (juce::Component* c : std::initializer_list<juce::Component*> {
                  &measureBox, &measureLabel, &windowSlider, &latencySlider, &windowLabel, &latencyLabel, &polarityButton,
                  &abButton, &deltaButton, &listenLabel, &measureButton, &latencyInfoLabel, &holdButton,
-                 &scope, &scopeLabel, &zoomBox, &showPreButton, &showPostButton,
+                 &scope, &scopeLabel, &zoomBox, &showPreButton, &showPostButton, &waveSwapButton,
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
             c->setVisible (! isSendMode);
     }
@@ -553,6 +586,8 @@ void MeteringABEditor::resized()
     showPostButton.setBounds (scopeHeader.removeFromRight (74).withTrimmedBottom (4));
     scopeHeader.removeFromRight (6);
     showPreButton.setBounds (scopeHeader.removeFromRight (66).withTrimmedBottom (4));
+    scopeHeader.removeFromRight (6);
+    waveSwapButton.setBounds (scopeHeader.removeFromRight (78).withTrimmedBottom (4));
     scopeLabel.setBounds (scopeHeader);
     scope.setBounds (area.removeFromTop (210));
     area.removeFromTop (14);

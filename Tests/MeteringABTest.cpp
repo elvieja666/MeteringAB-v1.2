@@ -281,7 +281,7 @@ int main (int argc, char** argv)
                 a = &chain->recv;
                 a->apvts.state.setProperty ("scopeLength", shot == 1 ? 2 : 3, nullptr);   // 1 bar / 2 bars
                 a->scopeLengthIndex = shot == 1 ? 2 : 3;
-                if (shot == 2) a->apvts.state.setProperty ("scopeShowPre", false, nullptr);   // captura con PRE oculto
+                if (shot == 2) a->apvts.state.setProperty ("scopeShowPre", false, nullptr);   // captura con solo POST
                 chain->run (shot == 1 ? 3.3 : 5.3);
             }
 

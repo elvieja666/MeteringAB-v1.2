@@ -63,6 +63,8 @@ private:
     juce::Label scopeLabel;
     juce::ComboBox zoomBox;
     juce::TextButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };
+    juce::TextButton waveSwapButton;                  // alterna: ver solo PRE <-> ver solo POST
+    void setWaves (bool pre, bool post);
     void updateWaveButtons();
 
     std::unique_ptr<ComboAttachment>  modeAtt, measureAtt;
