@@ -49,11 +49,12 @@ private:
     MeteringABLookAndFeel lnf;
 
     juce::ComboBox modeBox, measureBox;
-    PreciseSlider linkSlider, windowSlider, windowSyncSlider, latencySlider;
+    PreciseSlider linkSlider, windowSlider, windowSyncSlider;
     juce::Label linkLabel, windowLabel, latencyLabel, measureLabel;
     juce::TextButton abButton, deltaButton, measureButton;
     juce::TextButton polarityButton { juce::String::fromUTF8 ("\xc3\x98") };   // "Ø": polaridad invertida
     juce::Label listenLabel, latencyInfoLabel;
+    juce::Label latencyValueLabel, latencyMsLabel;    // valor medido, en grande (sin perilla)
     juce::TextButton syncButtons[2];                  // [0] = ms, [1] = Sync
     juce::Label windowInfoLabel;                      // equivalencia ms <-> compases
     juce::ToggleButton holdButton { "Congelar" };
@@ -78,7 +79,7 @@ private:
     void updateWaveButtons();
 
     std::unique_ptr<ComboAttachment>  modeAtt, measureAtt;
-    std::unique_ptr<SliderAttachment> linkAtt, windowAtt, windowSyncAtt, latencyAtt;
+    std::unique_ptr<SliderAttachment> linkAtt, windowAtt, windowSyncAtt;
     std::unique_ptr<ButtonAttachment> holdAtt, polarityAtt;
 
     float shownPre = -120.0f, shownPost = -120.0f, shownGain = 0.0f;

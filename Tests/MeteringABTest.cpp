@@ -278,6 +278,7 @@ int main (int argc, char** argv)
                 if (shot == 3) chain->recv.apvts.state.setProperty ("scopeOpen", false, nullptr);   // FX con 64 muestras de latencia
                 setParam (chain->recv, ParamIDs::latency, 64.0f);
                 chain->recv.latencyMeasurer.setState (LatencyMeasurer::State::done);
+                if (shot == 1) setParam (chain->recv, ParamIDs::polarity, 1);   // para ver "Ø invertida" en la captura
                 chain->saturate = true; chain->pulsing = true;
                 a = &chain->recv;
                 a->apvts.state.setProperty ("scopeLength", shot == 2 ? 3 : 2, nullptr);   // 1 bar / 2 bars

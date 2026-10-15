@@ -137,10 +137,24 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     linkAtt = std::make_unique<SliderAttachment> (apvts, ParamIDs::link, linkSlider);
 
     setupKnob (windowSlider,  windowLabel,  "Ventana");
-    setupKnob (latencySlider, latencyLabel, "Latencia");
+    // Latencia: sin perilla, solo el botón Medir y el valor medido.
+    latencyLabel.setText ("Latencia", juce::dontSendNotification);
+    latencyLabel.setJustificationType (juce::Justification::centred);
+    latencyLabel.setColour (juce::Label::textColourId, Colours::dim);
+    latencyLabel.setFont (juce::FontOptions (12.0f));
+    addAndMakeVisible (latencyLabel);
+
+    latencyValueLabel.setJustificationType (juce::Justification::centred);
+    latencyValueLabel.setFont (juce::FontOptions (24.0f, juce::Font::bold));
+    latencyValueLabel.setColour (juce::Label::textColourId, Colours::text);
+    addAndMakeVisible (latencyValueLabel);
+
+    latencyMsLabel.setJustificationType (juce::Justification::centred);
+    latencyMsLabel.setFont (juce::FontOptions (12.0f));
+    latencyMsLabel.setColour (juce::Label::textColourId, Colours::dim);
+    addAndMakeVisible (latencyMsLabel);
 
     windowAtt  = std::make_unique<SliderAttachment> (apvts, ParamIDs::windowMs, windowSlider);
-    latencyAtt = std::make_unique<SliderAttachment> (apvts, ParamIDs::latency, latencySlider);
 
     // Doble clic vuelve al valor por defecto.
     windowSlider.setDoubleClickReturnValue (true, 3000.0);
@@ -167,7 +181,6 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     windowInfoLabel.setColour (juce::Label::textColourId, Colours::dim);
     windowInfoLabel.setFont (juce::FontOptions (11.0f));
     addAndMakeVisible (windowInfoLabel);
-    latencySlider.setDoubleClickReturnValue (true, 0.0);
 
     // Botón único PRE FX / POST FX (cada clic alterna).
     abButton.getProperties().set ("big", true);
@@ -415,7 +428,7 @@ void MeteringABEditor::timerCallback()
         isSendMode = sendMode;
 
         for (juce::Component* c : std::initializer_list<juce::Component*> {
-                 &measureBox, &measureLabel, &windowSlider, &latencySlider, &windowLabel, &latencyLabel, &polarityButton,
+                 &measureBox, &measureLabel, &windowSlider, &windowLabel, &latencyLabel, &polarityButton, &latencyValueLabel, &latencyMsLabel,
                  &abButton, &deltaButton, &listenLabel, &measureButton, &latencyInfoLabel, &holdButton,
 
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
@@ -491,17 +504,25 @@ void MeteringABEditor::timerCallback()
                 colour = Colours::accent;
                 break;
             case State::done:
-                text = "Medido: " + samplesText + " = " + msText + polarityText;
+                text = juce::String::fromUTF8 ("\xe2\x9c\x93") + " Medido" + polarityText;
                 colour = Colours::good;
                 break;
             case State::noSignal: text = "No llega audio: dale play";          colour = Colours::bad; break;
             case State::unclear:  text = "Sin coincidencia clara";              colour = Colours::bad; break;
             case State::noSend:   text = "No hay Send conectado";               colour = Colours::bad; break;
-            case State::idle:     text = "= " + msText + polarityText;            break;
+            case State::idle:
+                if (inverted)
+                    text = juce::String::fromUTF8 ("\xc3\x98") + " invertida";
+                else if (latency < 0.005)
+                    text = "Dale play y tocá Medir"_u;
+                break;
         }
 
         latencyInfoLabel.setText (text, juce::dontSendNotification);
         latencyInfoLabel.setColour (juce::Label::textColourId, colour);
+
+        latencyValueLabel.setText (samplesText + " muestras", juce::dontSendNotification);
+        latencyMsLabel.setText ("= " + msText, juce::dontSendNotification);
 
         const bool busy = m.getState() == State::measuring || m.getState() == State::analysing;
         measureButton.setButtonText (busy ? "..." : "Medir");
@@ -659,16 +680,20 @@ void MeteringABEditor::resized()
         windowSyncSlider.setBounds (k.withSizeKeepingCentre (150, k.getHeight()));
     }
 
-    // Latencia: Medir y Ø arriba, perilla, estado de la medición abajo.
+    // Latencia: título, valor medido en grande, Medir + Ø y estado.
     {
         auto k = knobs.removeFromRight (kw);
-        auto header = k.removeFromTop (22).withSizeKeepingCentre (150, 22);
-        latencyLabel.setBounds (header.removeFromLeft (60));
-        measureButton.setBounds (header.removeFromLeft (56));
-        header.removeFromLeft (6);
-        polarityButton.setBounds (header.removeFromLeft (28));
-        latencyInfoLabel.setBounds (k.removeFromBottom (18));
-        latencySlider.setBounds (k.withSizeKeepingCentre (150, k.getHeight()));
+        latencyLabel.setBounds (k.removeFromTop (22));
+        k.removeFromTop (14);
+        latencyValueLabel.setBounds (k.removeFromTop (32));
+        latencyMsLabel.setBounds (k.removeFromTop (18));
+        k.removeFromTop (14);
+        auto buttons = k.removeFromTop (40).withSizeKeepingCentre (176, 40);
+        measureButton.setBounds (buttons.removeFromLeft (132));
+        buttons.removeFromLeft (8);
+        polarityButton.setBounds (buttons);
+        k.removeFromTop (8);
+        latencyInfoLabel.setBounds (k.removeFromTop (18));
     }
 
     // ---- Sección del osciloscopio (debajo de la línea) ----
