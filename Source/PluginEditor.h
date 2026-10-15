@@ -28,6 +28,10 @@ public:
 class MeteringABEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
+    // Medidas de la ventana: parte principal + sección del osciloscopio.
+    static constexpr int columnsHeight = 152;         // Escuchar | Ventana | Latencia
+    static constexpr int mainHeight = 162 + columnsHeight + 36;   // hasta la línea que separa el osciloscopio
+
     explicit MeteringABEditor (MeteringABProcessor&);
     ~MeteringABEditor() override;
 
@@ -55,7 +59,7 @@ private:
     juce::ComboBox modeBox, measureBox;
     PreciseSlider linkSlider, windowSlider, windowSyncSlider;
     juce::Label linkLabel, windowLabel, latencyLabel, measureLabel;
-    juce::TextButton abButton, deltaButton, measureButton;
+    juce::TextButton abButton, measureButton;
     juce::TextButton polarityButton { juce::String::fromUTF8 ("\xc3\x98") };   // "Ø": polaridad invertida
     juce::Label listenLabel, latencyInfoLabel;
     juce::Label latencyValueLabel, latencyMsLabel;    // valor medido, en grande (sin perilla)
@@ -82,9 +86,7 @@ private:
     void setScopeOpen (bool open);
     void updateScopeSection();
 
-    // Medidas de la ventana: parte principal + sección del osciloscopio.
     static constexpr int editorWidth = 640;
-    static constexpr int mainHeight = 378;            // hasta la línea que separa el osciloscopio
     static constexpr int scopeHeaderHeight = 44;      // barra "Osciloscopio" (siempre visible)
     static constexpr int scopeBodyHeight = 316;       // el osciloscopio en sí, más margen
     void setWaves (bool pre, bool post);

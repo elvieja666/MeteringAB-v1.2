@@ -129,7 +129,7 @@ struct Chain
     size_t fxWrite = 0;
 };
 
-// ---- Simulación del DELTA con distintos tipos de efecto ----
+// ---- Efectos simulados para medir la latencia ----
 // "Efecto": procesa una muestra mono-por-canal con estado propio.
 struct Fx
 {
@@ -210,10 +210,10 @@ struct Peaking : Fx   // EQ "común" (fase mínima): +4 dB en 3 kHz
 
 struct Invert : Fx { float process (int, float x) override { return -x; } };
 
-struct Result { double measured; bool inverted; double deltaDb; double idealDb; };
+struct Result { double measured; bool inverted; };
 
-// idealFx: lo que el efecto "realmente cambia" alineado perfecto (o nullptr = no cambia nada).
-static Result runDeltaCase (int link, std::unique_ptr<Fx> fx, std::unique_ptr<Fx> idealFx)
+// Mide la latencia de un "efecto" con audio tipo música.
+static Result runMeasureCase (int link, std::unique_ptr<Fx> fx)
 {
     MeteringABProcessor send, recv; juce::MidiBuffer m;
     setParam (send, ParamIDs::mode, 0); setParam (send, ParamIDs::link, (float) link);
@@ -222,10 +222,9 @@ static Result runDeltaCase (int link, std::unique_ptr<Fx> fx, std::unique_ptr<Fx
 
     juce::Random rng (3); float brown = 0;
     Fir bandLimit (lowpassTaps());
-    juce::AudioBuffer<float> buf (2, 512), dry (2, 512);
-    double sumDelta = 0, sumDry = 0, sumIdeal = 0;
+    juce::AudioBuffer<float> buf (2, 512);
 
-    auto block = [&] (bool accumulate)
+    auto block = [&]
     {
         for (int i = 0; i < 512; ++i)
         {
@@ -234,38 +233,20 @@ static Result runDeltaCase (int link, std::unique_ptr<Fx> fx, std::unique_ptr<Fx
             const float x = bandLimit.process (0, 0.3f * white + 2.0f * brown);   // ruido con graves y agudos (tipo música)
             buf.setSample (0, i, x); buf.setSample (1, i, x);
         }
-        dry.makeCopyOf (buf);
         send.processBlock (buf, m);
         for (int ch = 0; ch < 2; ++ch)
             for (int i = 0; i < 512; ++i)
                 buf.setSample (ch, i, fx->process (ch, buf.getSample (ch, i)));
         recv.processBlock (buf, m);
-
-        if (accumulate)
-            for (int i = 0; i < 512; ++i)
-            {
-                const float d = dry.getSample (0, i);
-                const float ideal = idealFx ? idealFx->process (0, d) - d : 0.0f;
-                sumDelta += (double) buf.getSample (0, i) * buf.getSample (0, i);
-                sumDry   += (double) d * d;
-                sumIdeal += (double) ideal * ideal;
-            }
-        else if (idealFx)
-            for (int i = 0; i < 512; ++i) idealFx->process (0, dry.getSample (0, i));
     };
 
-    for (int b = 0; b < 30; ++b) block (false);
+    for (int b = 0; b < 30; ++b) block();
     recv.startLatencyMeasurement();
-    for (int b = 0; b < 300; ++b) block (false);
+    for (int b = 0; b < 300; ++b) block();
     recv.processPendingConversion();
     const double measured = recv.apvts.getRawParameterValue (ParamIDs::latency)->load();
     const bool inv = recv.apvts.getRawParameterValue (ParamIDs::polarity)->load() > 0.5f;
-    setParam (recv, ParamIDs::delta, 1);
-    for (int b = 0; b < 600; ++b) block (false);       // que se asiente el matcheo
-    for (int b = 0; b < 200; ++b) block (true);
-
-    auto db = [] (double a, double b) { return a <= 0 ? -200.0 : 10 * std::log10 (a / b); };
-    return { measured, inv, db (sumDelta, sumDry), db (sumIdeal, sumDry) };
+    return { measured, inv };
 }
 
 
@@ -343,15 +324,7 @@ int main (int argc, char** argv)
         juce::AudioBuffer<float> dry; c.run (0.5, &dry); out = c.run (0.02, &dry);
         check (std::abs (rmsDb (out) - rmsDb (dry)) < 0.2, "Salida matcheada = nivel original (dB de diferencia)", rmsDb (out) - rmsDb (dry));
 
-        setParam (c.recv, ParamIDs::delta, 1);
-        out = c.run (1.0);
-        check (rmsDb (out) < -60, "Delta con FX de pura ganancia ~ silencio (dB)", rmsDb (out));
-
-        setParam (c.recv, ParamIDs::pre, 1);               // PRE FX con DELTA activo: manda DELTA
-        out = c.run (0.5);
-        check (rmsDb (out) < -60, "DELTA manda aunque esté en PRE FX (dB)", rmsDb (out));
-
-        setParam (c.recv, ParamIDs::delta, 0);             // PRE FX
+        setParam (c.recv, ParamIDs::pre, 1);               // PRE FX
         out = c.run (0.5, &dry);
         check (std::abs (rmsDb (out) - rmsDb (dry)) < 0.01, "PRE FX = audio original del Send", rmsDb (out) - rmsDb (dry));
 
@@ -369,13 +342,17 @@ int main (int argc, char** argv)
     {
         Chain c (3, -3.0f, 300);
         setParam (c.recv, ParamIDs::latency, 300);
-        setParam (c.recv, ParamIDs::delta, 1);
-        c.run (12.0);
-        auto out = c.run (1.0);
-        check (rmsDb (out) < -60, "Latencia 300 compensada: Delta ~ silencio (dB)", rmsDb (out));
-        setParam (c.recv, ParamIDs::latency, 0);
-        out = c.run (1.0);
-        check (rmsDb (out) > -40, "Latencia sin compensar: Delta NO es silencio (dB)", rmsDb (out));
+        setParam (c.recv, ParamIDs::pre, 1);
+        juce::AudioBuffer<float> prevDry, dry;
+        c.run (2.0, &prevDry);
+        auto out = c.run (512.0 / 48000.0, &dry);
+        double maxErr = 0;                                 // PRE FX = lo que mandó el Send hace 300 muestras
+        for (int i = 0; i < 512; ++i)
+        {
+            const float expected = i >= 300 ? dry.getSample (0, i - 300) : prevDry.getSample (0, 512 - 300 + i);
+            maxErr = juce::jmax (maxErr, (double) std::abs (out.getSample (0, i) - expected));
+        }
+        check (maxErr < 1.0e-6, "Latencia 300: PRE FX alineado con el procesado (error)", maxErr);
     }
     {
         // Mostrar/ocultar ondas: se guarda con el proyecto.
@@ -391,15 +368,15 @@ int main (int argc, char** argv)
         {
             MeteringABProcessor d; setParam (d, ParamIDs::mode, 1);
             std::unique_ptr<juce::AudioProcessorEditor> edDefault (d.createEditor());
-            check (edDefault->getHeight() == 378 + 44, "Por defecto el osciloscopio arranca cerrado (alto px)", edDefault->getHeight());
+            check (edDefault->getHeight() == MeteringABEditor::mainHeight + 44, "Por defecto el osciloscopio arranca cerrado (alto px)", edDefault->getHeight());
         }
         // Osciloscopio oculto: la ventana se achica; en Send no aparece.
         MeteringABProcessor a; a.apvts.state.setProperty ("scopeOpen", false, nullptr); setParam (a, ParamIDs::mode, 1);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        check (ed->getHeight() == 378 + 44, "Osciloscopio oculto: ventana más chica (alto px)", ed->getHeight());
+        check (ed->getHeight() == MeteringABEditor::mainHeight + 44, "Osciloscopio oculto: ventana más chica (alto px)", ed->getHeight());
         MeteringABProcessor sendP;
         std::unique_ptr<juce::AudioProcessorEditor> ed2 (sendP.createEditor());
-        check (ed2->getHeight() == 378, "Modo Send: sin sección de osciloscopio (alto px)", ed2->getHeight());
+        check (ed2->getHeight() == MeteringABEditor::mainHeight, "Modo Send: sin sección de osciloscopio (alto px)", ed2->getHeight());
     }
     {
         // Osciloscopio linkeado a la escucha: al alternar PRE/POST FX muestra solo esa onda.
@@ -485,7 +462,7 @@ int main (int argc, char** argv)
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         a.apvts.state.setProperty ("scopeOpen", true, nullptr);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        check (ed != nullptr && ed->getWidth() == 640 && ed->getHeight() == 738, "Editor Receive con osciloscopio abierto (alto px)", ed->getHeight());
+        check (ed != nullptr && ed->getWidth() == 640 && ed->getHeight() == MeteringABEditor::mainHeight + 44 + 316, "Editor Receive con osciloscopio abierto (alto px)", ed->getHeight());
     }
 
 
@@ -623,30 +600,27 @@ int main (int argc, char** argv)
         lonely.startLatencyMeasurement();
         check (lonely.latencyMeasurer.getState() == State::noSend, "Medir sin Send -> avisa", 1);
 
-        // De punta a punta: medir y después DELTA da silencio.
+        // De punta a punta con la cadena: medir 777.
         Chain c (13, -3.0f, 777);
         c.run (0.3); c.recv.startLatencyMeasurement(); c.run (3.5); c.recv.processPendingConversion();
-        setParam (c.recv, ParamIDs::delta, 1);
-        c.run (8.0); auto out = c.run (1.0);
-        check (rmsDb (out) < -60, "Medir 777 y DELTA -> silencio (dB)", rmsDb (out));
+        const double got = c.recv.apvts.getRawParameterValue (ParamIDs::latency)->load();
+        check (std::abs (got - 777.0) < 0.01, "Medir en la cadena: 777 -> 777 (muestras)", got);
     }
 
     {
-        // DELTA con latencias "con coma", polaridad y EQ común.
-        auto r = runDeltaCase (21, std::make_unique<Delay> (64), nullptr);
-        check (r.measured == 64.0 && r.deltaDb < -90, "DELTA: retardo entero 64 -> silencio (dB)", r.deltaDb);
-        r = runDeltaCase (22, std::make_unique<Fir> (fractionalDelayTaps (64.5, 129)), nullptr);
+        // Medir latencias "con coma" y polaridad.
+        auto r = runMeasureCase (21, std::make_unique<Delay> (64));
+        check (r.measured == 64.0 && ! r.inverted, "Medir: retardo entero 64 -> 64 (muestras)", r.measured);
+        r = runMeasureCase (22, std::make_unique<Fir> (fractionalDelayTaps (64.5, 129)));
         check (std::abs (r.measured - 64.5) < 0.02, "Medir: retardo 64,5 -> 64.5 (muestras)", r.measured);
-        check (r.deltaDb < -40, "DELTA: retardo 64,5 -> silencio (dB)", r.deltaDb);
-        r = runDeltaCase (23, std::make_unique<Fir> (fractionalDelayTaps (64.25, 129)), nullptr);
+        r = runMeasureCase (23, std::make_unique<Fir> (fractionalDelayTaps (64.25, 129)));
         check (std::abs (r.measured - 64.25) < 0.02, "Medir: retardo 64,25 -> 64.25 (muestras)", r.measured);
-        check (r.deltaDb < -40, "DELTA: retardo 64,25 -> silencio (dB)", r.deltaDb);
-        r = runDeltaCase (24, std::make_unique<Fir> (fractionalDelayTaps (1000.37, 2001)), nullptr);
-        check (std::abs (r.measured - 1000.37) < 0.02 && r.deltaDb < -40, "DELTA: retardo 1000,37 -> medido y en silencio (dB)", r.deltaDb);
-        r = runDeltaCase (25, std::make_unique<Invert>(), nullptr);
-        check (r.inverted && r.deltaDb < -90, "Polaridad invertida: se detecta y DELTA da silencio (dB)", r.deltaDb);
-        r = runDeltaCase (26, std::make_unique<Peaking>(), std::make_unique<Peaking>());
-        check (! r.inverted && std::abs (r.deltaDb - r.idealDb) < 2.0, "EQ común: DELTA muestra lo que cambió el EQ (dB vs ideal)", r.deltaDb - r.idealDb);
+        r = runMeasureCase (24, std::make_unique<Fir> (fractionalDelayTaps (1000.37, 2001)));
+        check (std::abs (r.measured - 1000.37) < 0.02, "Medir: retardo 1000,37 -> 1000.37 (muestras)", r.measured);
+        r = runMeasureCase (25, std::make_unique<Invert>());
+        check (r.inverted, "Medir: polaridad invertida se detecta", r.measured);
+        r = runMeasureCase (26, std::make_unique<Peaking>());
+        check (! r.inverted && std::abs (r.measured) < 0.5, "Medir: un EQ no se confunde con latencia (muestras)", r.measured);
     }
 
     {
@@ -750,7 +724,7 @@ int main (int argc, char** argv)
     {
         // Crossfade de 10 ms: el peor caso es un efecto que invierte la onda
         // (PRE y POST opuestos). Sin crossfade el salto llega a 1,0.
-        auto maxJumpAtSwitch = [] (bool toDelta, float& settledError)
+        auto maxJumpAtSwitch = [] (float& settledError)
         {
             MeteringABProcessor send, recv; juce::MidiBuffer m;
             setParam (send, ParamIDs::link, 13); setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 13);
@@ -760,7 +734,7 @@ int main (int argc, char** argv)
             double ph = 0; float last = 0.0f, maxJump = 0.0f;
             for (int blk = 0; blk < 400; ++blk)
             {
-                if (blk == 300) setParam (recv, toDelta ? ParamIDs::delta : ParamIDs::pre, 1);   // tocar el botón
+                if (blk == 300) setParam (recv, ParamIDs::pre, 1);   // tocar el botón
                 for (int i = 0; i < 512; ++i) { const float x = 0.5f * (float) std::sin (ph); ph += 2 * juce::MathConstants<double>::pi * 100.0 / 48000.0; b.setSample (0, i, x); b.setSample (1, i, x); }
                 dry.makeCopyOf (b);
                 send.processBlock (b, m);
@@ -774,17 +748,15 @@ int main (int argc, char** argv)
                 if (blk == 399)
                 {
                     settledError = 0.0f;
-                    for (int i = 0; i < 512; ++i) settledError = juce::jmax (settledError, std::abs (b.getSample (0, i) - (toDelta ? -2.0f * dry.getSample (0, i) : dry.getSample (0, i))));
+                    for (int i = 0; i < 512; ++i) settledError = juce::jmax (settledError, std::abs (b.getSample (0, i) - dry.getSample (0, i)));
                 }
             }
             return maxJump;
         };
         float err = 0.0f;
-        const float jump = maxJumpAtSwitch (false, err);
+        const float jump = maxJumpAtSwitch (err);
         check (jump < 0.02f, "Crossfade POST -> PRE: sin salto (máx. salto entre muestras)", jump);
         check (err < 1.0e-5f, "Crossfade: después de 10 ms queda exacto en PRE FX", err);
-        const float jumpDelta = maxJumpAtSwitch (true, err);
-        check (jumpDelta < 0.03f, "Crossfade POST -> DELTA: sin salto (máx. salto entre muestras)", jumpDelta);
     }
 
     {

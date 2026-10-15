@@ -10,7 +10,6 @@ namespace ParamIDs
     inline constexpr auto mode     = "mode";      // Send / Receive
     inline constexpr auto link     = "link";      // Link ID 1..16
     inline constexpr auto pre      = "pre";       // botón PRE FX (on) / POST FX (off)
-    inline constexpr auto delta    = "delta";     // escuchar solo la diferencia
     inline constexpr auto measure  = "measure";   // RMS / LUFS
     inline constexpr auto windowMs   = "windowMs";   // ventana en milisegundos
     inline constexpr auto sync       = "sync";       // ventana: ms (off) / Sync (on)
@@ -140,14 +139,12 @@ private:
     void updateSenderRegistration (bool isSend, int linkIndex);
     void processSend (juce::AudioBuffer<float>& buffer, LinkSlot& slot);
     void processReceive (juce::AudioBuffer<float>& buffer, LinkSlot& slot);
-    void readDryFractional (const LinkSlot& slot, juce::int64 end, int n, int numCh, double latency);
     double scopeBlockStartQuarters (int n);          // posición en el loop del osciloscopio
 
     // Punteros rápidos a los parámetros (leer esto en el audio es seguro).
     std::atomic<float>* pMode    = nullptr;
     std::atomic<float>* pLink    = nullptr;
     std::atomic<float>* pPre     = nullptr;
-    std::atomic<float>* pDelta   = nullptr;
     std::atomic<float>* pMeasure = nullptr;
     std::atomic<float>* pWindowMs   = nullptr;
     std::atomic<float>* pSync       = nullptr;
@@ -158,7 +155,6 @@ private:
 
     LoudnessMeter preMeter, postMeter;
     juce::AudioBuffer<float> dryBuffer;               // original alineado (muestras enteras, para PRE FX)
-    juce::AudioBuffer<float> deltaDryBuffer;          // original alineado con decimales (para DELTA)
     std::vector<float> dryMono, postMono;             // para medir la latencia
     // Posición de la canción (la informa Logic en cada bloque).
     bool   hostPlaying = false, hostHasPpq = false, hostHasBarStart = false, hostHasBarCount = false;
@@ -176,11 +172,11 @@ public:
 private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> gainSmoother;
 
-    // Crossfade de 10 ms al cambiar PRE FX / POST FX / DELTA (evita clicks).
-    // Los tres pesos se mueven juntos en línea recta y siempre suman 1.
+    // Crossfade de 10 ms al cambiar PRE FX / POST FX (evita clicks).
+    // Los dos pesos se mueven juntos en línea recta y siempre suman 1.
     static constexpr double crossfadeSeconds = 0.010;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mixPost, mixPre, mixDelta;
-    void setMixTargets (bool delta, bool pre, bool immediately);
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mixPost, mixPre;
+    void setMixTargets (bool pre, bool immediately);
 
     float autoGainDb = 0.0f;
     int   registeredSendLink = -1;                    // -1 = no registrado

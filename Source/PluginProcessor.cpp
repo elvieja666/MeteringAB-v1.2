@@ -19,7 +19,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout MeteringABProcessor::createL
                                                       AudioParameterBoolAttributes()
                                                           .withStringFromValueFunction ([] (bool on, int) { return on ? String ("PRE FX") : String ("POST FX"); })));
 
-    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::delta, 1 }, "Delta", false));
 
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::measure, 1 }, "Medición"_u,
                                                         StringArray { "RMS", "LUFS (filtro K)" }, 1));
@@ -82,7 +81,6 @@ MeteringABProcessor::MeteringABProcessor()
     pMode    = apvts.getRawParameterValue (ParamIDs::mode);
     pLink    = apvts.getRawParameterValue (ParamIDs::link);
     pPre     = apvts.getRawParameterValue (ParamIDs::pre);
-    pDelta   = apvts.getRawParameterValue (ParamIDs::delta);
     pMeasure = apvts.getRawParameterValue (ParamIDs::measure);
     pWindowMs   = apvts.getRawParameterValue (ParamIDs::windowMs);
     pSync       = apvts.getRawParameterValue (ParamIDs::sync);
@@ -273,17 +271,16 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     preMeter.prepare (sampleRate);
     postMeter.prepare (sampleRate);
     dryBuffer.setSize (2, juce::jmax (samplesPerBlock, 4096));
-    deltaDryBuffer.setSize (2, juce::jmax (samplesPerBlock, 4096));
     dryMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
     postMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
     latencyMeasurer.prepare();
     lastScopeLength = -1;                            // el osciloscopio arranca limpio
     gainSmoother.reset (sampleRate, 0.05);           // 50 ms de suavizado
 
-    for (auto* m : { &mixPost, &mixPre, &mixDelta })
+    for (auto* m : { &mixPost, &mixPre })
         m->reset (sampleRate, crossfadeSeconds);
 
-    setMixTargets (pDelta->load() > 0.5f, pPre->load() > 0.5f, true);
+    setMixTargets (pPre->load() > 0.5f, true);
     gainSmoother.setCurrentAndTargetValue (1.0f);
     blocksWithoutHeartbeat = 0;
 }
@@ -433,10 +430,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
 
     // 1) Traer el audio original, retrasado según la latencia de tus FX.
     if (dryBuffer.getNumSamples() < n)
-    {
         dryBuffer.setSize (2, n, false, false, true);  // caso raro: bloque más grande de lo esperado
-        deltaDryBuffer.setSize (2, n, false, false, true);
-    }
 
     const double latencyExact = juce::jlimit (0.0, (double) (LinkSlot::ringSize - n - 2 * maxInterpolationHalfLength),
                                               (double) pLatency->load());
@@ -495,25 +489,11 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     const float targetDb = autoGainDb;
     gainSmoother.setTargetValue (juce::Decibels::decibelsToGain (targetDb));
 
-    // 3) Aplicar según lo que quieras escuchar.
-    //    DELTA manda sobre todo; si no, el botón elige PRE FX u POST FX.
-    const bool delta = pDelta->load() > 0.5f;
-    const bool pre   = pPre->load() > 0.5f;
-    const float polaritySign = pPolarity->load() > 0.5f ? -1.0f : 1.0f;
+    // 3) Aplicar según lo que quieras escuchar: PRE FX u POST FX.
+    const bool pre = pPre->load() > 0.5f;
 
     // Crossfade: los pesos van hacia lo que elegiste en 10 ms.
-    setMixTargets (delta, pre, false);
-    const bool deltaAudible = delta || mixDelta.isSmoothing() || mixDelta.getCurrentValue() > 0.0f;
-
-    // Para DELTA el original se alinea con decimales (ej. 64,5 muestras),
-    // así se anula exacto lo que tus efectos no cambiaron.
-    const juce::AudioBuffer<float>* deltaDry = &dryBuffer;
-
-    if (deltaAudible && std::abs (latencyExact - latency) > 0.001)
-    {
-        readDryFractional (slot, end, n, numCh, latencyExact);
-        deltaDry = &deltaDryBuffer;
-    }
+    setMixTargets (pre, false);
 
     // Osciloscopio: dónde arranca este bloque dentro del loop y cuánto avanza por muestra.
     // Solo se dibuja con Logic en play; en pausa queda quieto.
@@ -557,7 +537,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     for (int i = 0; i < n; ++i)
     {
         const float g = gainSmoother.getNextValue();
-        const float wPost = mixPost.getNextValue(), wPre = mixPre.getNextValue(), wDelta = mixDelta.getNextValue();
+        const float wPost = mixPost.getNextValue(), wPre = mixPre.getNextValue();
         float preSumValue = 0.0f, postSumValue = 0.0f;
         float preCh[2] {}, postCh[2] {};
 
@@ -571,8 +551,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
             postCh[ch] = out[i] * g;
 
             const float post = out[i] * g;                                           // POST FX: procesado y nivelado
-            const float diff = deltaAudible ? post - polaritySign * deltaDry->getSample (ch, i) : 0.0f;   // DELTA
-            out[i] = wPost * post + wPre * dry + wDelta * diff;                       // PRE FX = dry
+            out[i] = wPost * post + wPre * dry;                                       // PRE FX = dry
         }
 
         // Osciloscopio: columna que corresponde a este momento del compás.
@@ -635,22 +614,18 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     displayGain = targetDb;
 }
 
-void MeteringABProcessor::setMixTargets (bool delta, bool pre, bool immediately)
+void MeteringABProcessor::setMixTargets (bool pre, bool immediately)
 {
-    // DELTA manda; si no, PRE FX o POST FX.
-    const float tDelta = delta ? 1.0f : 0.0f;
-    const float tPre   = ! delta && pre ? 1.0f : 0.0f;
-    const float tPost  = ! delta && ! pre ? 1.0f : 0.0f;
+    const float tPre  = pre ? 1.0f : 0.0f;
+    const float tPost = 1.0f - tPre;
 
     if (immediately)
     {
-        mixDelta.setCurrentAndTargetValue (tDelta);
         mixPre.setCurrentAndTargetValue (tPre);
         mixPost.setCurrentAndTargetValue (tPost);
     }
-    else if (! juce::exactlyEqual (mixDelta.getTargetValue(), tDelta) || ! juce::exactlyEqual (mixPre.getTargetValue(), tPre))
+    else if (! juce::exactlyEqual (mixPre.getTargetValue(), tPre))
     {
-        mixDelta.setTargetValue (tDelta);
         mixPre.setTargetValue (tPre);
         mixPost.setTargetValue (tPost);
     }
@@ -724,60 +699,6 @@ double MeteringABProcessor::scopeBlockStartQuarters (int n)
 
     juce::ignoreUnused (n);
     return phase;
-}
-
-// ---------------------------------------------------------------------------
-//  Lee el audio original retrasado un número de muestras CON DECIMALES.
-//  Usa interpolación "sinc con ventana": reconstruye el valor exacto entre
-//  dos muestras, como haría la onda continua original.
-// ---------------------------------------------------------------------------
-void MeteringABProcessor::readDryFractional (const LinkSlot& slot, juce::int64 end, int n, int numCh, double latencyExact)
-{
-    const int whole = (int) std::floor (latencyExact);
-    const double frac = latencyExact - whole;
-
-    // Cuántas muestras a cada lado se pueden usar: no podemos leer audio
-    // "del futuro", así que con latencias muy chicas se usan menos.
-    const int half = juce::jlimit (1, maxInterpolationHalfLength, whole + 1);
-
-    // Pesos del interpolador (iguales para todo el bloque).
-    std::array<double, 2 * maxInterpolationHalfLength> weights {};
-    double sum = 0.0;
-
-    for (int k = -(half - 1); k <= half; ++k)
-    {
-        const double x = k - frac;                                    // distancia a la muestra
-        const double sinc = std::abs (x) < 1.0e-9 ? 1.0 : std::sin (juce::MathConstants<double>::pi * x) / (juce::MathConstants<double>::pi * x);
-        const double u = x / (double) half;                           // -1..1
-        const double window = std::abs (u) >= 1.0 ? 0.0
-                            : 0.42 + 0.5 * std::cos (juce::MathConstants<double>::pi * u) + 0.08 * std::cos (2.0 * juce::MathConstants<double>::pi * u);
-        weights[(size_t) (k + half - 1)] = sinc * window;
-        sum += sinc * window;
-    }
-
-    for (int k = 0; k < 2 * half; ++k)
-        weights[(size_t) k] /= sum;                                    // sin cambio de volumen
-
-    for (int ch = 0; ch < numCh; ++ch)
-    {
-        const auto& ring = slot.ring[(size_t) ch];
-        float* dst = deltaDryBuffer.getWritePointer (ch);
-
-        for (int i = 0; i < n; ++i)
-        {
-            const juce::int64 base = end - n + i - whole;              // muestra entera más cercana
-            double acc = 0.0;
-
-            for (int k = -(half - 1); k <= half; ++k)
-            {
-                const auto pos = base - k;
-                if (pos >= 0)
-                    acc += weights[(size_t) (k + half - 1)] * ring[(size_t) (pos & LinkSlot::ringMask)];
-            }
-
-            dst[i] = (float) acc;
-        }
-    }
 }
 
 void MeteringABProcessor::getStateInformation (juce::MemoryBlock& destData)

@@ -212,14 +212,6 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     abButton.onClick = [this] { toggleAB(); };
     addAndMakeVisible (abButton);
 
-    deltaButton.setButtonText ("DELTA");
-    deltaButton.setClickingTogglesState (false);
-    deltaButton.onClick = [this]
-    {
-        setBoolParam (ParamIDs::delta, processor.apvts.getRawParameterValue (ParamIDs::delta)->load() < 0.5f);
-    };
-    addAndMakeVisible (deltaButton);
-
     listenLabel.setText ("Escuchar  ·  clic para alternar"_u, juce::dontSendNotification);
     listenLabel.setColour (juce::Label::textColourId, Colours::dim);
     listenLabel.setFont (juce::FontOptions (12.0f));
@@ -528,11 +520,7 @@ void MeteringABEditor::toggleAB()
 {
     auto& apvts = processor.apvts;
 
-    // Si está en DELTA, el primer clic sale de DELTA y vuelve a la última versión.
-    if (apvts.getRawParameterValue (ParamIDs::delta)->load() > 0.5f)
-        setBoolParam (ParamIDs::delta, false);
-    else
-        setBoolParam (ParamIDs::pre, apvts.getRawParameterValue (ParamIDs::pre)->load() < 0.5f);
+    setBoolParam (ParamIDs::pre, apvts.getRawParameterValue (ParamIDs::pre)->load() < 0.5f);
 }
 
 void MeteringABEditor::setSync (bool on)
@@ -577,7 +565,7 @@ void MeteringABEditor::timerCallback()
 
         for (juce::Component* c : std::initializer_list<juce::Component*> {
                  &measureBox, &measureLabel, &windowSlider, &windowLabel, &latencyLabel, &polarityButton, &latencyValueLabel, &latencyMsLabel,
-                 &abButton, &deltaButton, &listenLabel, &measureButton, &latencyInfoLabel, &holdButton,
+                 &abButton, &listenLabel, &measureButton, &latencyInfoLabel, &holdButton,
 
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
             c->setVisible (! isSendMode);
@@ -607,26 +595,13 @@ void MeteringABEditor::timerCallback()
         windowInfoLabel.setText ("~ " + SyncDivisions::names[nearest] + "  ·  " + tempoText, juce::dontSendNotification);
     }
 
-    // Botón PRE/POST y DELTA
-    const bool pre   = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f;
-    const bool delta = processor.apvts.getRawParameterValue (ParamIDs::delta)->load() > 0.5f;
+    // Botón PRE FX / POST FX
+    const bool pre = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f;
     const juce::Colour preColour { 0xff5dcaa5 }, preText { 0xff04342c };
 
     abButton.setButtonText (pre ? "PRE FX" : "POST FX");
-
-    if (delta)
-    {
-        abButton.setColour (juce::TextButton::buttonColourId, Colours::panel);
-        abButton.setColour (juce::TextButton::textColourOffId, Colours::dim);
-    }
-    else
-    {
-        abButton.setColour (juce::TextButton::buttonColourId, pre ? preColour : Colours::accent);
-        abButton.setColour (juce::TextButton::textColourOffId, pre ? preText : Colours::background);
-    }
-
-    deltaButton.setColour (juce::TextButton::buttonColourId, delta ? Colours::text : Colours::panel);
-    deltaButton.setColour (juce::TextButton::textColourOffId, delta ? Colours::background : Colours::text);
+    abButton.setColour (juce::TextButton::buttonColourId, pre ? preColour : Colours::accent);
+    abButton.setColour (juce::TextButton::textColourOffId, pre ? preText : Colours::background);
 
     // Estado de la medición de latencia
     {
@@ -762,8 +737,8 @@ void MeteringABEditor::paint (juce::Graphics& g)
         g.setFont (juce::FontOptions (13.0f));
         g.drawFittedText ("Este Metering A/B va PRIMERO en la cadena de efectos.\n"
                           "Poné otro Metering A/B en modo Receive al FINAL, con el mismo Link ID.\n"_u
-                          "El A/B, el DELTA y el osciloscopio están en el Receive."_u,
-                          juce::Rectangle<int> (20, 180, getWidth() - 40, 80), juce::Justification::centred, 4);
+                          "El A/B y el osciloscopio están en el Receive."_u,
+                          juce::Rectangle<int> (20, 162, getWidth() - 40, mainHeight - 162 - 20), juce::Justification::centred, 4);
     }
     else
     {
@@ -795,30 +770,29 @@ void MeteringABEditor::resized()
     area.removeFromTop (70);   // medidores (se dibujan en paint)
     area.removeFromTop (12);
 
-    // Fila de escucha: PRE/POST | DELTA | Medición | Congelar
-    auto row = area.removeFromTop (50);
-    auto abArea = row.removeFromLeft (200);
-    listenLabel.setBounds (abArea.removeFromTop (16).withWidth (260));
-    abButton.setBounds (abArea.withHeight (34));
-    row.removeFromLeft (10);
-    deltaButton.setBounds (row.removeFromLeft (90).withTrimmedTop (16).withHeight (34));
+    // Tres columnas con los títulos alineados: Escuchar | Ventana | Latencia
+    auto columns = area.removeFromTop (columnsHeight);
+    const int sideWidth = 190;
+    auto left  = columns.removeFromLeft (sideWidth);
+    auto right = columns.removeFromRight (sideWidth);
+    auto middle = columns.reduced (10, 0);
 
-    row.removeFromLeft (20);
-    auto measureArea = row.removeFromLeft (140);
-    measureLabel.setBounds (measureArea.removeFromTop (16));
-    measureBox.setBounds (measureArea.withHeight (30).translated (0, 2));
-
-    row.removeFromLeft (16);
-    holdButton.setBounds (row.withTrimmedTop (18).withHeight (30));
-
-    // Perillas: Ventana y Latencia, más bajas.
-    area.removeFromTop (10);
-    auto knobs = area.removeFromTop (126).reduced (40, 0);
-    const int kw = 240;
-
-    // Ventana: botones ms|Sync arriba, perilla, equivalencia abajo.
+    // Escuchar: PRE FX / POST FX grande; debajo, la medición (LUFS/RMS) y Congelar.
     {
-        auto k = knobs.removeFromLeft (kw);
+        auto k = left;
+        listenLabel.setBounds (k.removeFromTop (22));
+        k.removeFromTop (4);
+        abButton.setBounds (k.removeFromTop (46));
+        k.removeFromTop (14);
+        measureLabel.setBounds ({});                   // el combo ya dice qué mide
+        measureBox.setBounds (k.removeFromTop (30));
+        k.removeFromTop (8);
+        holdButton.setBounds (k.removeFromTop (24));
+    }
+
+    // Ventana: botones ms|Sync arriba, perilla con el valor, equivalencia abajo.
+    {
+        auto k = middle;
         auto header = k.removeFromTop (22).withSizeKeepingCentre (138, 22);
         windowLabel.setBounds (header.removeFromLeft (54));
         syncButtons[0].setBounds (header.removeFromLeft (38));
@@ -831,16 +805,16 @@ void MeteringABEditor::resized()
 
     // Latencia: título, valor medido, Medir + Ø y estado.
     {
-        auto k = knobs.removeFromRight (kw);
-        latencyLabel.setBounds (k.removeFromTop (20));
-        latencyValueLabel.setBounds (k.removeFromTop (26));
+        auto k = right;
+        latencyLabel.setBounds (k.removeFromTop (22));
+        latencyValueLabel.setBounds (k.removeFromTop (28));
         latencyMsLabel.setBounds (k.removeFromTop (16));
-        k.removeFromTop (8);
+        k.removeFromTop (10);
         auto buttons = k.removeFromTop (34).withSizeKeepingCentre (176, 34);
         measureButton.setBounds (buttons.removeFromLeft (132));
         buttons.removeFromLeft (8);
         polarityButton.setBounds (buttons);
-        k.removeFromTop (6);
+        k.removeFromTop (8);
         latencyInfoLabel.setBounds (k.removeFromTop (16));
     }
 

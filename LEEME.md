@@ -61,13 +61,12 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 | Control | Qué hace |
 |---|---|
-| **PRE FX / POST FX** | Un solo botón: cada clic alterna. Arranca en **PRE FX**. **POST FX** (ámbar) = con tus efectos, al mismo volumen que el original. **PRE FX** (verde agua) = la señal antes de los efectos. Es un parámetro de Logic, así que lo podés asignar a una tecla o control MIDI. Al cambiar hace un crossfade de 10 ms, imperceptible, para que no haya clicks (lo mismo al prender o apagar DELTA). |
-| **DELTA** | Escuchás solo lo que tus efectos le cambiaron al sonido. Mientras está activo, el botón PRE/POST se apaga; si lo tocás, sale de DELTA y vuelve a la última versión. |
+| **PRE FX / POST FX** | Un solo botón: cada clic alterna. Arranca en **PRE FX**. **POST FX** (ámbar) = con tus efectos, al mismo volumen que el original. **PRE FX** (verde agua) = la señal antes de los efectos. Es un parámetro de Logic, así que lo podés asignar a una tecla o control MIDI. Al cambiar hace un crossfade de 10 ms, imperceptible, para que no haya clicks. |
 | **Medición** | *LUFS* se parece más a cómo escucha el oído (recomendado). *RMS* es energía pura. |
 | **Ventana (ms / Sync)** | Cuánto tiempo promedia la medición. En **ms** elegís milisegundos. En **Sync** elegís compases (1/4 bar a 8 bars) según el tempo y el compás del proyecto, y el promedio toma compases exactos, así la lectura de un loop queda quieta. Al pasar de Sync a ms se convierte al tiempo equivalente; al volver a Sync se acomoda al valor musical más cercano. Debajo de la perilla ves la equivalencia. |
 | **Congelar** | Deja fija la corrección de volumen actual (el matcheo es siempre automático, con un máximo de 24 dB para arriba o para abajo). |
 | **Latencia + Medir** | Compensa efectos que retrasan el audio (EQ de fase lineal, oversampling, limitadores con lookahead). Dale play y tocá **Medir**: en unos 3 segundos el plugin encuentra el retraso exacto, **con decimales** (por ejemplo 64,50 muestras, porque muchos plugins retrasan "medio sample"), y lo muestra en grande con su equivalente en ms. Si el sonido procesado no se parece lo suficiente al original (por ejemplo, una reverb 100% wet), te avisa en vez de poner un valor dudoso. Si cambiás los efectos de la cadena, volvé a medir. |
-| **Ø (polaridad)** | Se enciende solo si **Medir** detecta que algún plugin invierte la polaridad, y lo compensa en el DELTA. También lo podés activar a mano. |
+| **Ø (polaridad)** | Se enciende solo si **Medir** detecta que algún plugin invierte la polaridad. También lo podés activar a mano. |
 
 ### Osciloscopio
 
@@ -98,7 +97,7 @@ Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivela
 ### Tips
 
 - **Cada pista con su propio Link ID** (1 a 16). Si dos Send usan el mismo número, Metering A/B te avisa en rojo.
-- **Latencia:** usá el botón **Medir** con el tema sonando. Para comprobarla, activá **DELTA**: con la latencia bien puesta, lo que escuchás es solo el cambio que hacen tus efectos, sin "flanger" ni filtrado raro. Si cambiás de efectos, volvé a medir.
+- **Latencia:** usá el botón **Medir** con el tema sonando. Si cambiás de efectos, volvé a medir.
 - El Send no cambia el audio para nada; solo lo "mira".
 - **Ventana recomendada:** Sync con 1 o 2 bars para comparar sobre un loop; en ms, unos 3000 ms. Evitá ventanas muy cortas (menos de 1 segundo): la corrección se movería con cada golpe y alteraría la comparación.
 
