@@ -431,9 +431,9 @@ void MeteringABEditor::paint (juce::Graphics& g)
     else
     {
         const auto gainText = (shownGain >= 0 ? "+" : "") + juce::String (shownGain, 2) + " dB";
-        readouts.push_back ({ "Original (Send)", formatLevel (shownPre),  Colours::text });
-        readouts.push_back ({ "Procesado",       formatLevel (shownPost), Colours::text });
-        readouts.push_back ({ "Ganancia aplicada", gainText,              Colours::accent });
+        readouts.push_back ({ "Original (Send)",   formatLevel (shownPre),  Colours::text });
+        readouts.push_back ({ "Ganancia aplicada", gainText,                Colours::accent });
+        readouts.push_back ({ "Procesado",         formatLevel (shownPost), Colours::text });
     }
 
     const int colWidth = meterArea.getWidth() / (int) readouts.size();
