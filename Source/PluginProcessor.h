@@ -150,6 +150,9 @@ private:
     juce::int64 hostBarCount = 0;
     double scopePhaseQuarters = 0.0;                  // dónde va el barrido (en negras)
     int    lastScopeBin = -1, lastScopeLength = -1;
+    bool   scopeWasPlaying = false;                   // para detectar cuándo se da play
+    double scopePlayStartQuarters = 0.0;              // dónde se dio play (en negras)
+    void   clearScope();
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> gainSmoother;
 
     float autoGainDb = 0.0f;

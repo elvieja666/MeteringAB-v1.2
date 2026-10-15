@@ -511,6 +511,32 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     const double loopQuarters = getScopeLengthBars() * timeSigNum.load() * 4.0 / timeSigDen.load();
     const double quartersPerSample = hostBpm.load() / 60.0 / currentSampleRate;
 
+    // El audio que llega acá viene atrasado por la latencia de tus efectos:
+    // se dibuja en su lugar real del compás restando esa latencia.
+    const double latencyQuarters = scopeRunning ? latencyExact * quartersPerSample : 0.0;
+    scopeQuarters = std::fmod (scopeQuarters - latencyQuarters, loopQuarters);
+    if (scopeQuarters < 0.0)
+        scopeQuarters += loopQuarters;
+
+    // Al dar play: limpiar y dibujar solo desde el punto de play (Logic
+    // empieza a procesar un poco antes para compensar la latencia).
+    if (scopeRunning && ! scopeWasPlaying)
+    {
+        clearScope();
+        scopePlayStartQuarters = hostHasPpq ? hostPpq : 0.0;
+
+        // Si Logic arrancó apenas antes de un tiempo (lo que adelanta para
+        // compensar la latencia), el punto de play real es ese tiempo.
+        const double nextBeat = std::ceil (scopePlayStartQuarters - 1.0e-9);
+        const double preRollWindow = latencyExact * quartersPerSample + 0.05;
+
+        if (nextBeat - scopePlayStartQuarters <= preRollWindow)
+            scopePlayStartQuarters = nextBeat;
+    }
+
+    scopeWasPlaying = scopeRunning;
+    double songQuarters = (hostHasPpq ? hostPpq : scopePlayStartQuarters) - latencyQuarters;   // posición real del audio
+
     for (int i = 0; i < n; ++i)
     {
         const float g = gainSmoother.getNextValue();
@@ -529,7 +555,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         }
 
         // Osciloscopio: columna que corresponde a este momento del compás.
-        if (scopeRunning)
+        if (scopeRunning && songQuarters >= scopePlayStartQuarters - 1.0e-9)
         {
             const float preValue  = preSum / (float) numCh;
             const float postValue = postSum / (float) numCh;
@@ -551,6 +577,11 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
                 auto& d = scopePostMax[(size_t) bin];  if (postValue > d.load (std::memory_order_relaxed)) d.store (postValue, std::memory_order_relaxed);
             }
 
+        }
+
+        if (scopeRunning)
+        {
+            songQuarters += quartersPerSample;
             scopeQuarters += quartersPerSample;
             if (scopeQuarters >= loopQuarters)
                 scopeQuarters -= loopQuarters;
@@ -566,6 +597,17 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     displayGain = targetDb;
 }
 
+void MeteringABProcessor::clearScope()
+{
+    for (int b = 0; b < scopeBins; ++b)
+    {
+        scopePreMin[(size_t) b] = 0.0f;  scopePreMax[(size_t) b] = 0.0f;
+        scopePostMin[(size_t) b] = 0.0f; scopePostMax[(size_t) b] = 0.0f;
+    }
+
+    lastScopeBin = -1;
+}
+
 // Dónde arranca el bloque dentro del loop del osciloscopio (en negras).
 // Sigue siempre la posición del cursor de Logic (alineada a los compases).
 // Con Logic en pausa el cabezal queda quieto y no se dibuja nada nuevo.
@@ -578,13 +620,8 @@ double MeteringABProcessor::scopeBlockStartQuarters (int n)
 
     if (lengthIndex != lastScopeLength)                 // cambió el largo: empezar limpio
     {
-        for (int b = 0; b < scopeBins; ++b)
-        {
-            scopePreMin[(size_t) b] = 0.0f;  scopePreMax[(size_t) b] = 0.0f;
-            scopePostMin[(size_t) b] = 0.0f; scopePostMax[(size_t) b] = 0.0f;
-        }
+        clearScope();
         lastScopeLength = lengthIndex;
-        lastScopeBin = -1;
     }
 
     double phase = scopePhaseQuarters;

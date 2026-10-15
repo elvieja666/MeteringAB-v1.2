@@ -631,6 +631,60 @@ int main (int argc, char** argv)
         check (recv.scopeCurrentBin.load() == (int) (1.0 / 4.0 * MeteringABProcessor::scopeBins), "Osciloscopio en pausa: sigue al cursor si lo movés", recv.scopeCurrentBin.load());
         send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
     }
+
+    {
+        // Como en Logic: FX con 4400 muestras de latencia, arranque un poco antes
+        // del play (compensación) y un golpe en el tiempo 2 del compás.
+        MeteringABProcessor send, recv; juce::MidiBuffer m;
+        setParam (send, ParamIDs::link, 15); setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 15);
+        setParam (recv, ParamIDs::latency, 4400.0f);
+        struct Head : juce::AudioPlayHead
+        {
+            double ppq = 0.0; bool playing = false;
+            juce::Optional<PositionInfo> getPosition() const override
+            {
+                PositionInfo p; p.setBpm (120.0); p.setTimeSignature (TimeSignature { 4, 4 }); p.setIsPlaying (playing);
+                p.setPpqPosition (ppq); p.setPpqPositionOfLastBarStart (std::floor (ppq / 4.0) * 4.0);
+                p.setBarCount ((juce::int64) std::floor (ppq / 4.0));
+                return p;
+            }
+        } head;
+        send.setPlayHead (&head); recv.setPlayHead (&head);
+        send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
+        const double qps = 120.0 / 60.0 / 48000.0;
+        std::vector<float> delay (4400, 0.0f); size_t w = 0;
+        juce::AudioBuffer<float> b (2, 512);
+        // conectar (Logic en pausa)
+        for (int k = 0; k < 20; ++k) { b.clear(); send.processBlock (b, m); recv.processBlock (b, m); }
+        // play desde el compás 1 (ppq 0), Logic arranca 4400 muestras antes
+        head.playing = true;
+        double ppq = -4400 * qps;
+        for (int blk = 0; blk < 200; ++blk)
+        {
+            head.ppq = ppq;
+            for (int i = 0; i < 512; ++i)
+            {
+                const double t = ppq + i * qps;
+                const float x = (t >= 1.0 && t < 1.0 + 0.02) ? 0.9f : 0.001f;   // golpe en el tiempo 2
+                b.setSample (0, i, x); b.setSample (1, i, x);
+            }
+            send.processBlock (b, m);
+            for (int i = 0; i < 512; ++i) { const float in = b.getSample (0, i); const float out = delay[w]; delay[w] = in; w = (w + 1) % delay.size(); b.setSample (0, i, out); b.setSample (1, i, out); }
+            recv.processBlock (b, m);
+            ppq += 512 * qps;
+            if (ppq > 3.5) break;
+        }
+        int peakBin = 0; float peak = 0.0f;
+        for (int k = 0; k < MeteringABProcessor::scopeBins; ++k)
+            if (recv.scopePreMax[(size_t) k].load() > peak) { peak = recv.scopePreMax[(size_t) k].load(); peakBin = k; }
+        const int expectedBin = MeteringABProcessor::scopeBins / 4;   // tiempo 2 de 4
+        check (std::abs (peakBin - expectedBin) <= 2, "Osciloscopio con latencia: el golpe se dibuja en su tiempo (columna)", peakBin);
+        float tail = 0.0f;
+        for (int k = MeteringABProcessor::scopeBins - 60; k < MeteringABProcessor::scopeBins; ++k)
+            tail = juce::jmax (tail, recv.scopePreMax[(size_t) k].load());
+        check (tail == 0.0f, "Al dar play no se dibuja nada al final del compás", tail);
+        send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
+    }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;
 }
