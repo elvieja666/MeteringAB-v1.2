@@ -34,8 +34,10 @@ public:
 
     explicit ScopeView (MeteringABProcessor& p) : processor (p) { capture(); }
 
-    void setStyle (Style s)                    { style = s; repaint(); }
-    Style getStyle() const                     { return style; }
+    // Forma de cada onda por separado (ej. PRE en Contorno y POST en Solo líneas).
+    void setStyles (Style pre, Style post)     { stylePre = pre; stylePost = post; repaint(); }
+    Style getStylePre() const                  { return stylePre; }
+    Style getStylePost() const                 { return stylePost; }
     void setColours (juce::Colour pre, juce::Colour post) { preColour = pre; postColour = post; repaint(); }
     juce::Colour getPreColour() const          { return preColour; }
     juce::Colour getPostColour() const         { return postColour; }
@@ -93,7 +95,7 @@ public:
             const auto& pre  = traces[(size_t) (lane * 2)];
             const auto& post = traces[(size_t) (lane * 2 + 1)];
 
-            auto drawSignal = [&] (const TraceCopy& t, juce::Colour colour)
+            auto drawSignal = [&] (const TraceCopy& t, juce::Colour colour, Style style)
             {
                 switch (style)
                 {
@@ -104,10 +106,10 @@ public:
             };
 
             if (showPre)
-                drawSignal (pre, preColour);
+                drawSignal (pre, preColour, stylePre);
 
             if (showPost)
-                drawSignal (post, postColour);    // POST encima
+                drawSignal (post, postColour, stylePost);    // POST encima
 
             // Etiqueta del canal (L / R) cuando no es la suma.
             if (channels != Channels::sum)
@@ -371,7 +373,7 @@ private:
     struct TraceCopy { Bins min {}, max {}, sq {}; };
     std::array<TraceCopy, 4> traces;                  // [PRE, POST] de la franja de arriba, [PRE, POST] de abajo
     Channels channels = Channels::sum;
-    Style style = Style::contour;
+    Style stylePre = Style::contour, stylePost = Style::contour;
     juce::Colour preColour { palettes[0].pre }, postColour { palettes[0].post };
     bool showGrid = true;
     int currentBin = 0;

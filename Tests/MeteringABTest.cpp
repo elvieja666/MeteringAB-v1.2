@@ -309,6 +309,7 @@ int main (int argc, char** argv)
                     a->apvts.state.setProperty ("scopePalette", shot == 4 ? 1 : shot == 5 ? 2 : 0, nullptr);
                     if (shot == 5) a->apvts.state.setProperty ("scopeLink", false, nullptr);   // LINK apagado en la captura
                     if (shot == 6) a->apvts.state.setProperty ("scopeChannels", 3, nullptr);   // L y R separados
+                    if (shot == 6) a->apvts.state.setProperty ("scopeStylePost", 2, nullptr);  // PRE contorno, POST solo líneas
                 }
                 chain->run (shot == 2 ? 5.3 : 3.3);
             }
@@ -408,6 +409,16 @@ int main (int argc, char** argv)
         e2->refreshNow(); setParam (c, ParamIDs::pre, 1); e2->refreshNow(); setParam (c, ParamIDs::pre, 0); e2->refreshNow();
         const bool unchanged = (bool) c.apvts.state.getProperty ("scopeShowPre", true) && (bool) c.apvts.state.getProperty ("scopeShowPost", true);
         check (unchanged, "LINK apagado: alternar la escucha no cambia el osciloscopio", 1);
+    }
+    {
+        // Forma separada para PRE y POST; un proyecto viejo con una sola forma la usa para las dos.
+        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
+        a.apvts.state.setProperty ("scopeStyle", 1, nullptr);
+        a.apvts.state.setProperty ("scopeStylePost", 2, nullptr);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+        auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
+        check (e->getScopeForTests().getStylePre() == ScopeView::Style::detailed && e->getScopeForTests().getStylePost() == ScopeView::Style::lines,
+               "Forma separada: PRE Detallado (de antes) y POST Solo líneas", 1);
     }
     {
         MeteringABProcessor fresh;

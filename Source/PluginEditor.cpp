@@ -340,7 +340,10 @@ void MeteringABEditor::setupKnob (PreciseSlider& s, juce::Label& label, const ju
 void MeteringABEditor::applyScopeLook()
 {
     auto& state = processor.apvts.state;
-    scope.setStyle ((ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStyle", 0)));
+    // Forma de PRE y de POST por separado (si no hay, toman la forma general de antes).
+    const int legacyStyle = (int) state.getProperty ("scopeStyle", 0);
+    scope.setStyles ((ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStylePre",  legacyStyle)),
+                     (ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStylePost", legacyStyle)));
     scope.setShowGrid ((bool) state.getProperty ("scopeGrid", true));
     scope.setChannels ((ScopeView::Channels) juce::jlimit (0, 3, (int) state.getProperty ("scopeChannels", 0)));
 
@@ -359,13 +362,18 @@ void MeteringABEditor::applyScopeLook()
 void MeteringABEditor::showStyleMenu()
 {
     auto& state = processor.apvts.state;
-    const int style   = (int) state.getProperty ("scopeStyle", 0);
-    const int palette = (int) state.getProperty ("scopePalette", 0);
+    const int stylePre  = (int) scope.getStylePre();
+    const int stylePost = (int) scope.getStylePost();
+    const int palette   = (int) state.getProperty ("scopePalette", 0);
 
     juce::PopupMenu menu;
-    menu.addSectionHeader ("Forma");
+    menu.addSectionHeader ("Forma PRE FX");
     for (int i = 0; i < ScopeView::styleNames.size(); ++i)
-        menu.addItem (100 + i, ScopeView::styleNames[i], true, style == i);
+        menu.addItem (100 + i, ScopeView::styleNames[i], true, stylePre == i);
+
+    menu.addSectionHeader ("Forma POST FX");
+    for (int i = 0; i < ScopeView::styleNames.size(); ++i)
+        menu.addItem (150 + i, ScopeView::styleNames[i], true, stylePost == i);
 
     menu.addSectionHeader ("Canales");
     const int channels = (int) state.getProperty ("scopeChannels", 0);
@@ -391,7 +399,8 @@ void MeteringABEditor::showStyleMenu()
 
         auto& st = processor.apvts.state;
 
-        if (result >= 100 && result < 200)      st.setProperty ("scopeStyle", result - 100, nullptr);
+        if (result >= 100 && result < 150)      st.setProperty ("scopeStylePre", result - 100, nullptr);
+        else if (result >= 150 && result < 200) st.setProperty ("scopeStylePost", result - 150, nullptr);
         else if (result >= 200 && result < 300) st.setProperty ("scopePalette", result - 200, nullptr);
         else if (result == 300 || result == 301) { pickCustomColour (result == 300); return; }
         else if (result == 400)                 st.setProperty ("scopeGrid", ! scope.getShowGrid(), nullptr);

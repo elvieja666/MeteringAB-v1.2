@@ -36,6 +36,7 @@ public:
 
     // Para las pruebas: ejecuta una actualización de la interfaz (lo que hace el timer).
     void refreshNow() { timerCallback(); }
+    const ScopeView& getScopeForTests() const { return scope; }
 
 private:
     void timerCallback() override;

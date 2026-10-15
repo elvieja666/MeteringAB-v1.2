@@ -81,7 +81,7 @@ Muestra el **PRE FX** (verde agua) y, encima, el **POST FX** (ámbar), ya nivela
 - **Botones PRE FX y POST FX** (arriba, al lado del largo): muestran u ocultan cada onda. Encendido tiene el color de su onda; apagado queda gris. Se guardan con el proyecto.
 - **Botón LINK**: prendido, el osciloscopio sigue a la escucha: cada vez que alternás PRE FX / POST FX (botón grande, tecla asignada o automatización) muestra solo la onda que estás escuchando, y el botón toma su color. Apagado, el osciloscopio no cambia solo y muestra lo que dejes prendido con PRE FX y POST FX (una, las dos o ninguna). Se guarda con el proyecto.
 - **Botón Estilo**: elegí cómo se ve.
-  - *Forma*: **Contorno** (relleno con borde, el de siempre), **Detallado** (picos y, encima, el RMS en un tono más claro; muestra cada ciclo de los graves) o **Solo líneas** (solo el borde, ideal para comparar PRE y POST superpuestos).
+  - *Forma PRE FX* y *Forma POST FX* (cada una por separado, por ejemplo PRE en Contorno y POST en Solo líneas): **Contorno** (relleno con borde), **Detallado** (picos y, encima, el RMS en un tono más claro; muestra cada ciclo de los graves) o **Solo líneas** (solo el borde, ideal para comparar PRE y POST superpuestos).
   - *Canales*: **L + R (suma)** (los dos canales sumados y promediados, así lo que está al centro se ve a su nivel real), **Solo L**, **Solo R** o **L y R separados** (L arriba, R abajo, cada uno con su escala).
   - *Colores*: paletas listas (Verde agua / Ámbar, Grises, Azul / Rosa, Blanco / Rojo, Violeta / Lima) o **Personalizado**, eligiendo el color de PRE y de POST con un selector. Los botones PRE FX / POST FX toman los mismos colores.
   - *Mostrar grilla*: prende o apaga las líneas de fondo (las de cada compás quedan siempre).
