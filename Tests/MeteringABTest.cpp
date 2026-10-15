@@ -749,6 +749,68 @@ int main (int argc, char** argv)
         const float jumpDelta = maxJumpAtSwitch (true, err);
         check (jumpDelta < 0.03f, "Crossfade POST -> DELTA: sin salto (máx. salto entre muestras)", jumpDelta);
     }
+
+    {
+        // "Le doy play y no sale nada": casos reales de Logic.
+        MeteringABProcessor send, recv; juce::MidiBuffer m;
+        setParam (send, ParamIDs::link, 12); setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 12);
+        struct Head : juce::AudioPlayHead
+        {
+            double ppq = 0.0; bool playing = false;
+            juce::Optional<PositionInfo> getPosition() const override
+            {
+                PositionInfo p; p.setBpm (120.0); p.setTimeSignature (TimeSignature { 4, 4 }); p.setIsPlaying (playing);
+                p.setPpqPosition (ppq); p.setPpqPositionOfLastBarStart (std::floor (ppq / 4.0) * 4.0);
+                p.setBarCount ((juce::int64) std::floor (ppq / 4.0));
+                return p;
+            }
+        } head;
+        send.setPlayHead (&head); recv.setPlayHead (&head);
+        send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
+        const double qps = 120.0 / 60.0 / 48000.0;
+        juce::AudioBuffer<float> b (2, 512);
+        auto block = [&] (bool sendRuns)
+        {
+            for (int i = 0; i < 512; ++i) { const float x = 0.5f * (float) std::sin (0.05 * i); b.setSample (0, i, x); b.setSample (1, i, x); }
+            if (sendRuns) send.processBlock (b, m);
+            recv.processBlock (b, m);
+            if (head.playing) head.ppq += 512 * qps;
+        };
+        auto drawnNear = [&] (double quartersInBar)   // ¿hay algo dibujado en ese momento del compás?
+        {
+            const int bin = (int) (quartersInBar / 4.0 * MeteringABProcessor::scopeBins);
+            float peak = 0.0f;
+            for (int k = bin - 10; k <= bin + 10; ++k)
+                peak = juce::jmax (peak, recv.scopePreMax[(size_t) k].load(), -recv.scopePreMin[(size_t) k].load());
+            return peak > 0.1f;
+        };
+
+        // 1) Play desde el compás 3, después stop: Logic deja de procesar el Send.
+        head.ppq = 8.0; head.playing = true;
+        for (int k = 0; k < 60; ++k) block (true);
+        head.playing = false;
+        for (int k = 0; k < 60; ++k) block (false);
+        // Play otra vez desde el compás 1: tiene que dibujar enseguida.
+        head.ppq = 0.0; head.playing = true;
+        for (int k = 0; k < 40; ++k) block (true);
+        check (drawnNear (0.5), "Play de nuevo (desde antes): dibuja enseguida", 1);
+
+        // 1b) Igual, pero en stop Logic no llama a ningún plugin (ni se entera del stop).
+        head.playing = false; for (int k = 0; k < 5; ++k) block (true);
+        head.ppq = 12.0; head.playing = true;
+        for (int k = 0; k < 60; ++k) block (true);
+        recv.clearScopeForTests();
+        head.ppq = 0.0;                                            // play de nuevo desde el compás 1
+        for (int k = 0; k < 40; ++k) block (true);
+        check (drawnNear (0.5), "Play de nuevo sin pasar por stop: dibuja enseguida", 1);
+
+        // 2) Modo ciclo: play en la mitad del compás 1, el ciclo vuelve al inicio.
+        head.playing = false; for (int k = 0; k < 5; ++k) block (true);
+        head.ppq = 2.0; head.playing = true;
+        for (int k = 0; k < 180; ++k) { block (true); if (head.ppq >= 4.0) head.ppq -= 4.0; }   // ciclo de 1 compás
+        check (drawnNear (0.5) && drawnNear (1.0), "Modo ciclo: sigue dibujando después de volver al inicio", 1);
+        send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
+    }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;
 }

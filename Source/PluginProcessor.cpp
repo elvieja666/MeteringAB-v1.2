@@ -423,6 +423,8 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
             latencyMeasurer.setState (LatencyMeasurer::State::noSend);
 
         gainSmoother.setCurrentAndTargetValue (1.0f);
+        scopeWasPlaying = false;                        // el próximo play arranca de cero
+        scopeIsRunning.store (false, std::memory_order_relaxed);
         displayPre  = -120.0f;
         displayPost = (float) postMeter.getDecibels();
         displayGain = 0.0f;
@@ -538,9 +540,18 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
 
         if (nextBeat - scopePlayStartQuarters <= preRollWindow)
             scopePlayStartQuarters = nextBeat;
+
+        scopeGateOpen = false;                          // esperar a llegar al punto de play
+    }
+    else if (scopeRunning && hostHasPpq && hostPpq < scopeLastBlockPpq - 1.0e-6)
+    {
+        // Logic saltó hacia atrás (modo ciclo, o un play nuevo sin pasar por
+        // stop): seguir dibujando sin esperar al punto de play anterior.
+        scopeGateOpen = true;
     }
 
     scopeWasPlaying = scopeRunning;
+    scopeLastBlockPpq = hostHasPpq ? hostPpq : 0.0;
     double songQuarters = hostHasPpq ? hostPpq : scopePlayStartQuarters;   // posición del audio que llega
 
     for (int i = 0; i < n; ++i)
@@ -562,7 +573,10 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         }
 
         // Osciloscopio: columna que corresponde a este momento del compás.
-        if (scopeRunning && songQuarters >= scopePlayStartQuarters - 1.0e-9)
+        if (scopeRunning && ! scopeGateOpen && songQuarters >= scopePlayStartQuarters - 1.0e-9)
+            scopeGateOpen = true;
+
+        if (scopeRunning && scopeGateOpen)
         {
             const float preValue  = preSum / (float) numCh;
             const float postValue = postSum / (float) numCh;

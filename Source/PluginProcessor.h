@@ -153,8 +153,13 @@ private:
     double scopePhaseQuarters = 0.0;                  // dónde va el barrido (en negras)
     int    lastScopeBin = -1, lastScopeLength = -1;
     bool   scopeWasPlaying = false;                   // para detectar cuándo se da play
+    bool   scopeGateOpen = true;                      // false solo durante el tramo previo al play
+    double scopeLastBlockPpq = 0.0;                   // para detectar saltos hacia atrás (ciclo)
     double scopePlayStartQuarters = 0.0;              // dónde se dio play (en negras)
     void   clearScope();
+public:
+    void   clearScopeForTests() { clearScope(); }
+private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> gainSmoother;
 
     // Crossfade de 10 ms al cambiar PRE FX / POST FX / DELTA (evita clicks).
