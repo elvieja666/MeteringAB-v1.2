@@ -342,6 +342,7 @@ void MeteringABEditor::applyScopeLook()
     auto& state = processor.apvts.state;
     scope.setStyle ((ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStyle", 0)));
     scope.setShowGrid ((bool) state.getProperty ("scopeGrid", true));
+    scope.setChannels ((ScopeView::Channels) juce::jlimit (0, 3, (int) state.getProperty ("scopeChannels", 0)));
 
     const int palette = juce::jlimit (0, ScopeView::customPalette, (int) state.getProperty ("scopePalette", 0));
 
@@ -366,6 +367,11 @@ void MeteringABEditor::showStyleMenu()
     for (int i = 0; i < ScopeView::styleNames.size(); ++i)
         menu.addItem (100 + i, ScopeView::styleNames[i], true, style == i);
 
+    menu.addSectionHeader ("Canales");
+    const int channels = (int) state.getProperty ("scopeChannels", 0);
+    for (int i = 0; i < ScopeView::channelNames.size(); ++i)
+        menu.addItem (500 + i, ScopeView::channelNames[i], true, channels == i);
+
     menu.addSectionHeader ("Colores (PRE / POST)");
     for (int i = 0; i < (int) ScopeView::palettes.size(); ++i)
         menu.addItem (200 + i, ScopeView::palettes[(size_t) i].name, true, palette == i);
@@ -389,6 +395,7 @@ void MeteringABEditor::showStyleMenu()
         else if (result >= 200 && result < 300) st.setProperty ("scopePalette", result - 200, nullptr);
         else if (result == 300 || result == 301) { pickCustomColour (result == 300); return; }
         else if (result == 400)                 st.setProperty ("scopeGrid", ! scope.getShowGrid(), nullptr);
+        else if (result >= 500 && result < 600) st.setProperty ("scopeChannels", result - 500, nullptr);
 
         applyScopeLook();
     });

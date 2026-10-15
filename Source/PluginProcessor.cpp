@@ -558,14 +558,17 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     {
         const float g = gainSmoother.getNextValue();
         const float wPost = mixPost.getNextValue(), wPre = mixPre.getNextValue(), wDelta = mixDelta.getNextValue();
-        float preSum = 0.0f, postSum = 0.0f;
+        float preSumValue = 0.0f, postSumValue = 0.0f;
+        float preCh[2] {}, postCh[2] {};
 
         for (int ch = 0; ch < numCh; ++ch)
         {
             float* out = buffer.getWritePointer (ch);
             const float dry = dryBuffer.getSample (ch, i);
-            preSum  += dry;
-            postSum += out[i] * g;                       // POST nivelado, escuches lo que escuches
+            preSumValue  += dry;
+            postSumValue += out[i] * g;                  // POST nivelado, escuches lo que escuches
+            preCh[ch]  = dry;
+            postCh[ch] = out[i] * g;
 
             const float post = out[i] * g;                                           // POST FX: procesado y nivelado
             const float diff = deltaAudible ? post - polaritySign * deltaDry->getSample (ch, i) : 0.0f;   // DELTA
@@ -578,33 +581,39 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
 
         if (scopeRunning && scopeGateOpen)
         {
-            const float preValue  = preSum / (float) numCh;
-            const float postValue = postSum / (float) numCh;
+            if (numCh == 1)                             // pista mono: L y R iguales
+            {
+                preCh[1] = preCh[0];
+                postCh[1] = postCh[0];
+            }
+
+            const float values[numScopeTraces] = { preSumValue / (float) numCh, postSumValue / (float) numCh,
+                                                   preCh[0], postCh[0], preCh[1], postCh[1] };
             const int bin = juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins));
+            const auto k = (size_t) bin;
+            const bool newBin = bin != lastScopeBin;    // columna nueva: reemplaza la del loop anterior
 
-            if (bin != lastScopeBin)                    // columna nueva: reemplaza la del loop anterior
+            for (int t = 0; t < numScopeTraces; ++t)
             {
-                scopePreMin[(size_t) bin].store (preValue, std::memory_order_relaxed);
-                scopePreMax[(size_t) bin].store (preValue, std::memory_order_relaxed);
-                scopePostMin[(size_t) bin].store (postValue, std::memory_order_relaxed);
-                scopePostMax[(size_t) bin].store (postValue, std::memory_order_relaxed);
-                scopePreSq[(size_t) bin].store (preValue * preValue, std::memory_order_relaxed);
-                scopePostSq[(size_t) bin].store (postValue * postValue, std::memory_order_relaxed);
-                scopeCount[(size_t) bin].store (1, std::memory_order_relaxed);
-                lastScopeBin = bin;
-            }
-            else
-            {
-                const auto k = (size_t) bin;
-                scopePreSq[k].store  (scopePreSq[k].load (std::memory_order_relaxed)  + preValue * preValue,   std::memory_order_relaxed);
-                scopePostSq[k].store (scopePostSq[k].load (std::memory_order_relaxed) + postValue * postValue, std::memory_order_relaxed);
-                scopeCount[k].store  (scopeCount[k].load (std::memory_order_relaxed) + 1, std::memory_order_relaxed);
-                auto& a = scopePreMin[(size_t) bin];   if (preValue  < a.load (std::memory_order_relaxed)) a.store (preValue,  std::memory_order_relaxed);
-                auto& b = scopePreMax[(size_t) bin];   if (preValue  > b.load (std::memory_order_relaxed)) b.store (preValue,  std::memory_order_relaxed);
-                auto& c = scopePostMin[(size_t) bin];  if (postValue < c.load (std::memory_order_relaxed)) c.store (postValue, std::memory_order_relaxed);
-                auto& d = scopePostMax[(size_t) bin];  if (postValue > d.load (std::memory_order_relaxed)) d.store (postValue, std::memory_order_relaxed);
+                auto& trace = scopeTraces[(size_t) t];
+                const float v = values[t];
+
+                if (newBin)
+                {
+                    trace.min[k].store (v, std::memory_order_relaxed);
+                    trace.max[k].store (v, std::memory_order_relaxed);
+                    trace.sq[k].store (v * v, std::memory_order_relaxed);
+                }
+                else
+                {
+                    if (v < trace.min[k].load (std::memory_order_relaxed)) trace.min[k].store (v, std::memory_order_relaxed);
+                    if (v > trace.max[k].load (std::memory_order_relaxed)) trace.max[k].store (v, std::memory_order_relaxed);
+                    trace.sq[k].store (trace.sq[k].load (std::memory_order_relaxed) + v * v, std::memory_order_relaxed);
+                }
             }
 
+            scopeCount[k].store (newBin ? 1 : scopeCount[k].load (std::memory_order_relaxed) + 1, std::memory_order_relaxed);
+            lastScopeBin = bin;
         }
 
         if (scopeRunning)
@@ -650,9 +659,13 @@ void MeteringABProcessor::clearScope()
 {
     for (int b = 0; b < scopeBins; ++b)
     {
-        scopePreMin[(size_t) b] = 0.0f;  scopePreMax[(size_t) b] = 0.0f;
-        scopePostMin[(size_t) b] = 0.0f; scopePostMax[(size_t) b] = 0.0f;
-        scopePreSq[(size_t) b] = 0.0f;   scopePostSq[(size_t) b] = 0.0f;
+        for (auto& trace : scopeTraces)
+        {
+            trace.min[(size_t) b] = 0.0f;
+            trace.max[(size_t) b] = 0.0f;
+            trace.sq[(size_t) b] = 0.0f;
+        }
+
         scopeCount[(size_t) b] = 0;
     }
 

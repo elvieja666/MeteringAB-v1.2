@@ -100,9 +100,17 @@ public:
     // de PRE FX y POST FX en ese momento del compás. Se va sobrescribiendo a
     // medida que avanza la canción, así cada compás reemplaza al anterior.
     static constexpr int scopeBins = 2048;            // resolución horizontal (columnas por loop)
-    std::array<std::atomic<float>, scopeBins> scopePreMin, scopePreMax, scopePostMin, scopePostMax;
-    std::array<std::atomic<float>, scopeBins> scopePreSq, scopePostSq;   // suma de cuadrados (para el RMS)
-    std::array<std::atomic<int>,   scopeBins> scopeCount;                // muestras en cada columna
+    // Una "traza" por señal y canal: mínimo, máximo y suma de cuadrados (RMS).
+    struct ScopeTrace { std::array<std::atomic<float>, scopeBins> min, max, sq; };
+    enum ScopeTraceIndex { preSum = 0, postSum, preLeft, postLeft, preRight, postRight, numScopeTraces };
+    std::array<ScopeTrace, numScopeTraces> scopeTraces;                  // L+R (promedio), solo L, solo R
+    std::array<std::atomic<int>, scopeBins> scopeCount;                  // muestras en cada columna
+
+    // Atajos a la suma L+R (los usan las pruebas).
+    std::array<std::atomic<float>, scopeBins>& scopePreMin  = scopeTraces[preSum].min;
+    std::array<std::atomic<float>, scopeBins>& scopePreMax  = scopeTraces[preSum].max;
+    std::array<std::atomic<float>, scopeBins>& scopePostMin = scopeTraces[postSum].min;
+    std::array<std::atomic<float>, scopeBins>& scopePostMax = scopeTraces[postSum].max;
     std::atomic<int> scopeCurrentBin { 0 };
     std::atomic<bool> scopeIsRunning { false };       // Logic en play
     std::atomic<int> scopeLengthIndex { ScopeLengths::defaultIndex };

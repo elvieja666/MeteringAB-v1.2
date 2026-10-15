@@ -39,6 +39,12 @@ public:
     void setColours (juce::Colour pre, juce::Colour post) { preColour = pre; postColour = post; repaint(); }
     juce::Colour getPreColour() const          { return preColour; }
     juce::Colour getPostColour() const         { return postColour; }
+    // Canales a mostrar.
+    enum class Channels { sum = 0, left = 1, right = 2, split = 3 };
+    static inline const juce::StringArray channelNames { "L + R (suma)", "Solo L", "Solo R", "L y R separados" };
+    void setChannels (Channels c)              { channels = c; repaint(); }
+    Channels getChannels() const               { return channels; }
+
     void setShowGrid (bool shouldShow)         { showGrid = shouldShow; repaint(); }
     bool getShowGrid() const                   { return showGrid; }
 
@@ -66,29 +72,59 @@ public:
         g.fillRoundedRectangle (bounds, 8.0f);
 
         const auto plot = bounds.withTrimmedLeft (38.0f).withTrimmedTop (20.0f).withTrimmedRight (10.0f).withTrimmedBottom (8.0f);
-        const float midY = plot.getCentreY();
-        const float half = plot.getHeight() * 0.5f;
-
         drawTimeGrid (g, plot);
-        drawLevelGrid (g, plot, midY, half);
 
-        auto yFor = [&] (float v) { return midY - juce::jlimit (-1.0f, 1.0f, v) * half; };
+        // Una o dos "franjas": L y R separados usa dos (L arriba, R abajo).
+        const bool split = channels == Channels::split;
+        const int lanes = split ? 2 : 1;
 
-        auto drawSignal = [&] (const Bins& mins, const Bins& maxs, const Bins& sq, juce::Colour colour)
+        for (int lane = 0; lane < lanes; ++lane)
         {
-            switch (style)
+            auto area = plot;
+            if (split)
+                area = lane == 0 ? plot.withHeight (plot.getHeight() * 0.5f - 4.0f)
+                                 : plot.withTrimmedTop (plot.getHeight() * 0.5f + 4.0f);
+
+            const float midY = area.getCentreY();
+            const float half = area.getHeight() * 0.5f;
+            drawLevelGrid (g, area, midY, half);
+
+            auto yFor = [&] (float v) { return midY - juce::jlimit (-1.0f, 1.0f, v) * half; };
+            const auto& pre  = traces[(size_t) (lane * 2)];
+            const auto& post = traces[(size_t) (lane * 2 + 1)];
+
+            auto drawSignal = [&] (const TraceCopy& t, juce::Colour colour)
             {
-                case Style::contour:  drawEnvelope (g, plot, mins, maxs, yFor, colour, true);  break;
-                case Style::lines:    drawEnvelope (g, plot, mins, maxs, yFor, colour, false); break;
-                case Style::detailed: drawDetailed (g, plot, mins, maxs, sq, yFor, midY, colour); break;
+                switch (style)
+                {
+                    case Style::contour:  drawEnvelope (g, area, t.min, t.max, yFor, colour, true);  break;
+                    case Style::lines:    drawEnvelope (g, area, t.min, t.max, yFor, colour, false); break;
+                    case Style::detailed: drawDetailed (g, area, t.min, t.max, t.sq, yFor, midY, colour); break;
+                }
+            };
+
+            if (showPre)
+                drawSignal (pre, preColour);
+
+            if (showPost)
+                drawSignal (post, postColour);    // POST encima
+
+            // Etiqueta del canal (L / R) cuando no es la suma.
+            if (channels != Channels::sum)
+            {
+                const char* name = channels == Channels::left ? "L" : channels == Channels::right ? "R" : (lane == 0 ? "L" : "R");
+                g.setColour (juce::Colour (0xffe8e6e3).withAlpha (0.8f));
+                g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+                g.drawText (name, juce::Rectangle<float> (area.getX() + 6.0f, area.getY() + 4.0f, 20.0f, 16.0f).toNearestInt(),
+                            juce::Justification::centredLeft);
             }
-        };
+        }
 
-        if (showPre)
-            drawSignal (preMin, preMax, preSq, preColour);
-
-        if (showPost)
-            drawSignal (postMin, postMax, postSq, postColour);    // POST encima
+        if (split)
+        {
+            g.setColour (juce::Colour (0xff2e323c));
+            g.fillRect (plot.getX(), plot.getCentreY() - 1.0f, plot.getWidth(), 2.0f);
+        }
 
         // Cabezal del barrido
         if (! frozen)
@@ -118,16 +154,33 @@ public:
 private:
     void capture()
     {
+        // Qué trazas copiar según los canales elegidos (pares PRE/POST).
+        using P = MeteringABProcessor;
+        int sources[4] = { P::preSum, P::postSum, P::preSum, P::postSum };
+
+        switch (channels)
+        {
+            case Channels::sum:   break;
+            case Channels::left:  sources[0] = P::preLeft;  sources[1] = P::postLeft;  break;
+            case Channels::right: sources[0] = P::preRight; sources[1] = P::postRight; break;
+            case Channels::split: sources[0] = P::preLeft;  sources[1] = P::postLeft;
+                                  sources[2] = P::preRight; sources[3] = P::postRight; break;
+        }
+
+        const int used = channels == Channels::split ? 4 : 2;
+
         for (int b = 0; b < MeteringABProcessor::scopeBins; ++b)
         {
-            preMin[(size_t) b]  = processor.scopePreMin[(size_t) b].load (std::memory_order_relaxed);
-            preMax[(size_t) b]  = processor.scopePreMax[(size_t) b].load (std::memory_order_relaxed);
-            postMin[(size_t) b] = processor.scopePostMin[(size_t) b].load (std::memory_order_relaxed);
-            postMax[(size_t) b] = processor.scopePostMax[(size_t) b].load (std::memory_order_relaxed);
+            const float count = (float) juce::jmax (1, processor.scopeCount[(size_t) b].load (std::memory_order_relaxed));
 
-            const int count = juce::jmax (1, processor.scopeCount[(size_t) b].load (std::memory_order_relaxed));
-            preSq[(size_t) b]  = processor.scopePreSq[(size_t) b].load (std::memory_order_relaxed)  / (float) count;
-            postSq[(size_t) b] = processor.scopePostSq[(size_t) b].load (std::memory_order_relaxed) / (float) count;
+            for (int t = 0; t < used; ++t)
+            {
+                const auto& src = processor.scopeTraces[(size_t) sources[t]];
+                auto& dst = traces[(size_t) t];
+                dst.min[(size_t) b] = src.min[(size_t) b].load (std::memory_order_relaxed);
+                dst.max[(size_t) b] = src.max[(size_t) b].load (std::memory_order_relaxed);
+                dst.sq[(size_t) b]  = src.sq[(size_t) b].load (std::memory_order_relaxed) / count;
+            }
         }
 
         currentBin = processor.scopeCurrentBin.load (std::memory_order_relaxed);
@@ -315,7 +368,9 @@ private:
     }
 
     MeteringABProcessor& processor;
-    Bins preMin {}, preMax {}, postMin {}, postMax {}, preSq {}, postSq {};
+    struct TraceCopy { Bins min {}, max {}, sq {}; };
+    std::array<TraceCopy, 4> traces;                  // [PRE, POST] de la franja de arriba, [PRE, POST] de abajo
+    Channels channels = Channels::sum;
     Style style = Style::contour;
     juce::Colour preColour { palettes[0].pre }, postColour { palettes[0].post };
     bool showGrid = true;

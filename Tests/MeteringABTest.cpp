@@ -308,6 +308,7 @@ int main (int argc, char** argv)
                     a->apvts.state.setProperty ("scopeStyle", shot == 4 ? 1 : shot == 5 ? 2 : 0, nullptr);
                     a->apvts.state.setProperty ("scopePalette", shot == 4 ? 1 : shot == 5 ? 2 : 0, nullptr);
                     if (shot == 5) a->apvts.state.setProperty ("scopeLink", false, nullptr);   // LINK apagado en la captura
+                    if (shot == 6) a->apvts.state.setProperty ("scopeChannels", 3, nullptr);   // L y R separados
                 }
                 chain->run (shot == 2 ? 5.3 : 3.3);
             }
@@ -820,6 +821,21 @@ int main (int argc, char** argv)
         for (int k = 0; k < 180; ++k) { block (true); if (head.ppq >= 4.0) head.ppq -= 4.0; }   // ciclo de 1 compás
         check (drawnNear (0.5) && drawnNear (1.0), "Modo ciclo: sigue dibujando después de volver al inicio", 1);
         send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
+    }
+
+    {
+        // Canales: L y R se guardan por separado y L+R es el promedio.
+        Chain c (11, 0.0f, 0);
+        c.run (2.5);   // la cadena manda R = 0,8 x L
+        float maxSum = 0, maxL = 0, maxR = 0;
+        for (int k = 0; k < MeteringABProcessor::scopeBins; ++k)
+        {
+            maxSum = juce::jmax (maxSum, c.recv.scopeTraces[MeteringABProcessor::preSum].max[(size_t) k].load());
+            maxL   = juce::jmax (maxL,   c.recv.scopeTraces[MeteringABProcessor::preLeft].max[(size_t) k].load());
+            maxR   = juce::jmax (maxR,   c.recv.scopeTraces[MeteringABProcessor::preRight].max[(size_t) k].load());
+        }
+        check (std::abs (maxR / maxL - 0.8f) < 0.02f && std::abs (maxSum / maxL - 0.9f) < 0.02f,
+               "Canales: R = 0,8 x L y L+R = promedio (relación R/L)", maxR / maxL);
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;
