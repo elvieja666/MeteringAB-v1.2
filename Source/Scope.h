@@ -303,7 +303,7 @@ private:
     // Las columnas fuera de la máscara quedan vacías (cada tramo se dibuja aparte).
     template <typename YFunc>
     static void drawEnvelope (juce::Graphics& g, juce::Rectangle<float> plot, const Bins& mins, const Bins& maxs,
-                              YFunc yFor, juce::Colour colour, bool filled, Mask mask = {})
+                              YFunc yFor, juce::Colour colour, bool filled, Mask mask)
     {
         const int bins = MeteringABProcessor::scopeBins;
         juce::Path fill, lines;
@@ -362,7 +362,7 @@ private:
     // los ciclos de los graves) y, encima, el RMS en un tono más claro.
     template <typename YFunc>
     static void drawDetailed (juce::Graphics& g, juce::Rectangle<float> plot, const Bins& mins, const Bins& maxs,
-                              const Bins& meanSquares, YFunc yFor, float midY, juce::Colour colour, Mask mask = {})
+                              const Bins& meanSquares, YFunc yFor, float midY, juce::Colour colour, Mask mask)
     {
         const int bins = MeteringABProcessor::scopeBins;
         const int columns = juce::jmax (1, (int) plot.getWidth() * 2);
