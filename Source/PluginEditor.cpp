@@ -450,7 +450,7 @@ void MeteringABEditor::updateScopeSection()
     for (juce::Component* c : std::initializer_list<juce::Component*> { &scope, &scopeLabel, &zoomBox, &showPreButton, &showPostButton, &linkButton, &scopeStyleButton })
         c->setVisible (showBody);
 
-    const int height = ! showSection ? mainHeight
+    const int height = ! showSection ? sendHeight
                      : scopeOpen     ? mainHeight + scopeHeaderHeight + scopeBodyHeight
                                      : mainHeight + scopeHeaderHeight;
 
@@ -691,6 +691,10 @@ void MeteringABEditor::paint (juce::Graphics& g)
     g.setFont (juce::FontOptions (24.0f, juce::Font::bold));
     g.drawText ("METERING A/B", 20, 10, 210, 32, juce::Justification::centredLeft);
 
+    // Send: solo título, modo, Link ID y estado (ventana chica).
+    if (isSendMode)
+        return;
+
     // Panel de medidores
     auto meterArea = juce::Rectangle<int> (20, 80, getWidth() - 40, 70);
     g.setColour (Colours::panel);
@@ -706,11 +710,6 @@ void MeteringABEditor::paint (juce::Graphics& g)
     struct Readout { juce::String title, value; juce::Colour colour; };
     std::vector<Readout> readouts;
 
-    if (isSendMode)
-    {
-        readouts.push_back ({ "Nivel original", formatLevel (shownPre), Colours::text });
-    }
-    else
     {
         const auto gainText = (shownGain >= 0 ? "+" : "") + juce::String (shownGain, 2) + " dB";
         readouts.push_back ({ "Original (Send)",   formatLevel (shownPre),  Colours::text });
@@ -731,16 +730,6 @@ void MeteringABEditor::paint (juce::Graphics& g)
         g.drawText (readouts[i].value, col, juce::Justification::centred);
     }
 
-    if (isSendMode)
-    {
-        g.setColour (Colours::dim);
-        g.setFont (juce::FontOptions (13.0f));
-        g.drawFittedText ("Este Metering A/B va PRIMERO en la cadena de efectos.\n"
-                          "Poné otro Metering A/B en modo Receive al FINAL, con el mismo Link ID.\n"_u
-                          "El A/B y el osciloscopio están en el Receive."_u,
-                          juce::Rectangle<int> (20, 162, getWidth() - 40, mainHeight - 162 - 20), juce::Justification::centred, 4);
-    }
-    else
     {
         g.setColour (Colours::dim);
         g.setFont (juce::FontOptions (11.0f));

@@ -376,7 +376,7 @@ int main (int argc, char** argv)
         check (ed->getHeight() == MeteringABEditor::mainHeight + 44, "Osciloscopio oculto: ventana más chica (alto px)", ed->getHeight());
         MeteringABProcessor sendP;
         std::unique_ptr<juce::AudioProcessorEditor> ed2 (sendP.createEditor());
-        check (ed2->getHeight() == MeteringABEditor::mainHeight, "Modo Send: sin sección de osciloscopio (alto px)", ed2->getHeight());
+        check (ed2->getHeight() == MeteringABEditor::sendHeight, "Modo Send: sin sección de osciloscopio (alto px)", ed2->getHeight());
     }
     {
         // Osciloscopio linkeado a la escucha: al alternar PRE/POST FX muestra solo esa onda.

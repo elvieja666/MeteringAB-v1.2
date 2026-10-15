@@ -31,6 +31,7 @@ public:
     // Medidas de la ventana: parte principal + sección del osciloscopio.
     static constexpr int columnsHeight = 152;         // Escuchar | Ventana | Latencia
     static constexpr int mainHeight = 162 + columnsHeight + 36;   // hasta la línea que separa el osciloscopio
+    static constexpr int sendHeight = 86;             // Send: solo título, modo, Link ID y estado
 
     explicit MeteringABEditor (MeteringABProcessor&);
     ~MeteringABEditor() override;
