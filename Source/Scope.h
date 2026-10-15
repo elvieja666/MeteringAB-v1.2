@@ -82,6 +82,7 @@ public:
         // Una o dos "franjas": L y R separados usa dos (L arriba, R abajo).
         const bool split = channels == Channels::split;
         const int lanes = split ? 2 : 1;
+        const double binSecs = binSeconds();
 
         for (int lane = 0; lane < lanes; ++lane)
         {
@@ -102,8 +103,8 @@ public:
             {
                 switch (style)
                 {
-                    case Style::contour:  drawEnvelope (g, area, t.min, t.max, yFor, colour, true, mask);  break;
-                    case Style::lines:    drawEnvelope (g, area, t.min, t.max, yFor, colour, false, mask); break;
+                    case Style::contour:  drawEnvelope (g, area, t.min, t.max, yFor, colour, true, mask, binSecs);  break;
+                    case Style::lines:    drawEnvelope (g, area, t.min, t.max, yFor, colour, false, mask, binSecs); break;
                     case Style::detailed: drawDetailed (g, area, t.min, t.max, t.sq, yFor, midY, colour, mask); break;
                 }
             };
@@ -299,19 +300,91 @@ private:
     struct Mask { const Flags* flags = nullptr; std::uint8_t wanted = 0;
                   bool includes (int b) const { return flags == nullptr || (*flags)[(size_t) b] == wanted; } };
 
-    // Contorno (con relleno) o solo líneas: el pico de cada columna, suavizado.
+public:
+    // Decay del borde en Contorno / Solo líneas (sube al instante, baja en este tiempo).
+    static constexpr double envelopeReleaseMs = 5.0;
+    // Definición del dibujo: cantidad de puntos a lo largo de todo el recorrido.
+    static constexpr int envelopePoints = 256;
+
+    // Suaviza un tramo [from, to) de bins: borde con release y menos definición.
+    // Devuelve un punto por "tramito" (centro en bins) con su pico de arriba y de abajo.
+    struct EnvelopePoint { float bin, hi, lo; };
+
+    static std::vector<EnvelopePoint> smoothEnvelope (const float* mins, const float* maxs, int from, int to, double binSeconds)
+    {
+        std::vector<EnvelopePoint> points;
+        if (to <= from)
+            return points;
+
+        // 1) Release: el borde sigue al pico al instante y cae con un decay.
+        const double a = binSeconds > 0.0 ? std::exp (-binSeconds / (envelopeReleaseMs * 0.001)) : 0.0;
+        std::vector<float> up ((size_t) (to - from)), down ((size_t) (to - from));
+        float eu = 0.0f, el = 0.0f;
+
+        for (int b = from; b < to; ++b)
+        {
+            eu = juce::jmax (maxs[b], (float) (eu * a));
+            el = juce::jmin (mins[b], (float) (el * a));
+            up[(size_t) (b - from)] = eu;
+            down[(size_t) (b - from)] = el;
+        }
+
+        // 2) Menos definición: un punto por tramito (grilla fija, igual para PRE y POST).
+        const int step = juce::jmax (1, MeteringABProcessor::scopeBins / envelopePoints);
+        for (int c = (from / step) * step; c < to; c += step)
+        {
+            const int s = juce::jmax (from, c), e = juce::jmin (to, c + step);
+            float hi = -1.0f, lo = 1.0f;
+            for (int b = s; b < e; ++b)
+            {
+                hi = juce::jmax (hi, up[(size_t) (b - from)]);
+                lo = juce::jmin (lo, down[(size_t) (b - from)]);
+            }
+            points.push_back ({ 0.5f * (float) (s + e), hi, lo });
+        }
+
+        // 3) Curva suave: promedio [1 2 3 2 1] entre puntos vecinos (bordes repetidos).
+        const int n = (int) points.size();
+        std::vector<EnvelopePoint> smoothed (points);
+        constexpr float k[] = { 1.0f, 2.0f, 3.0f, 2.0f, 1.0f };
+
+        for (int i = 0; i < n; ++i)
+        {
+            float hi = 0.0f, lo = 0.0f;
+            for (int j = -2; j <= 2; ++j)
+            {
+                const auto& p = points[(size_t) juce::jlimit (0, n - 1, i + j)];
+                hi += k[j + 2] * p.hi;
+                lo += k[j + 2] * p.lo;
+            }
+            smoothed[(size_t) i].hi = hi / 9.0f;
+            smoothed[(size_t) i].lo = lo / 9.0f;
+        }
+
+        // Puntas del tramo, para que cubra de borde a borde.
+        smoothed.insert (smoothed.begin(), { (float) from, smoothed.front().hi, smoothed.front().lo });
+        smoothed.push_back ({ (float) to, smoothed.back().hi, smoothed.back().lo });
+        return smoothed;
+    }
+
+private:
+    // Segundos que dura cada columna del osciloscopio (según tempo y largo).
+    double binSeconds() const
+    {
+        const double bpm = juce::jmax (1.0, processor.hostBpm.load());
+        const double quartersPerBar = beatsPerBar * 4.0 / juce::jmax (1, processor.timeSigDen.load());
+        return lengthBars * quartersPerBar * 60.0 / bpm / MeteringABProcessor::scopeBins;
+    }
+
+    // Contorno (con relleno) o solo líneas: borde con decay de 5 ms y dibujo suavizado.
     // Las columnas fuera de la máscara quedan vacías (cada tramo se dibuja aparte).
     template <typename YFunc>
     static void drawEnvelope (juce::Graphics& g, juce::Rectangle<float> plot, const Bins& mins, const Bins& maxs,
-                              YFunc yFor, juce::Colour colour, bool filled, Mask mask)
+                              YFunc yFor, juce::Colour colour, bool filled, Mask mask, double binSeconds)
     {
         const int bins = MeteringABProcessor::scopeBins;
         juce::Path fill, lines;
-
-        // Cada columna toma el pico de sus vecinas (del mismo tramo): así el
-        // contorno no se ve "dentado" cuando una columna dura menos que un ciclo.
-        constexpr int radius = 4;
-        auto xFor = [&] (int b) { return plot.getX() + ((float) b + 0.5f) / (float) bins * plot.getWidth(); };
+        auto xFor = [&] (float b) { return plot.getX() + b / (float) bins * plot.getWidth(); };
 
         int b = 0;
         while (b < bins)
@@ -322,24 +395,22 @@ private:
             while (end < bins && mask.includes (end))
                 ++end;
 
-            auto peakMax = [&] (int i) { float v = -1.0f; for (int j = juce::jmax (b, i - radius); j <= juce::jmin (end - 1, i + radius); ++j) v = juce::jmax (v, maxs[(size_t) j]); return v; };
-            auto peakMin = [&] (int i) { float v =  1.0f; for (int j = juce::jmax (b, i - radius); j <= juce::jmin (end - 1, i + radius); ++j) v = juce::jmin (v, mins[(size_t) j]); return v; };
-
+            const auto points = smoothEnvelope (mins.data(), maxs.data(), b, end, binSeconds);
             juce::Path top, bottom;
 
-            for (int i = b; i < end; ++i)
+            for (size_t i = 0; i < points.size(); ++i)
             {
-                const float yHi = yFor (peakMax (i));
-                if (i == b) { fill.startNewSubPath (xFor (i), yHi); top.startNewSubPath (xFor (i), yHi); }
-                else        { fill.lineTo (xFor (i), yHi);          top.lineTo (xFor (i), yHi); }
+                const float x = xFor (points[i].bin), yHi = yFor (points[i].hi);
+                if (i == 0) { fill.startNewSubPath (x, yHi); top.startNewSubPath (x, yHi); }
+                else        { fill.lineTo (x, yHi);          top.lineTo (x, yHi); }
             }
 
-            for (int i = end - 1; i >= b; --i)
+            for (size_t i = points.size(); i-- > 0;)
             {
-                const float yLo = yFor (peakMin (i));
-                fill.lineTo (xFor (i), yLo);
-                if (i == end - 1) bottom.startNewSubPath (xFor (i), yLo);
-                else              bottom.lineTo (xFor (i), yLo);
+                const float x = xFor (points[i].bin), yLo = yFor (points[i].lo);
+                fill.lineTo (x, yLo);
+                if (i == points.size() - 1) bottom.startNewSubPath (x, yLo);
+                else                        bottom.lineTo (x, yLo);
             }
 
             fill.closeSubPath();

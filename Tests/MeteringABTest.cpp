@@ -875,6 +875,26 @@ int main (int argc, char** argv)
         check (flagAt (0.25) == 0 && flagAt (0.6) == 1 && flagAt (0.9) == 0,
                "LINK: PRE solo desde el cambio hasta el cabezal; adelante sigue POST", flagAt (0.25) * 100 + flagAt (0.6) * 10 + flagAt (0.9));
     }
+
+    {
+        // Contorno/líneas: decay de 5 ms y dibujo con menos definición.
+        constexpr int bins = MeteringABProcessor::scopeBins;
+        std::vector<float> mins ((size_t) bins, 0.0f), maxs ((size_t) bins, 0.0f);
+        maxs[100] = 1.0f; mins[100] = -1.0f;                        // un golpe en una sola columna
+        const double binSec = 1.0e-3;                               // 1 ms por columna
+        const auto pts = ScopeView::smoothEnvelope (mins.data(), maxs.data(), 0, bins, binSec);
+        check (pts.size() >= 250 && pts.size() <= 260, "Contorno: ~256 puntos a lo largo del recorrido", (double) pts.size());
+
+        // Sin suavizado final, el borde 5 ms después del golpe vale e^-1 (decay de 5 ms).
+        auto valueAt = [&] (float bin) { for (auto& p : pts) if (std::abs (p.bin - bin) < 4.1f) return p.hi; return -1.0f; };
+        const float atHit = valueAt (100.0f), after20 = valueAt (124.0f), after60 = valueAt (164.0f);
+        check (atHit > 0.2f && after20 < atHit && after60 < 0.02f, "Contorno: el golpe cae con el decay y se apaga", after20);
+        check (pts.front().bin == 0.0f && pts.back().bin == (float) bins, "Contorno: el dibujo cubre todo el tramo", pts.back().bin);
+
+        // Tramo parcial (LINK): solo dibuja dentro del tramo.
+        const auto part = ScopeView::smoothEnvelope (mins.data(), maxs.data(), 300, 500, binSec);
+        check (part.front().bin == 300.0f && part.back().bin == 500.0f, "Contorno: con LINK cada tramo se suaviza aparte", part.size());
+    }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;
 }
