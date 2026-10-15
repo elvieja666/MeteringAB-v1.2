@@ -157,6 +157,12 @@ private:
     void   clearScope();
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> gainSmoother;
 
+    // Crossfade de 10 ms al cambiar PRE FX / POST FX / DELTA (evita clicks).
+    // Los tres pesos se mueven juntos en línea recta y siempre suman 1.
+    static constexpr double crossfadeSeconds = 0.010;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mixPost, mixPre, mixDelta;
+    void setMixTargets (bool delta, bool pre, bool immediately);
+
     float autoGainDb = 0.0f;
     int   registeredSendLink = -1;                    // -1 = no registrado
     juce::uint32 lastHeartbeat = 0;

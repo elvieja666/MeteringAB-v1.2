@@ -61,7 +61,7 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 | Control | Qué hace |
 |---|---|
-| **PRE FX / POST FX** | Un solo botón: cada clic alterna. Arranca en **PRE FX**. **POST FX** (ámbar) = con tus efectos, al mismo volumen que el original. **PRE FX** (verde agua) = la señal antes de los efectos. Es un parámetro de Logic, así que lo podés asignar a una tecla o control MIDI. |
+| **PRE FX / POST FX** | Un solo botón: cada clic alterna. Arranca en **PRE FX**. **POST FX** (ámbar) = con tus efectos, al mismo volumen que el original. **PRE FX** (verde agua) = la señal antes de los efectos. Es un parámetro de Logic, así que lo podés asignar a una tecla o control MIDI. Al cambiar hace un crossfade de 10 ms, imperceptible, para que no haya clicks (lo mismo al prender o apagar DELTA). |
 | **DELTA** | Escuchás solo lo que tus efectos le cambiaron al sonido. Mientras está activo, el botón PRE/POST se apaga; si lo tocás, sale de DELTA y vuelve a la última versión. |
 | **Medición** | *LUFS* se parece más a cómo escucha el oído (recomendado). *RMS* es energía pura. |
 | **Ventana (ms / Sync)** | Cuánto tiempo promedia la medición. En **ms** elegís milisegundos. En **Sync** elegís compases (1/4 bar a 8 bars) según el tempo y el compás del proyecto, y el promedio toma compases exactos, así la lectura de un loop queda quieta. Al pasar de Sync a ms se convierte al tiempo equivalente; al volver a Sync se acomoda al valor musical más cercano. Debajo de la perilla ves la equivalencia. |

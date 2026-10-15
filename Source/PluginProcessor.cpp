@@ -279,6 +279,11 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     latencyMeasurer.prepare();
     lastScopeLength = -1;                            // el osciloscopio arranca limpio
     gainSmoother.reset (sampleRate, 0.05);           // 50 ms de suavizado
+
+    for (auto* m : { &mixPost, &mixPre, &mixDelta })
+        m->reset (sampleRate, crossfadeSeconds);
+
+    setMixTargets (pDelta->load() > 0.5f, pPre->load() > 0.5f, true);
     gainSmoother.setCurrentAndTargetValue (1.0f);
     blocksWithoutHeartbeat = 0;
 }
@@ -494,11 +499,15 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     const bool pre   = pPre->load() > 0.5f;
     const float polaritySign = pPolarity->load() > 0.5f ? -1.0f : 1.0f;
 
+    // Crossfade: los pesos van hacia lo que elegiste en 10 ms.
+    setMixTargets (delta, pre, false);
+    const bool deltaAudible = delta || mixDelta.isSmoothing() || mixDelta.getCurrentValue() > 0.0f;
+
     // Para DELTA el original se alinea con decimales (ej. 64,5 muestras),
     // así se anula exacto lo que tus efectos no cambiaron.
     const juce::AudioBuffer<float>* deltaDry = &dryBuffer;
 
-    if (delta && std::abs (latencyExact - latency) > 0.001)
+    if (deltaAudible && std::abs (latencyExact - latency) > 0.001)
     {
         readDryFractional (slot, end, n, numCh, latencyExact);
         deltaDry = &deltaDryBuffer;
@@ -540,6 +549,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     for (int i = 0; i < n; ++i)
     {
         const float g = gainSmoother.getNextValue();
+        const float wPost = mixPost.getNextValue(), wPre = mixPre.getNextValue(), wDelta = mixDelta.getNextValue();
         float preSum = 0.0f, postSum = 0.0f;
 
         for (int ch = 0; ch < numCh; ++ch)
@@ -549,9 +559,9 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
             preSum  += dry;
             postSum += out[i] * g;                       // POST nivelado, escuches lo que escuches
 
-            if (delta)      out[i] = out[i] * g - polaritySign * deltaDry->getSample (ch, i);   // solo lo que cambiaron tus FX
-            else if (pre)   out[i] = dry;                // PRE FX: el original
-            else            out[i] = out[i] * g;         // POST FX: procesado y nivelado
+            const float post = out[i] * g;                                           // POST FX: procesado y nivelado
+            const float diff = deltaAudible ? post - polaritySign * deltaDry->getSample (ch, i) : 0.0f;   // DELTA
+            out[i] = wPost * post + wPre * dry + wDelta * diff;                       // PRE FX = dry
         }
 
         // Osciloscopio: columna que corresponde a este momento del compás.
@@ -602,6 +612,27 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     displayPre  = (float) preMeter.getDecibels();
     displayPost = (float) postMeter.getDecibels();
     displayGain = targetDb;
+}
+
+void MeteringABProcessor::setMixTargets (bool delta, bool pre, bool immediately)
+{
+    // DELTA manda; si no, PRE FX o POST FX.
+    const float tDelta = delta ? 1.0f : 0.0f;
+    const float tPre   = ! delta && pre ? 1.0f : 0.0f;
+    const float tPost  = ! delta && ! pre ? 1.0f : 0.0f;
+
+    if (immediately)
+    {
+        mixDelta.setCurrentAndTargetValue (tDelta);
+        mixPre.setCurrentAndTargetValue (tPre);
+        mixPost.setCurrentAndTargetValue (tPost);
+    }
+    else if (! juce::exactlyEqual (mixDelta.getTargetValue(), tDelta) || ! juce::exactlyEqual (mixPre.getTargetValue(), tPre))
+    {
+        mixDelta.setTargetValue (tDelta);
+        mixPre.setTargetValue (tPre);
+        mixPost.setTargetValue (tPost);
+    }
 }
 
 void MeteringABProcessor::clearScope()

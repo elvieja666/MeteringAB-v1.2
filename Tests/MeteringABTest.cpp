@@ -708,6 +708,46 @@ int main (int argc, char** argv)
         check (tail == 0.0f, "Al dar play no se dibuja nada al final del compás", tail);
         send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
     }
+
+    {
+        // Crossfade de 10 ms: el peor caso es un efecto que invierte la onda
+        // (PRE y POST opuestos). Sin crossfade el salto llega a 1,0.
+        auto maxJumpAtSwitch = [] (bool toDelta, float& settledError)
+        {
+            MeteringABProcessor send, recv; juce::MidiBuffer m;
+            setParam (send, ParamIDs::link, 13); setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 13);
+            setParam (recv, ParamIDs::pre, 0);
+            send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
+            juce::AudioBuffer<float> b (2, 512), dry (2, 512);
+            double ph = 0; float last = 0.0f, maxJump = 0.0f;
+            for (int blk = 0; blk < 400; ++blk)
+            {
+                if (blk == 300) setParam (recv, toDelta ? ParamIDs::delta : ParamIDs::pre, 1);   // tocar el botón
+                for (int i = 0; i < 512; ++i) { const float x = 0.5f * (float) std::sin (ph); ph += 2 * juce::MathConstants<double>::pi * 100.0 / 48000.0; b.setSample (0, i, x); b.setSample (1, i, x); }
+                dry.makeCopyOf (b);
+                send.processBlock (b, m);
+                for (int ch = 0; ch < 2; ++ch) for (int i = 0; i < 512; ++i) b.setSample (ch, i, -b.getSample (ch, i));   // FX que invierte
+                recv.processBlock (b, m);
+                for (int i = 0; i < 512; ++i)
+                {
+                    if (blk >= 299 && blk <= 302) maxJump = juce::jmax (maxJump, std::abs (b.getSample (0, i) - last));
+                    last = b.getSample (0, i);
+                }
+                if (blk == 399)
+                {
+                    settledError = 0.0f;
+                    for (int i = 0; i < 512; ++i) settledError = juce::jmax (settledError, std::abs (b.getSample (0, i) - (toDelta ? -2.0f * dry.getSample (0, i) : dry.getSample (0, i))));
+                }
+            }
+            return maxJump;
+        };
+        float err = 0.0f;
+        const float jump = maxJumpAtSwitch (false, err);
+        check (jump < 0.02f, "Crossfade POST -> PRE: sin salto (máx. salto entre muestras)", jump);
+        check (err < 1.0e-5f, "Crossfade: después de 10 ms queda exacto en PRE FX", err);
+        const float jumpDelta = maxJumpAtSwitch (true, err);
+        check (jumpDelta < 0.03f, "Crossfade POST -> DELTA: sin salto (máx. salto entre muestras)", jumpDelta);
+    }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;
 }
