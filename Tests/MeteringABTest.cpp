@@ -350,10 +350,10 @@ int main (int argc, char** argv)
         // Osciloscopio oculto: la ventana se achica; en Send no aparece.
         MeteringABProcessor a; a.apvts.state.setProperty ("scopeOpen", false, nullptr); setParam (a, ParamIDs::mode, 1);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        check (ed->getHeight() == 476 + 44, "Osciloscopio oculto: ventana más chica (alto px)", ed->getHeight());
+        check (ed->getHeight() == 378 + 44, "Osciloscopio oculto: ventana más chica (alto px)", ed->getHeight());
         MeteringABProcessor sendP;
         std::unique_ptr<juce::AudioProcessorEditor> ed2 (sendP.createEditor());
-        check (ed2->getHeight() == 476, "Modo Send: sin sección de osciloscopio (alto px)", ed2->getHeight());
+        check (ed2->getHeight() == 378, "Modo Send: sin sección de osciloscopio (alto px)", ed2->getHeight());
     }
     {
         MeteringABProcessor fresh;
@@ -405,7 +405,7 @@ int main (int argc, char** argv)
         // El editor se puede crear y destruir sin problemas (Receive, osciloscopio abierto).
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        check (ed != nullptr && ed->getWidth() == 640 && ed->getHeight() == 836, "Editor Receive con osciloscopio abierto (alto px)", ed->getHeight());
+        check (ed != nullptr && ed->getWidth() == 640 && ed->getHeight() == 738, "Editor Receive con osciloscopio abierto (alto px)", ed->getHeight());
     }
 
 

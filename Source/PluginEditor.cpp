@@ -145,7 +145,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     addAndMakeVisible (latencyLabel);
 
     latencyValueLabel.setJustificationType (juce::Justification::centred);
-    latencyValueLabel.setFont (juce::FontOptions (24.0f, juce::Font::bold));
+    latencyValueLabel.setFont (juce::FontOptions (21.0f, juce::Font::bold));
     latencyValueLabel.setColour (juce::Label::textColourId, Colours::text);
     addAndMakeVisible (latencyValueLabel);
 
@@ -158,6 +158,10 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
 
     // Doble clic vuelve al valor por defecto.
     windowSlider.setDoubleClickReturnValue (true, 3000.0);
+
+    // Ventana: el valor va a la derecha de la perilla (ocupa menos alto).
+    for (auto* ws : { &windowSlider, &windowSyncSlider })
+        ws->setTextBoxStyle (juce::Slider::TextBoxRight, false, 104, 26);
 
     // Ventana en compases (modo Sync): misma perilla, valores musicales.
     addAndMakeVisible (windowSyncSlider);
@@ -553,7 +557,7 @@ void MeteringABEditor::timerCallback()
         statusLabel.setColour (juce::Label::textColourId, Colours::bad);
     }
 
-    repaint (0, 90, getWidth(), 100);
+    repaint (0, 76, getWidth(), 80);
 
     if (! isSendMode && scopeOpen && ! scope.isFrozen())
         scope.repaint();
@@ -566,10 +570,10 @@ void MeteringABEditor::paint (juce::Graphics& g)
     // Título
     g.setColour (Colours::accent);
     g.setFont (juce::FontOptions (24.0f, juce::Font::bold));
-    g.drawText ("METERING A/B", 20, 14, 210, 32, juce::Justification::centredLeft);
+    g.drawText ("METERING A/B", 20, 10, 210, 32, juce::Justification::centredLeft);
 
     // Panel de medidores
-    auto meterArea = juce::Rectangle<int> (20, 94, getWidth() - 40, 90);
+    auto meterArea = juce::Rectangle<int> (20, 80, getWidth() - 40, 70);
     g.setColour (Colours::panel);
     g.fillRoundedRectangle (meterArea.toFloat(), 8.0f);
 
@@ -599,12 +603,12 @@ void MeteringABEditor::paint (juce::Graphics& g)
 
     for (size_t i = 0; i < readouts.size(); ++i)
     {
-        auto col = meterArea.withX (meterArea.getX() + (int) i * colWidth).withWidth (colWidth).reduced (10, 12);
+        auto col = meterArea.withX (meterArea.getX() + (int) i * colWidth).withWidth (colWidth).reduced (10, 8);
         g.setColour (Colours::dim);
         g.setFont (juce::FontOptions (12.0f));
-        g.drawText (readouts[i].title, col.removeFromTop (18), juce::Justification::centred);
+        g.drawText (readouts[i].title, col.removeFromTop (16), juce::Justification::centred);
         g.setColour (readouts[i].colour);
-        g.setFont (juce::FontOptions (26.0f, juce::Font::bold));
+        g.setFont (juce::FontOptions (23.0f, juce::Font::bold));
         g.drawText (readouts[i].value, col, juce::Justification::centred);
     }
 
@@ -615,14 +619,14 @@ void MeteringABEditor::paint (juce::Graphics& g)
         g.drawFittedText ("Este Metering A/B va PRIMERO en la cadena de efectos.\n"
                           "Poné otro Metering A/B en modo Receive al FINAL, con el mismo Link ID.\n"_u
                           "El A/B, el DELTA y el osciloscopio están en el Receive."_u,
-                          juce::Rectangle<int> (20, 210, getWidth() - 40, 80), juce::Justification::centred, 4);
+                          juce::Rectangle<int> (20, 180, getWidth() - 40, 80), juce::Justification::centred, 4);
     }
     else
     {
         g.setColour (Colours::dim);
         g.setFont (juce::FontOptions (11.0f));
         g.drawText ("Clic en un número para escribir el valor exacto  ·  Shift + arrastrar = ajuste fino  ·  Doble clic = valor por defecto"_u,
-                    20, mainHeight - 30, getWidth() - 40, 18, juce::Justification::centred);
+                    20, mainHeight - 24, getWidth() - 40, 16, juce::Justification::centred);
 
         // Línea que separa la sección del osciloscopio
         g.setColour (Colours::outline);
@@ -635,25 +639,25 @@ void MeteringABEditor::resized()
     auto area = getLocalBounds().reduced (20, 0);
 
     // Fila superior: título | modo | link ID
-    auto top = area.removeFromTop (60).withTrimmedTop (14).withHeight (32);
+    auto top = area.removeFromTop (52).withTrimmedTop (10).withHeight (32);
     top.removeFromLeft (210);
     linkSlider.setBounds (top.removeFromRight (110));
     linkLabel.setBounds (top.removeFromRight (60));
     top.removeFromRight (12);
     modeBox.setBounds (top);
 
-    statusLabel.setBounds (area.removeFromTop (28));
+    statusLabel.setBounds (area.removeFromTop (22));
     area.removeFromTop (6);
-    area.removeFromTop (90);   // medidores (se dibujan en paint)
-    area.removeFromTop (14);
+    area.removeFromTop (70);   // medidores (se dibujan en paint)
+    area.removeFromTop (12);
 
     // Fila de escucha: PRE/POST | DELTA | Medición | Congelar
-    auto row = area.removeFromTop (56);
+    auto row = area.removeFromTop (50);
     auto abArea = row.removeFromLeft (200);
     listenLabel.setBounds (abArea.removeFromTop (16).withWidth (260));
-    abButton.setBounds (abArea.withHeight (40).translated (0, -2));
+    abButton.setBounds (abArea.withHeight (34));
     row.removeFromLeft (10);
-    deltaButton.setBounds (row.removeFromLeft (90).withTrimmedTop (14).withHeight (40));
+    deltaButton.setBounds (row.removeFromLeft (90).withTrimmedTop (16).withHeight (34));
 
     row.removeFromLeft (20);
     auto measureArea = row.removeFromLeft (140);
@@ -663,9 +667,9 @@ void MeteringABEditor::resized()
     row.removeFromLeft (16);
     holdButton.setBounds (row.withTrimmedTop (18).withHeight (30));
 
-    // Perillas: Ventana y Latencia, centradas.
-    area.removeFromTop (12);
-    auto knobs = area.removeFromTop (172).reduced (40, 0);
+    // Perillas: Ventana y Latencia, más bajas.
+    area.removeFromTop (10);
+    auto knobs = area.removeFromTop (126).reduced (40, 0);
     const int kw = 240;
 
     // Ventana: botones ms|Sync arriba, perilla, equivalencia abajo.
@@ -675,25 +679,25 @@ void MeteringABEditor::resized()
         windowLabel.setBounds (header.removeFromLeft (54));
         syncButtons[0].setBounds (header.removeFromLeft (38));
         syncButtons[1].setBounds (header.removeFromLeft (46));
-        windowInfoLabel.setBounds (k.removeFromBottom (18));
-        windowSlider.setBounds (k.withSizeKeepingCentre (150, k.getHeight()));
-        windowSyncSlider.setBounds (k.withSizeKeepingCentre (150, k.getHeight()));
+        k.removeFromTop (4);
+        windowInfoLabel.setBounds (k.removeFromBottom (16));
+        windowSlider.setBounds (k.withSizeKeepingCentre (200, k.getHeight()));
+        windowSyncSlider.setBounds (k.withSizeKeepingCentre (200, k.getHeight()));
     }
 
-    // Latencia: título, valor medido en grande, Medir + Ø y estado.
+    // Latencia: título, valor medido, Medir + Ø y estado.
     {
         auto k = knobs.removeFromRight (kw);
-        latencyLabel.setBounds (k.removeFromTop (22));
-        k.removeFromTop (14);
-        latencyValueLabel.setBounds (k.removeFromTop (32));
-        latencyMsLabel.setBounds (k.removeFromTop (18));
-        k.removeFromTop (14);
-        auto buttons = k.removeFromTop (40).withSizeKeepingCentre (176, 40);
+        latencyLabel.setBounds (k.removeFromTop (20));
+        latencyValueLabel.setBounds (k.removeFromTop (26));
+        latencyMsLabel.setBounds (k.removeFromTop (16));
+        k.removeFromTop (8);
+        auto buttons = k.removeFromTop (34).withSizeKeepingCentre (176, 34);
         measureButton.setBounds (buttons.removeFromLeft (132));
         buttons.removeFromLeft (8);
         polarityButton.setBounds (buttons);
-        k.removeFromTop (8);
-        latencyInfoLabel.setBounds (k.removeFromTop (18));
+        k.removeFromTop (6);
+        latencyInfoLabel.setBounds (k.removeFromTop (16));
     }
 
     // ---- Sección del osciloscopio (debajo de la línea) ----

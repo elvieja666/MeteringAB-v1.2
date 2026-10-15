@@ -72,7 +72,7 @@ private:
 
     // Medidas de la ventana: parte principal + sección del osciloscopio.
     static constexpr int editorWidth = 640;
-    static constexpr int mainHeight = 476;            // hasta la línea que separa el osciloscopio
+    static constexpr int mainHeight = 378;            // hasta la línea que separa el osciloscopio
     static constexpr int scopeHeaderHeight = 44;      // barra "Osciloscopio" (siempre visible)
     static constexpr int scopeBodyHeight = 316;       // el osciloscopio en sí, más margen
     void setWaves (bool pre, bool post);
