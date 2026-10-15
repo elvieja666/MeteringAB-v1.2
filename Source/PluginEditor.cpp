@@ -618,10 +618,10 @@ void MeteringABEditor::setScopeDetached (bool detached)
             scopeWindow->setVisible (true);
             scopeWindow->toFront (true);
         }
-        else
-        {
-            detachedContent.resized();
-        }
+
+        // Acomodar siempre: si la ventana tiene el mismo tamaño que la vez
+        // anterior, JUCE no avisa y los controles quedarían donde estaban en el plugin.
+        detachedContent.resized();
     }
     else
     {

@@ -412,6 +412,25 @@ int main (int argc, char** argv)
         check (! e->isScopeDetached() && ed->getHeight() == MeteringABEditor::sendHeight, "Pasar a Send cierra la ventana aparte", ed->getHeight());
     }
     {
+        // Cerrar y volver a abrir la ventana aparte: el osciloscopio tiene que
+        // ocupar la ventana (no quedar donde estaba en el plugin).
+        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+        auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
+        auto scopeFillsWindow = [&]
+        {
+            const auto sb = e->getScopeForTests().getBounds();
+            const auto cb = e->getDetachedContentForTests().getLocalBounds();
+            return sb.getY() < 70 && sb.getHeight() > cb.getHeight() - 90 && sb.getWidth() > cb.getWidth() - 40;
+        };
+        e->setScopeDetachedForTests (true);
+        const bool first = scopeFillsWindow();
+        e->setScopeDetachedForTests (false);
+        e->setScopeDetachedForTests (true);
+        check (first && scopeFillsWindow(), "Ventana aparte: al reabrirla el osciloscopio ocupa toda la ventana",
+               e->getScopeForTests().getY());
+    }
+    {
         // Osciloscopio linkeado a la escucha: al alternar PRE/POST FX muestra solo esa onda.
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1); setParam (a, ParamIDs::pre, 0);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
