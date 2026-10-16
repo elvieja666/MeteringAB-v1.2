@@ -298,8 +298,8 @@ void MeteringABLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
 // ---------------------------------------------------------------------------
 //  Editor
 // ---------------------------------------------------------------------------
-MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
-    : AudioProcessorEditor (&p), processor (p)
+MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
+    : processor (p)
 {
     setLookAndFeel (&lnf);
     auto& apvts = processor.apvts;
@@ -524,13 +524,13 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     startTimerHz (30);
 }
 
-MeteringABEditor::~MeteringABEditor()
+MeteringABPanel::~MeteringABPanel()
 {
     stopTimer();
     setLookAndFeel (nullptr);
 }
 
-void MeteringABEditor::setupKnob (PreciseSlider& s, juce::Label& label, const juce::String& text)
+void MeteringABPanel::setupKnob (PreciseSlider& s, juce::Label& label, const juce::String& text)
 {
     label.setText (text, juce::dontSendNotification);
     label.setJustificationType (juce::Justification::centred);
@@ -540,7 +540,7 @@ void MeteringABEditor::setupKnob (PreciseSlider& s, juce::Label& label, const ju
     addAndMakeVisible (label);
 }
 
-void MeteringABEditor::applyScopeLook()
+void MeteringABPanel::applyScopeLook()
 {
     auto& state = processor.apvts.state;
     // Forma de PRE y de POST por separado (si no hay, toman la forma general de antes).
@@ -562,7 +562,7 @@ void MeteringABEditor::applyScopeLook()
     updateWaveButtons();
 }
 
-void MeteringABEditor::showStyleMenu()
+void MeteringABPanel::showStyleMenu()
 {
     auto& state = processor.apvts.state;
     const int stylePre  = (int) scope.getStylePre();
@@ -595,7 +595,7 @@ void MeteringABEditor::showStyleMenu()
     menu.addItem (400, "Mostrar grilla", true, scope.getShowGrid());
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&scopeStyleButton),
-                        [this, safe = juce::Component::SafePointer<MeteringABEditor> (this)] (int result)
+                        [this, safe = juce::Component::SafePointer<MeteringABPanel> (this)] (int result)
     {
         if (safe == nullptr || result == 0)
             return;
@@ -614,7 +614,7 @@ void MeteringABEditor::showStyleMenu()
 }
 
 // Abre un selector de color; elegir un color pasa a la paleta "Personalizado".
-void MeteringABEditor::pickCustomColour (bool forPre)
+void MeteringABPanel::pickCustomColour (bool forPre)
 {
     auto& state = processor.apvts.state;
 
@@ -629,7 +629,7 @@ void MeteringABEditor::pickCustomColour (bool forPre)
 
     const auto initial = forPre ? scope.getPreColour() : scope.getPostColour();
     auto selector = std::make_unique<LiveColourSelector> (initial,
-        [this, forPre, safe = juce::Component::SafePointer<MeteringABEditor> (this)] (juce::Colour c)
+        [this, forPre, safe = juce::Component::SafePointer<MeteringABPanel> (this)] (juce::Colour c)
         {
             if (safe == nullptr)
                 return;
@@ -644,7 +644,7 @@ void MeteringABEditor::pickCustomColour (bool forPre)
                                             host->getLocalArea (&scopeStyleButton, scopeStyleButton.getLocalBounds()), host);
 }
 
-void MeteringABEditor::setScopeOpen (bool open)
+void MeteringABPanel::setScopeOpen (bool open)
 {
     scopeOpen = open;
     processor.apvts.state.setProperty ("scopeOpen", open, nullptr);
@@ -652,7 +652,7 @@ void MeteringABEditor::setScopeOpen (bool open)
 }
 
 // Muestra u oculta la sección del osciloscopio y ajusta el alto de la ventana.
-void MeteringABEditor::updateScopeSection()
+void MeteringABPanel::updateScopeSection()
 {
     const bool showSection = ! isSendMode;
     const bool showBody = showSection && scopeOpen;
@@ -680,7 +680,7 @@ void MeteringABEditor::updateScopeSection()
     repaint();
 }
 
-void MeteringABEditor::setWaves (bool pre, bool post)
+void MeteringABPanel::setWaves (bool pre, bool post)
 {
     scope.setShowPre (pre);
     scope.setShowPost (post);
@@ -690,7 +690,7 @@ void MeteringABEditor::setWaves (bool pre, bool post)
 }
 
 // Encendido: relleno con el color de su onda. Apagado: gris.
-void MeteringABEditor::updateWaveButtons()
+void MeteringABPanel::updateWaveButtons()
 {
     auto style = [] (juce::TextButton& b, bool on, juce::Colour colour)
     {
@@ -707,7 +707,7 @@ void MeteringABEditor::updateWaveButtons()
     style (linkButton, scopeLinked, listeningPre ? scope.getPreColour() : scope.getPostColour());
 }
 
-void MeteringABEditor::setScopeLinked (bool linked)
+void MeteringABPanel::setScopeLinked (bool linked)
 {
     scopeLinked = linked;
     scope.setLinked (linked);
@@ -719,13 +719,13 @@ void MeteringABEditor::setScopeLinked (bool linked)
         updateWaveButtons();
 }
 
-void MeteringABEditor::syncWavesToListen()
+void MeteringABPanel::syncWavesToListen()
 {
     const bool listeningPre = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f;
     setWaves (listeningPre, ! listeningPre);
 }
 
-void MeteringABEditor::setBoolParam (const char* paramId, bool on)
+void MeteringABPanel::setBoolParam (const char* paramId, bool on)
 {
     if (auto* param = processor.apvts.getParameter (paramId))
     {
@@ -735,14 +735,14 @@ void MeteringABEditor::setBoolParam (const char* paramId, bool on)
     }
 }
 
-void MeteringABEditor::toggleAB()
+void MeteringABPanel::toggleAB()
 {
     auto& apvts = processor.apvts;
 
     setBoolParam (ParamIDs::pre, apvts.getRawParameterValue (ParamIDs::pre)->load() < 0.5f);
 }
 
-void MeteringABEditor::setSync (bool on)
+void MeteringABPanel::setSync (bool on)
 {
     if (auto* param = processor.apvts.getParameter (ParamIDs::sync))
     {
@@ -752,7 +752,7 @@ void MeteringABEditor::setSync (bool on)
     }
 }
 
-void MeteringABEditor::timerCallback()
+void MeteringABPanel::timerCallback()
 {
     // Movimiento suave de los números en pantalla.
     // Si Logic deja de mandar audio (pausa), los medidores quedan en -∞ y se
@@ -946,7 +946,7 @@ static void drawNumberWithUnit (juce::Graphics& g, const juce::String& number, c
     }
 }
 
-void MeteringABEditor::paint (juce::Graphics& g)
+void MeteringABPanel::paint (juce::Graphics& g)
 {
     const int topHeight = isSendMode ? getHeight() : mainHeight;
 
@@ -1026,18 +1026,18 @@ void MeteringABEditor::paint (juce::Graphics& g)
 }
 
 // Clic sobre los números: medidores a cero (vuelven a medir desde ahí).
-juce::Rectangle<int> MeteringABEditor::meterArea() const
+juce::Rectangle<int> MeteringABPanel::meterArea() const
 {
     return { 20, 80, editorWidth - 40, 70 };
 }
 
-void MeteringABEditor::mouseDown (const juce::MouseEvent& e)
+void MeteringABPanel::mouseDown (const juce::MouseEvent& e)
 {
     if (! isSendMode && meterArea().contains (e.getPosition()))
         resetMeters();
 }
 
-void MeteringABEditor::resetMeters()
+void MeteringABPanel::resetMeters()
 {
     processor.requestMeterReset();
     shownPre = shownPost = -120.0f;
@@ -1045,13 +1045,13 @@ void MeteringABEditor::resetMeters()
     repaint (meterArea());
 }
 
-void MeteringABEditor::mouseMove (const juce::MouseEvent& e)
+void MeteringABPanel::mouseMove (const juce::MouseEvent& e)
 {
     setMouseCursor (! isSendMode && meterArea().contains (e.getPosition()) ? juce::MouseCursor::PointingHandCursor
                                                                            : juce::MouseCursor::NormalCursor);
 }
 
-void MeteringABEditor::resized()
+void MeteringABPanel::resized()
 {
     auto area = juce::Rectangle<int> (0, 0, editorWidth, mainHeight).reduced (20, 0);
 
@@ -1132,4 +1132,65 @@ void MeteringABEditor::resized()
     scopeLabel.setBounds (scopeHeader);
 
     scope.setBounds (section.removeFromTop (scopeBodyHeight - 16));
+}
+
+// ---------------------------------------------------------------------------
+//  Ventana escalable
+// ---------------------------------------------------------------------------
+MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
+    : AudioProcessorEditor (&p), processor (p), panel (p)
+{
+    addAndMakeVisible (panel);
+    scale = juce::jlimit (minScale, maxScale, (float) (double) processor.apvts.state.getProperty ("uiScale", 1.0));
+
+    // Esquina para arrastrar; mantiene la proporción del plugin.
+    setResizable (true, true);
+    setConstrainer (&constrainer);
+    fitToPanel();
+}
+
+MeteringABEditor::~MeteringABEditor() = default;
+
+void MeteringABEditor::paint (juce::Graphics& g)
+{
+    g.fillAll (Theme::darkBg);
+}
+
+// Proporción y límites según el alto actual del panel (cambia al abrir el osciloscopio o pasar a Send).
+void MeteringABEditor::fitToPanel()
+{
+    const juce::ScopedValueSetter<bool> busy (fitting, true);
+    const int w = baseWidth, h = juce::jmax (1, panel.getHeight());
+
+    constrainer.setFixedAspectRatio ((double) w / (double) h);
+    constrainer.setSizeLimits (juce::roundToInt (w * minScale), juce::roundToInt (h * minScale),
+                               juce::roundToInt (w * maxScale), juce::roundToInt (h * maxScale));
+
+    setSize (juce::roundToInt (w * scale), juce::roundToInt (h * scale));
+    resized();
+}
+
+void MeteringABEditor::resized()
+{
+    if (! fitting)
+    {
+        // El usuario arrastró la esquina: la escala sale del ancho.
+        scale = juce::jlimit (minScale, maxScale, (float) getWidth() / (float) baseWidth);
+        processor.apvts.state.setProperty ("uiScale", scale, nullptr);
+    }
+
+    panel.setTransform (juce::AffineTransform::scale (scale));
+}
+
+void MeteringABEditor::setUiScale (float newScale)
+{
+    scale = juce::jlimit (minScale, maxScale, newScale);
+    processor.apvts.state.setProperty ("uiScale", scale, nullptr);
+    fitToPanel();
+}
+
+void MeteringABEditor::childBoundsChanged (juce::Component* child)
+{
+    if (child == &panel && ! fitting)
+        fitToPanel();
 }

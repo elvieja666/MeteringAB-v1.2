@@ -40,7 +40,9 @@ public:
     juce::Font getLabelFont (juce::Label&) override;
 };
 
-class MeteringABEditor : public juce::AudioProcessorEditor, private juce::Timer
+// Todo el contenido del plugin, a tamaño "normal" (640 de ancho). La ventana
+// del plugin (MeteringABEditor, más abajo) lo muestra agrandado o achicado.
+class MeteringABPanel : public juce::Component, private juce::Timer
 {
 public:
     // Medidas de la ventana: parte principal + sección del osciloscopio.
@@ -48,8 +50,8 @@ public:
     static constexpr int mainHeight = 162 + columnsHeight + 36;   // hasta la línea que separa el osciloscopio
     static constexpr int sendHeight = 86;             // Send: solo título, modo, Link ID y estado
 
-    explicit MeteringABEditor (MeteringABProcessor&);
-    ~MeteringABEditor() override;
+    explicit MeteringABPanel (MeteringABProcessor&);
+    ~MeteringABPanel() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -129,6 +131,42 @@ private:
     void resetMeters();
     bool isSendMode = false;
     int lastListenPre = -1;                           // para seguir al botón de escucha
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MeteringABPanel)
+};
+
+// ---------------------------------------------------------------------------
+//  Ventana del plugin, escalable: arrastrando la esquina de abajo a la derecha
+//  todo se agranda o achica en proporción (de 75% a 200%). El tamaño elegido se
+//  guarda con el proyecto.
+// ---------------------------------------------------------------------------
+class MeteringABEditor : public juce::AudioProcessorEditor
+{
+public:
+    static constexpr int mainHeight = MeteringABPanel::mainHeight;
+    static constexpr int sendHeight = MeteringABPanel::sendHeight;
+    static constexpr int baseWidth  = 640;
+    static constexpr float minScale = 0.75f, maxScale = 2.0f;
+
+    explicit MeteringABEditor (MeteringABProcessor&);
+    ~MeteringABEditor() override;
+
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void childBoundsChanged (juce::Component*) override;   // el panel cambió de alto (osciloscopio, Send)
+
+    MeteringABPanel& getPanel()                       { return panel; }
+    float getUiScale() const                          { return scale; }
+    void setUiScale (float newScale);
+
+private:
+    void fitToPanel();                                // tamaño de la ventana = panel x escala
+
+    MeteringABProcessor& processor;
+    MeteringABPanel panel;
+    juce::ComponentBoundsConstrainer constrainer;
+    float scale = 1.0f;
+    bool fitting = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MeteringABEditor)
 };

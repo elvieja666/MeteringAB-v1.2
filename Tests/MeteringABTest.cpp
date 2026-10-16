@@ -36,6 +36,12 @@ static void oneBlock (MeteringABProcessor& p)
     p.processBlock (b, m);
 }
 
+// El contenido del plugin (lo que antes era el editor entero).
+static MeteringABPanel* panelOf (std::unique_ptr<juce::AudioProcessorEditor>& ed)
+{
+    return &dynamic_cast<MeteringABEditor*> (ed.get())->getPanel();
+}
+
 int failures = 0;
 static void check (bool ok, const char* what, double value)
 {
@@ -307,7 +313,7 @@ int main (int argc, char** argv)
             std::unique_ptr<juce::AudioProcessorEditor> ed (a->createEditor());
             if (shot == 1)   // simula tocar el botón de escucha: pasa a PRE FX y el osciloscopio lo sigue
             {
-                auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
+                auto* e = panelOf (ed);
                 e->refreshNow(); setParam (*a, ParamIDs::pre, 1); e->refreshNow();
             }
             auto save = [&] (juce::Component& comp, const char* name)
@@ -318,15 +324,28 @@ int main (int argc, char** argv)
             };
             save (*ed, names[shot]);
 
+            if (shot == 2)   // plugin escalado al 75% y al 150%
+            {
+                auto* outer = dynamic_cast<MeteringABEditor*> (ed.get());
+                for (float sc : { 0.75f, 1.5f })
+                {
+                    outer->setUiScale (sc);
+                    auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
+                    juce::File f (juce::String (argv[1]) + (sc < 1.0f ? "/escala-75.png" : "/escala-150.png"));
+                    f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+                }
+                outer->setUiScale (1.0f);
+            }
+
             if (shot == 3)   // ventana en modo Sync (compases)
             {
                 chain->head.playing = false; chain->run (0.1);          // pausa: medidores en -∞
-                dynamic_cast<MeteringABEditor*> (ed.get())->refreshNow();
+                panelOf (ed)->refreshNow();
                 save (*ed, "/receive-pausa.png");
                 chain->head.playing = true;
 
                 setParam (*a, ParamIDs::sync, 1);
-                dynamic_cast<MeteringABEditor*> (ed.get())->refreshNow();
+                panelOf (ed)->refreshNow();
                 save (*ed, "/receive-sync.png");
             }
 
@@ -372,7 +391,7 @@ int main (int argc, char** argv)
         const float before = c.recv.displayPre.load();
         MeteringABProcessor& r = c.recv;
         std::unique_ptr<juce::AudioProcessorEditor> ed (r.createEditor());
-        auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
+        auto* e = panelOf (ed);
         e->clickMetersForTests();
         check (e->getShownPreForTests() <= -119.0f && ! e->isGainShownForTests(), "Clic en los números: se borran enseguida", e->getShownPreForTests());
         c.run (512.0 / 48000.0);
@@ -425,13 +444,35 @@ int main (int argc, char** argv)
         check (ed2->getHeight() == MeteringABEditor::sendHeight, "Modo Send: sin sección de osciloscopio (alto px)", ed2->getHeight());
     }
     {
+        // Plugin escalable: todo se agranda en proporción y el tamaño se guarda.
+        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+        auto* outer = dynamic_cast<MeteringABEditor*> (ed.get());
+        check (ed->isResizable() && ed->getWidth() == 640, "Escalable: arranca al 100% y se puede agrandar (ancho px)", ed->getWidth());
+        outer->setUiScale (1.5f);
+        check (ed->getWidth() == 960 && ed->getHeight() == juce::roundToInt ((MeteringABEditor::mainHeight + 44) * 1.5),
+               "Escalable: al 150% todo crece en proporción (alto px)", ed->getHeight());
+        check (std::abs (outer->getPanel().getTransform().mat00 - 1.5f) < 1.0e-4f, "Escalable: el contenido se dibuja al 150%", outer->getPanel().getTransform().mat00);
+        setParam (a, ParamIDs::mode, 0); panelOf (ed)->refreshNow();
+        check (ed->getWidth() == 960 && ed->getHeight() == juce::roundToInt (MeteringABEditor::sendHeight * 1.5),
+               "Escalable: pasar a Send mantiene la escala (alto px)", ed->getHeight());
+        setParam (a, ParamIDs::mode, 1); panelOf (ed)->refreshNow();
+        ed->setSize (800, 500);                                      // como arrastrar la esquina
+        check (std::abs (outer->getUiScale() - 1.25f) < 1.0e-3f, "Escalable: arrastrar la esquina cambia la escala", outer->getUiScale());
+        outer->setUiScale (5.0f);
+        check (std::abs (outer->getUiScale() - MeteringABEditor::maxScale) < 1.0e-4f, "Escalable: no pasa del 200%", outer->getUiScale());
+        outer->setUiScale (1.25f);
+        std::unique_ptr<juce::AudioProcessorEditor> ed2 (a.createEditor());
+        check (ed2->getWidth() == 800, "Escalable: al reabrir el plugin recuerda el tamaño (ancho px)", ed2->getWidth());
+    }
+    {
         // Ya no hay osciloscopio "a lo ancho": aunque un proyecto viejo lo tenga
         // guardado, el plugin abre normal (osciloscopio abajo).
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         a.apvts.state.setProperty ("scopeWide", true, nullptr);
         a.apvts.state.setProperty ("scopeOpen", true, nullptr);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
+        auto* e = panelOf (ed);
         check (ed->getWidth() == 640 && e->getScopeForTests().getY() > MeteringABEditor::mainHeight,
                "Osciloscopio siempre abajo (ancho px)", ed->getWidth());
     }
@@ -439,7 +480,7 @@ int main (int argc, char** argv)
         // Osciloscopio linkeado a la escucha: al alternar PRE/POST FX muestra solo esa onda.
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1); setParam (a, ParamIDs::pre, 0);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        auto* editor = dynamic_cast<MeteringABEditor*> (ed.get());
+        auto* editor = panelOf (ed);
         auto pump = [editor] { editor->refreshNow(); };     // lo mismo que hace el timer de la interfaz
         pump();
         const bool bothAtStart = (bool) a.apvts.state.getProperty ("scopeShowPre", true) && (bool) a.apvts.state.getProperty ("scopeShowPost", true);
@@ -453,7 +494,7 @@ int main (int argc, char** argv)
         MeteringABProcessor c; setParam (c, ParamIDs::mode, 1); setParam (c, ParamIDs::pre, 0);
         c.apvts.state.setProperty ("scopeLink", false, nullptr);
         std::unique_ptr<juce::AudioProcessorEditor> ed2 (c.createEditor());
-        auto* e2 = dynamic_cast<MeteringABEditor*> (ed2.get());
+        auto* e2 = panelOf (ed2);
         e2->refreshNow(); setParam (c, ParamIDs::pre, 1); e2->refreshNow(); setParam (c, ParamIDs::pre, 0); e2->refreshNow();
         const bool unchanged = (bool) c.apvts.state.getProperty ("scopeShowPre", true) && (bool) c.apvts.state.getProperty ("scopeShowPost", true);
         check (unchanged, "LINK apagado: alternar la escucha no cambia el osciloscopio", 1);
@@ -464,7 +505,7 @@ int main (int argc, char** argv)
         a.apvts.state.setProperty ("scopeStyle", 1, nullptr);
         a.apvts.state.setProperty ("scopeStylePost", 2, nullptr);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        auto* e = dynamic_cast<MeteringABEditor*> (ed.get());
+        auto* e = panelOf (ed);
         check (e->getScopeForTests().getStylePre() == ScopeView::Style::detailed && e->getScopeForTests().getStylePost() == ScopeView::Style::lines,
                "Forma separada: PRE Detallado (de antes) y POST Solo líneas", 1);
     }

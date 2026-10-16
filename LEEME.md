@@ -67,6 +67,10 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 | **Latencia + Medir** | Compensa efectos que retrasan el audio (EQ de fase lineal, oversampling, limitadores con lookahead). Dale play y tocá **Medir**: en unos 3 segundos el plugin encuentra el retraso exacto, **con decimales** (por ejemplo 64,50 muestras, porque muchos plugins retrasan "medio sample"), y lo muestra en grande con su equivalente en ms. Si el sonido procesado no se parece lo suficiente al original (por ejemplo, una reverb 100% wet), te avisa en vez de poner un valor dudoso. Si cambiás los efectos de la cadena, volvé a medir. |
 | **Ø (polaridad)** | Se enciende solo si **Medir** detecta que algún plugin invierte la polaridad. También lo podés activar a mano. |
 
+### Tamaño de la ventana
+
+Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achicarlo: todo crece en proporción, de 75% a 200%. El tamaño queda guardado con el proyecto.
+
 ### Osciloscopio
 
 Está abajo de todo, separado por una línea, y arranca cerrado: tocá **▸ Osciloscopio** para abrirlo. Tocá **▾ Osciloscopio** para ocultarlo (la ventana del plugin se achica); queda guardado con el proyecto.
