@@ -261,6 +261,63 @@ int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
 
+    if (argc > 2) // MeteringABTests <carpeta> <audio.raw>: tu audio (estéreo, float, 48 kHz) por el plugin real, 2 bars a 70 BPM
+    {
+        juce::MemoryBlock data;
+        juce::File (argv[2]).loadFileAsData (data);
+        const auto* samples = static_cast<const float*> (data.getData());
+        const int frames = (int) (data.getSize() / (2 * sizeof (float)));
+
+        struct Head70 : juce::AudioPlayHead
+        {
+            double ppq = 0.0;
+            juce::Optional<PositionInfo> getPosition() const override
+            {
+                PositionInfo p; p.setBpm (70.0); p.setTimeSignature (TimeSignature { 4, 4 }); p.setIsPlaying (true);
+                p.setPpqPosition (ppq); p.setPpqPositionOfLastBarStart (std::floor (ppq / 4.0) * 4.0);
+                p.setBarCount ((juce::int64) std::floor (ppq / 4.0));
+                return p;
+            }
+        } head;
+
+        for (int style = 0; style < 3; ++style)
+        {
+            MeteringABProcessor send, recv; juce::MidiBuffer m;
+            setParam (send, ParamIDs::link, 15); setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 15);
+            setParam (recv, ParamIDs::pre, 0);
+            recv.apvts.state.setProperty ("scopeOpen", true, nullptr);
+            recv.apvts.state.setProperty ("scopeLength", 3, nullptr); recv.scopeLengthIndex = 3;     // 2 bars
+            recv.apvts.state.setProperty ("scopeShowPre", false, nullptr);
+            recv.apvts.state.setProperty ("scopeLink", false, nullptr);
+            recv.apvts.state.setProperty ("scopeStylePost", style == 0 ? 0 : style == 1 ? 2 : 1, nullptr);
+            send.setPlayHead (&head); recv.setPlayHead (&head);
+            send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
+            head.ppq = 0.0;
+            juce::AudioBuffer<float> b (2, 512);
+
+            for (int start = 0; start + 512 <= frames; start += 512)
+            {
+                for (int i = 0; i < 512; ++i)
+                {
+                    b.setSample (0, i, samples[2 * (start + i)]);
+                    b.setSample (1, i, samples[2 * (start + i) + 1]);
+                }
+                head.ppq = start * (70.0 / 60.0) / 48000.0;
+                send.processBlock (b, m); recv.processBlock (b, m);
+            }
+
+            std::unique_ptr<juce::AudioProcessorEditor> ed (recv.createEditor());
+            panelOf (ed)->refreshNow();
+            auto& scope = panelOf (ed)->getScopeForTests();
+            auto img = const_cast<ScopeView&> (scope).createComponentSnapshot (scope.getLocalBounds(), true, 2.0f);
+            const char* names[] = { "/audio-contorno.png", "/audio-lineas.png", "/audio-detallado.png" };
+            juce::File f (juce::String (argv[1]) + names[style]);
+            f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+            send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
+        }
+        return 0;
+    }
+
     if (argc > 1) // Metering A/BTests <carpeta>: guarda capturas de la interfaz
     {
         const char* names[] = { "/send.png", "/receive.png", "/receive-long.png", "/receive-closed.png",
@@ -947,35 +1004,68 @@ int main (int argc, char** argv)
     }
 
     {
-        // Contorno/líneas: muy definido sin ciclos (sube al instante, sostiene 20 ms,
-        // baja en 5 ms, suavizado fino).
+        // Contorno/líneas "adaptativo fino": el sostener lo decide cada columna.
         constexpr int bins = MeteringABProcessor::scopeBins;
         std::vector<float> mins ((size_t) bins, 0.0f), maxs ((size_t) bins, 0.0f);
         for (int b = 100; b < 140; ++b) { maxs[(size_t) b] = 1.0f; mins[(size_t) b] = -1.0f; }   // golpe de 40 ms
         const double binSec = 1.0e-3;                               // 1 ms por columna
-        const auto pts = ScopeView::smoothEnvelope (mins.data(), maxs.data(), 0, bins, binSec);
+        std::vector<float> shortHold ((size_t) bins, MeteringABProcessor::scopeMinHoldMs);   // sin graves: 3 ms
+        const auto pts = ScopeView::smoothEnvelope (mins.data(), maxs.data(), shortHold.data(), 0, bins, binSec);
         check ((int) pts.size() == bins + 2, "Contorno: un punto por columna (mucha definición)", (double) pts.size());
 
         auto valueAt = [&] (int bin) { return pts[(size_t) bin + 1].hi; };
-        check (valueAt (94) < 0.05f && valueAt (104) > 0.9f, "Contorno: el golpe sube justo donde cae", valueAt (94));
-        check (valueAt (150) > 0.9f, "Contorno: sostiene el pico 20 ms después del golpe", valueAt (150));
-        check (valueAt (185) < 0.05f, "Contorno: después baja rápido (5 ms)", valueAt (185));
+        check (valueAt (96) < 0.05f && valueAt (103) > 0.9f, "Contorno: el golpe sube justo donde cae", valueAt (96));
+        check (valueAt (138) > 0.9f && valueAt (152) < 0.05f, "Contorno sin graves: baja enseguida al terminar el golpe", valueAt (152));
 
-        // Graves de 50 Hz (ciclos de 20 ms) parejos: el borde queda liso, sin serrucho.
+        // Graves de 50 Hz (ciclos de 20 ms) con su "sostener" de un ciclo: el borde queda liso.
         std::vector<float> bmin ((size_t) bins), bmax ((size_t) bins);
         for (int b = 0; b < bins; ++b)
         {
             const float v = 0.5f * (float) std::abs (std::sin (juce::MathConstants<double>::pi * b / 10.0));
             bmax[(size_t) b] = v; bmin[(size_t) b] = -v;
         }
-        const auto bass = ScopeView::smoothEnvelope (bmin.data(), bmax.data(), 0, bins, binSec);
+        std::vector<float> bassHold ((size_t) bins, MeteringABProcessor::scopeHoldFor (0.5f, 0.5f, 20.0));
+        const auto bass = ScopeView::smoothEnvelope (bmin.data(), bmax.data(), bassHold.data(), 0, bins, binSec);
         float lo = 1.0f, hi = 0.0f;
         for (int i = 200; i < 1800; ++i) { lo = juce::jmin (lo, bass[(size_t) i].hi); hi = juce::jmax (hi, bass[(size_t) i].hi); }
         check (hi - lo < 0.02f, "Contorno: con graves no se ven los ciclos (variación)", hi - lo);
 
         check (pts.front().bin == 0.0f && pts.back().bin == (float) bins, "Contorno: el dibujo cubre todo el tramo", pts.back().bin);
-        const auto part = ScopeView::smoothEnvelope (mins.data(), maxs.data(), 300, 500, binSec);
+        const auto part = ScopeView::smoothEnvelope (mins.data(), maxs.data(), shortHold.data(), 300, 500, binSec);
         check (part.front().bin == 300.0f && part.back().bin == 500.0f, "Contorno: con LINK cada tramo se dibuja aparte", part.size());
+
+        // Cuánto sostener según el grave: sin grave 3 ms; grave dominante de 40 Hz = un ciclo (~26 ms); tope 50 ms.
+        check (std::abs (MeteringABProcessor::scopeHoldFor (1.0f, 0.05f, 25.0) - 3.0f) < 0.01f, "Sostener: sin grave fuerte = 3 ms", 3);
+        check (std::abs (MeteringABProcessor::scopeHoldFor (1.0f, 0.9f, 25.0) - 26.25f) < 0.01f, "Sostener: grave de 40 Hz = un ciclo (ms)",
+               MeteringABProcessor::scopeHoldFor (1.0f, 0.9f, 25.0));
+        check (std::abs (MeteringABProcessor::scopeHoldFor (1.0f, 0.9f, 200.0) - 50.0f) < 0.01f, "Sostener: tope de 50 ms", 50);
+    }
+    {
+        // De punta a punta: el audio marca cuánto sostener en cada columna.
+        auto holdWith = [] (double freq)
+        {
+            MeteringABProcessor send, recv; juce::MidiBuffer m;
+            setParam (send, ParamIDs::link, 14); setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 14);
+            ChainHead head; send.setPlayHead (&head); recv.setPlayHead (&head);
+            send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
+            juce::AudioBuffer<float> b (2, 512); double ph = 0; long long count = 0;
+            for (int blk = 0; blk < 200; ++blk)
+            {
+                for (int i = 0; i < 512; ++i)
+                {
+                    const float x = 0.5f * (float) std::sin (ph); ph += 2 * juce::MathConstants<double>::pi * freq / 48000.0;
+                    b.setSample (0, i, x); b.setSample (1, i, x);
+                }
+                head.ppq = (double) count * 2.0 / 48000.0; count += 512;
+                send.processBlock (b, m); recv.processBlock (b, m);
+            }
+            send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
+            const int bin = juce::jmax (0, recv.scopeCurrentBin.load() - 20);
+            return recv.scopeTraces[MeteringABProcessor::preSum].hold[(size_t) bin].load();
+        };
+        const float bass = holdWith (40.0), treble = holdWith (2000.0);
+        check (bass > 22.0f && bass < 32.0f, "Sostener con un bajo de 40 Hz: ~1 ciclo (ms)", bass);
+        check (treble < 3.5f, "Sostener con un agudo de 2 kHz: 3 ms (mucha definición)", treble);
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;

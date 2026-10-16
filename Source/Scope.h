@@ -104,8 +104,8 @@ public:
             {
                 switch (style)
                 {
-                    case Style::contour:  drawEnvelope (g, area, t.min, t.max, yFor, colour, true, mask, binSecs);  break;
-                    case Style::lines:    drawEnvelope (g, area, t.min, t.max, yFor, colour, false, mask, binSecs); break;
+                    case Style::contour:  drawEnvelope (g, area, t.min, t.max, t.hold, yFor, colour, true, mask, binSecs);  break;
+                    case Style::lines:    drawEnvelope (g, area, t.min, t.max, t.hold, yFor, colour, false, mask, binSecs); break;
                     case Style::detailed: drawDetailed (g, area, t.min, t.max, yFor, colour, mask); break;
                 }
             };
@@ -200,6 +200,7 @@ private:
                 dst.min[(size_t) b] = src.min[(size_t) b].load (std::memory_order_relaxed);
                 dst.max[(size_t) b] = src.max[(size_t) b].load (std::memory_order_relaxed);
                 dst.sq[(size_t) b]  = src.sq[(size_t) b].load (std::memory_order_relaxed) / count;
+                dst.hold[(size_t) b] = src.hold[(size_t) b].load (std::memory_order_relaxed);
             }
         }
 
@@ -302,17 +303,21 @@ private:
                   bool includes (int b) const { return flags == nullptr || (*flags)[(size_t) b] == wanted; } };
 
 public:
-    // Borde de Contorno / Solo líneas, con mucha definición pero sin que se vean
-    // los ciclos de la onda: sube al instante en el golpe, se sostiene un ratito
-    // (tapa los ciclos de los graves), baja rápido y se suaviza apenas.
-    static constexpr double envelopeHoldMs    = 20.0;
-    static constexpr double envelopeReleaseMs = 5.0;
-    static constexpr double envelopeSmoothMs  = 2.5;
+    // Borde de Contorno / Solo líneas, "adaptativo fino": sube al instante en el
+    // golpe y se sostiene lo que diga cada columna (holdMs, lo calcula el audio
+    // según el grave: 3 ms sin grave fuerte = mucha definición; un ciclo del grave
+    // = sin ondas). Después baja rápido y se suaviza apenas.
+    static constexpr double envelopeReleaseMs = 3.0;
+    static constexpr double envelopeSmoothMs  = 1.5;
+    static constexpr double envelopeSpreadMs  = 20.0;   // el "sostener" no cambia de golpe entre columnas
+    static constexpr double envelopeNotchMs   = 14.0;   // pozos más angostos que esto se tapan
 
     // Un punto por columna del osciloscopio (centro en bins) con su pico de arriba y de abajo.
     struct EnvelopePoint { float bin, hi, lo; };
 
-    static std::vector<EnvelopePoint> smoothEnvelope (const float* mins, const float* maxs, int from, int to, double binSeconds)
+    // holdMs: cuánto sostener en cada columna (nullptr = 20 ms para todas).
+    static std::vector<EnvelopePoint> smoothEnvelope (const float* mins, const float* maxs, const float* holdMs,
+                                                      int from, int to, double binSeconds)
     {
         std::vector<EnvelopePoint> points;
         const int n = to - from;
@@ -320,17 +325,29 @@ public:
             return points;
 
         const double secs = binSeconds > 0.0 ? binSeconds : 1.0e-3;
-        const int holdBins = juce::jmax (1, (int) std::lround (envelopeHoldMs * 0.001 / secs));
         const double a = std::exp (-secs / (envelopeReleaseMs * 0.001));
+        auto toBins = [secs] (double ms) { return juce::jmax (1, (int) std::lround (ms * 0.001 / secs)); };
 
-        // 1) Sostener el pico de los últimos 20 ms y después bajar con un release de 5 ms.
+        // 0) Cuánto sostener en cada columna: el mayor de las vecinas (±20 ms), así no salta.
+        std::vector<int> holdBins ((size_t) n);
+        const int spread = toBins (envelopeSpreadMs);
+        for (int i = 0; i < n; ++i)
+        {
+            float ms = holdMs == nullptr ? 20.0f : 0.0f;
+            if (holdMs != nullptr)
+                for (int j = juce::jmax (0, i - spread); j <= juce::jmin (n - 1, i + spread); ++j)
+                    ms = juce::jmax (ms, holdMs[from + j]);
+            holdBins[(size_t) i] = toBins (ms);
+        }
+
+        // 1) Sostener el pico ese tiempo y después bajar con un release de 3 ms.
         std::vector<float> up ((size_t) n), down ((size_t) n);
         float eu = 0.0f, el = 0.0f;
 
         for (int i = 0; i < n; ++i)
         {
             float hi = -1.0f, lo = 1.0f;
-            for (int j = juce::jmax (0, i - holdBins + 1); j <= i; ++j)
+            for (int j = juce::jmax (0, i - holdBins[(size_t) i] + 1); j <= i; ++j)
             {
                 hi = juce::jmax (hi, maxs[from + j]);
                 lo = juce::jmin (lo, mins[from + j]);
@@ -342,7 +359,38 @@ public:
             down[(size_t) i] = el;
         }
 
-        // 2) Suavizado fino (gaussiano de 2,5 ms), dentro del tramo.
+        // 1b) Tapar "pozos" angostos (menos de 14 ms) que quedan cuando cambia cuánto
+        //     sostener justo en un golpe: primero ensancha los picos y después los
+        //     vuelve a su ancho (los escalones de verdad quedan igual de nítidos).
+        {
+            const int r = toBins (envelopeNotchMs) / 2;
+            if (r > 0)
+            {
+                auto close = [n, r] (std::vector<float>& v, bool upper)
+                {
+                    std::vector<float> wide ((size_t) n), out ((size_t) n);
+                    for (int i = 0; i < n; ++i)
+                    {
+                        float m = v[(size_t) i];
+                        for (int j = juce::jmax (0, i - r); j <= juce::jmin (n - 1, i + r); ++j)
+                            m = upper ? juce::jmax (m, v[(size_t) j]) : juce::jmin (m, v[(size_t) j]);
+                        wide[(size_t) i] = m;
+                    }
+                    for (int i = 0; i < n; ++i)
+                    {
+                        float m = wide[(size_t) i];
+                        for (int j = juce::jmax (0, i - r); j <= juce::jmin (n - 1, i + r); ++j)
+                            m = upper ? juce::jmin (m, wide[(size_t) j]) : juce::jmax (m, wide[(size_t) j]);
+                        out[(size_t) i] = m;
+                    }
+                    v.swap (out);
+                };
+                close (up, true);
+                close (down, false);
+            }
+        }
+
+        // 2) Suavizado fino (gaussiano de 1,5 ms), dentro del tramo.
         const double sigma = juce::jmax (0.5, envelopeSmoothMs * 0.001 / secs);
         const int radius = juce::jmin (64, (int) std::ceil (3.0 * sigma));
         std::vector<float> kernel ((size_t) (2 * radius + 1));
@@ -387,7 +435,7 @@ private:
     // Las columnas fuera de la máscara quedan vacías (cada tramo se dibuja aparte).
     template <typename YFunc>
     static void drawEnvelope (juce::Graphics& g, juce::Rectangle<float> plot, const Bins& mins, const Bins& maxs,
-                              YFunc yFor, juce::Colour colour, bool filled, Mask mask, double binSeconds)
+                              const Bins& holdMs, YFunc yFor, juce::Colour colour, bool filled, Mask mask, double binSeconds)
     {
         const int bins = MeteringABProcessor::scopeBins;
         juce::Path fill, lines;
@@ -402,7 +450,7 @@ private:
             while (end < bins && mask.includes (end))
                 ++end;
 
-            const auto points = smoothEnvelope (mins.data(), maxs.data(), b, end, binSeconds);
+            const auto points = smoothEnvelope (mins.data(), maxs.data(), holdMs.data(), b, end, binSeconds);
             juce::Path top, bottom;
 
             for (size_t i = 0; i < points.size(); ++i)
@@ -479,7 +527,7 @@ private:
     }
 
     MeteringABProcessor& processor;
-    struct TraceCopy { Bins min {}, max {}, sq {}; };
+    struct TraceCopy { Bins min {}, max {}, sq {}, hold {}; };
     std::array<TraceCopy, 4> traces;                  // [PRE, POST] de la franja de arriba, [PRE, POST] de abajo
     Channels channels = Channels::sum;
     Flags showPreAt {};

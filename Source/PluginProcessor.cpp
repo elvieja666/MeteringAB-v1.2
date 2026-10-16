@@ -266,6 +266,9 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     currentSampleRate = sampleRate;
     preMeter.prepare (sampleRate);
     postMeter.prepare (sampleRate);
+
+    for (auto& t : bassTrackers)
+        t.prepare (sampleRate);
     dryBuffer.setSize (2, juce::jmax (samplesPerBlock, 4096));
     dryMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
     postMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
@@ -566,16 +569,21 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         if (scopeRunning && ! scopeGateOpen && songQuarters >= scopePlayStartQuarters - 1.0e-9)
             scopeGateOpen = true;
 
+        if (numCh == 1)                                 // pista mono: L y R iguales
+        {
+            preCh[1] = preCh[0];
+            postCh[1] = postCh[0];
+        }
+
+        const float values[numScopeTraces] = { preSumValue / (float) numCh, postSumValue / (float) numCh,
+                                               preCh[0], postCh[0], preCh[1], postCh[1] };
+        float lows[numScopeTraces];
+
+        for (int t = 0; t < numScopeTraces; ++t)        // graves de cada onda (siempre, para no perder el hilo)
+            lows[t] = bassTrackers[(size_t) t].process (values[t]);
+
         if (scopeRunning && scopeGateOpen)
         {
-            if (numCh == 1)                             // pista mono: L y R iguales
-            {
-                preCh[1] = preCh[0];
-                postCh[1] = postCh[0];
-            }
-
-            const float values[numScopeTraces] = { preSumValue / (float) numCh, postSumValue / (float) numCh,
-                                                   preCh[0], postCh[0], preCh[1], postCh[1] };
             const int bin = juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins));
             const auto k = (size_t) bin;
             const bool newBin = bin != lastScopeBin;    // columna nueva: reemplaza la del loop anterior
@@ -585,18 +593,30 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
                 auto& trace = scopeTraces[(size_t) t];
                 const float v = values[t];
 
+                const float lowAbs = std::abs (lows[t]);
+                const float period = (float) bassTrackers[(size_t) t].periodSamples();
+                auto& lowPeak = binLowPeak[(size_t) t];
+                auto& periodMax = binPeriodMax[(size_t) t];
+
                 if (newBin)
                 {
                     trace.min[k].store (v, std::memory_order_relaxed);
                     trace.max[k].store (v, std::memory_order_relaxed);
                     trace.sq[k].store (v * v, std::memory_order_relaxed);
+                    lowPeak = lowAbs;
+                    periodMax = period;
                 }
                 else
                 {
                     if (v < trace.min[k].load (std::memory_order_relaxed)) trace.min[k].store (v, std::memory_order_relaxed);
                     if (v > trace.max[k].load (std::memory_order_relaxed)) trace.max[k].store (v, std::memory_order_relaxed);
                     trace.sq[k].store (trace.sq[k].load (std::memory_order_relaxed) + v * v, std::memory_order_relaxed);
+                    lowPeak = juce::jmax (lowPeak, lowAbs);
+                    periodMax = juce::jmax (periodMax, period);
                 }
+
+                const float fullPeak = juce::jmax (trace.max[k].load (std::memory_order_relaxed), -trace.min[k].load (std::memory_order_relaxed));
+                trace.hold[k].store (scopeHoldFor (fullPeak, lowPeak, periodMax * 1000.0 / currentSampleRate), std::memory_order_relaxed);
             }
 
             scopeCount[k].store (newBin ? 1 : scopeCount[k].load (std::memory_order_relaxed) + 1, std::memory_order_relaxed);
@@ -659,6 +679,7 @@ void MeteringABProcessor::clearScope()
             trace.min[(size_t) b] = 0.0f;
             trace.max[(size_t) b] = 0.0f;
             trace.sq[(size_t) b] = 0.0f;
+            trace.hold[(size_t) b] = scopeMinHoldMs;
         }
 
         scopeCount[(size_t) b] = 0;
