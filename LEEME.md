@@ -85,7 +85,6 @@ Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al vo
   - *Mostrar grilla*: prende o apaga las líneas de fondo (las de cada compás quedan siempre).
   - Todo se guarda con el proyecto.
 - **Clic sobre el osciloscopio** para congelarlo; otro clic lo descongela.
-- **Osciloscopio a lo ancho** (el botón con el cuadrito y la flecha, a la derecha): el panel gris queda igual y el osciloscopio pasa a su derecha, estirado hasta el otro borde de la pantalla (pensado para una MacBook Pro de 14"). Tocá el botón otra vez, o **▾ Osciloscopio**, para volver al tamaño normal. Queda guardado con el proyecto.
 - Sirve para ver, por ejemplo, cuánto achica un compresor o un saturador los golpes: los picos grises que sobresalen por encima de los azules son lo que el efecto recortó.
 
 ### Valores exactos

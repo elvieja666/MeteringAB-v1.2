@@ -40,15 +40,6 @@ public:
     juce::Font getLabelFont (juce::Label&) override;
 };
 
-// Botón para agrandar el plugin: osciloscopio grande a la derecha del panel gris.
-class WideButton : public juce::Button
-{
-public:
-    WideButton() : juce::Button ("Osciloscopio grande") {}
-    bool on = false;                                  // resaltado mientras está grande
-    void paintButton (juce::Graphics&, bool isOver, bool isDown) override;
-};
-
 class MeteringABEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
@@ -71,12 +62,6 @@ public:
     float getShownPreForTests() const             { return shownPre; }
     bool isGainShownForTests() const              { return gainShown; }
     void clickMetersForTests()                    { resetMeters(); }
-    void setScopeWideForTests (bool on)           { setScopeWide (on); }
-    bool isScopeWide() const                      { return scopeWide; }
-
-    // Modo ancho: el panel gris igual que siempre y, a su derecha, el osciloscopio
-    // estirado hasta el otro borde de la pantalla de una MacBook Pro de 14" (1512 puntos).
-    static constexpr int wideWidth = 1500, wideHeight = mainHeight;
 
 private:
     void timerCallback() override;
@@ -125,12 +110,6 @@ private:
     void setScopeOpen (bool open);
     void updateScopeSection();
 
-    // Osciloscopio grande, a la derecha del panel gris.
-    WideButton wideButton;
-    bool scopeWide = false;
-    void setScopeWide (bool wide);
-    bool isWideLayout() const                         { return scopeWide && ! isSendMode; }
-    int contentOffsetY() const;                       // (0: el panel gris queda arriba)
     juce::Component* scopeParts[6] = { &scope, &zoomBox, &scopeStyleButton, &linkButton, &showPreButton, &showPostButton };
 
     static constexpr int editorWidth = 640;

@@ -501,22 +501,9 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     scopeToggleButton.getProperties().set ("kind", "plain");
     scopeToggleButton.setColour (juce::TextButton::textColourOffId, Theme::darkText);
     scopeToggleButton.setTooltip ("Mostrar u ocultar el osciloscopio");
-    scopeToggleButton.onClick = [this]
-    {
-        if (scopeWide)
-            setScopeWide (false);                  // estaba grande: vuelve al tamaño normal (abierto)
-        else
-            setScopeOpen (! scopeOpen);
-    };
+    scopeToggleButton.onClick = [this] { setScopeOpen (! scopeOpen); };
     addAndMakeVisible (scopeToggleButton);
     scopeOpen = (bool) apvts.state.getProperty ("scopeOpen", false);   // arranca cerrado
-
-    // ⤢ Osciloscopio grande a la derecha (se guarda con el proyecto).
-    wideButton.setTooltip ("Osciloscopio a la derecha, a lo ancho de la pantalla");
-    wideButton.onClick = [this] { setScopeWide (! scopeWide); };
-    addAndMakeVisible (wideButton);
-    scopeWide = (bool) apvts.state.getProperty ("scopeWide", false);
-    wideButton.on = scopeWide;
 
     // Estilo: forma de dibujar, colores y grilla (se guardan con el proyecto).
     scopeStyleButton.setTooltip ("Forma, colores y grilla del osciloscopio");
@@ -541,58 +528,6 @@ MeteringABEditor::~MeteringABEditor()
 {
     stopTimer();
     setLookAndFeel (nullptr);
-}
-
-void WideButton::paintButton (juce::Graphics& g, bool isOver, bool isDown)
-{
-    auto r = getLocalBounds().toFloat().reduced (0.5f);
-    const float radius = r.getHeight() * 0.5f;
-    g.setColour (on ? Theme::accentBright.withAlpha (0.16f) : Theme::darkBg.brighter (isDown ? 0.1f : isOver ? 0.06f : 0.0f));
-    g.fillRoundedRectangle (r, radius);
-    g.setColour (on ? Theme::accentBright.withAlpha (0.6f) : Theme::chipLine.brighter (isOver ? 0.25f : 0.0f));
-    g.drawRoundedRectangle (r, radius, 1.0f);
-
-    // Ícono: cuadro abierto arriba a la derecha con una flecha saliendo.
-    const auto ink = on ? Theme::accentBright.brighter (0.25f) : Theme::chipText;
-    auto icon = r.withSizeKeepingCentre (12.0f, 12.0f);
-    juce::Path box;
-    box.startNewSubPath (icon.getX() + 6.0f, icon.getY());
-    box.lineTo (icon.getX(), icon.getY());
-    box.lineTo (icon.getX(), icon.getBottom());
-    box.lineTo (icon.getRight(), icon.getBottom());
-    box.lineTo (icon.getRight(), icon.getY() + 8.0f);
-    g.setColour (ink);
-    g.strokePath (box, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-    juce::Path arrow;
-    arrow.startNewSubPath (icon.getX() + 6.0f, icon.getBottom() - 6.0f);
-    arrow.lineTo (icon.getRight() + 1.0f, icon.getY() - 1.0f);
-    arrow.startNewSubPath (icon.getRight() - 5.0f, icon.getY() - 1.0f);
-    arrow.lineTo (icon.getRight() + 1.0f, icon.getY() - 1.0f);
-    arrow.lineTo (icon.getRight() + 1.0f, icon.getY() + 5.0f);
-    g.strokePath (arrow, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-}
-
-// Modo grande: el plugin se agranda y el osciloscopio va a la derecha del panel gris.
-void MeteringABEditor::setScopeWide (bool wide)
-{
-    scopeWide = wide;
-    wideButton.on = wide;
-    wideButton.setTooltip (wide ? "Volver al tamaño normal" : "Osciloscopio a la derecha, a lo ancho de la pantalla");
-    processor.apvts.state.setProperty ("scopeWide", wide, nullptr);
-
-    if (! wide)
-    {
-        scopeOpen = true;                          // al volver, el osciloscopio queda abierto
-        processor.apvts.state.setProperty ("scopeOpen", true, nullptr);
-    }
-
-    updateScopeSection();
-}
-
-int MeteringABEditor::contentOffsetY() const
-{
-    return 0;
 }
 
 void MeteringABEditor::setupKnob (PreciseSlider& s, juce::Label& label, const juce::String& text)
@@ -720,24 +655,20 @@ void MeteringABEditor::setScopeOpen (bool open)
 void MeteringABEditor::updateScopeSection()
 {
     const bool showSection = ! isSendMode;
-    const bool wide = isWideLayout();
-    const bool showBody = showSection && (scopeOpen || wide);
+    const bool showBody = showSection && scopeOpen;
 
     scopeToggleButton.setVisible (showSection);
     scopeToggleButton.setButtonText ("Osciloscopio");
     scopeToggleButton.getProperties().set ("open", showBody);     // triángulo ▾ / ▸
     scopeToggleButton.repaint();
-    wideButton.setVisible (showSection);
-    wideButton.repaint();
 
     for (auto* c : scopeParts)
         c->setVisible (showBody);
 
     scopeLabel.setVisible (false);
 
-    const int width  = wide ? wideWidth : editorWidth;
+    const int width  = editorWidth;
     const int height = ! showSection ? sendHeight
-                     : wide          ? wideHeight
                      : showBody      ? mainHeight + scopeHeaderHeight + scopeBodyHeight
                                      : mainHeight + scopeHeaderHeight;
 
@@ -984,10 +915,10 @@ void MeteringABEditor::timerCallback()
         statusLabel.setColour (juce::Label::textColourId, Colours::bad);
     }
 
-    repaint (0, 76 + contentOffsetY(), editorWidth, 80);
+    repaint (0, 76, editorWidth, 80);
     repaint (statusLabel.getBounds().withX (0).withWidth (40));   // puntito del estado
 
-    if (! isSendMode && (scopeOpen || scopeWide) && ! scope.isFrozen())
+    if (! isSendMode && scopeOpen && ! scope.isFrozen())
         scope.repaint();
 }
 
@@ -1017,26 +948,22 @@ static void drawNumberWithUnit (juce::Graphics& g, const juce::String& number, c
 
 void MeteringABEditor::paint (juce::Graphics& g)
 {
-    const bool wide = isWideLayout();
-    const int oy = contentOffsetY();               // en modo grande, el panel gris va centrado en alto
-    const int topHeight = isSendMode || wide ? getHeight() : mainHeight;
-    const int topWidth  = wide ? editorWidth : getWidth();
+    const int topHeight = isSendMode ? getHeight() : mainHeight;
 
-    // Panel gris claro (arriba, o a la izquierda en modo grande); osciloscopio en oscuro.
+    // Panel gris claro arriba; osciloscopio abajo, en oscuro.
     g.setGradientFill (juce::ColourGradient (Theme::topLight, 0.0f, 0.0f, Theme::topDark, 0.0f, (float) topHeight, false));
-    g.fillRect (0, 0, topWidth, topHeight);
+    g.fillRect (0, 0, getWidth(), topHeight);
 
     if (! isSendMode)
     {
         g.setColour (Theme::darkBg);
-        if (wide) g.fillRect (topWidth, 0, getWidth() - topWidth, getHeight());
-        else      g.fillRect (0, topHeight, getWidth(), getHeight() - topHeight);
+        g.fillRect (0, topHeight, getWidth(), getHeight() - topHeight);
     }
 
     // Título
     g.setColour (juce::Colour (0xff3a3d42));
     g.setFont (Theme::font (16.0f, 600, 0.16f));
-    g.drawText ("METERING A/B", 20, 10 + oy, 220, 32, juce::Justification::centredLeft);
+    g.drawText ("METERING A/B", 20, 10, 220, 32, juce::Justification::centredLeft);
 
     // Pastilla del Link ID (− 1 +)
     {
@@ -1095,13 +1022,13 @@ void MeteringABEditor::paint (juce::Graphics& g)
     g.setColour (Theme::inkFaint);
     g.setFont (Theme::font (10.5f, 300));
     g.drawText ("Clic en un número para escribir el valor exacto  ·  Shift + arrastrar = ajuste fino  ·  Doble clic = valor por defecto"_u,
-                20, mainHeight - 24 + oy, editorWidth - 40, 16, juce::Justification::centred);
+                20, mainHeight - 24, editorWidth - 40, 16, juce::Justification::centred);
 }
 
 // Clic sobre los números: medidores a cero (vuelven a medir desde ahí).
 juce::Rectangle<int> MeteringABEditor::meterArea() const
 {
-    return { 20, 80 + contentOffsetY(), editorWidth - 40, 70 };
+    return { 20, 80, editorWidth - 40, 70 };
 }
 
 void MeteringABEditor::mouseDown (const juce::MouseEvent& e)
@@ -1126,8 +1053,7 @@ void MeteringABEditor::mouseMove (const juce::MouseEvent& e)
 
 void MeteringABEditor::resized()
 {
-    const bool wide = isWideLayout();
-    auto area = juce::Rectangle<int> (0, contentOffsetY(), editorWidth, mainHeight).reduced (20, 0);
+    auto area = juce::Rectangle<int> (0, 0, editorWidth, mainHeight).reduced (20, 0);
 
     // Fila superior: título | modo | Link ID (− 1 +)
     auto top = area.removeFromTop (52).withTrimmedTop (10).withHeight (32);
@@ -1189,15 +1115,11 @@ void MeteringABEditor::resized()
         latencyInfoLabel.setBounds (k.removeFromTop (16));
     }
 
-    // ---- Sección del osciloscopio: debajo del panel gris, o a la derecha en modo grande ----
-    auto section = wide ? juce::Rectangle<int> (editorWidth, 0, getWidth() - editorWidth, getHeight()).reduced (20, 0)
-                        : getLocalBounds().withTrimmedTop (mainHeight + 1).reduced (20, 0);
+    // ---- Sección del osciloscopio (debajo del panel gris) ----
+    auto section = getLocalBounds().withTrimmedTop (mainHeight + 1).reduced (20, 0);
 
     auto scopeHeader = section.removeFromTop (scopeHeaderHeight - 1).withSizeKeepingCentre (section.getWidth(), 28);
     scopeToggleButton.setBounds (scopeHeader.removeFromLeft (128).translated (-8, 0));
-    wideButton.setBounds (scopeHeader.removeFromRight (34));
-    scopeHeader.removeFromRight (8);
-
     zoomBox.setBounds (scopeHeader.removeFromRight (96));
     scopeHeader.removeFromRight (8);
     showPostButton.setBounds (scopeHeader.removeFromRight (74));
@@ -1209,5 +1131,5 @@ void MeteringABEditor::resized()
     scopeStyleButton.setBounds (scopeHeader.removeFromRight (60));
     scopeLabel.setBounds (scopeHeader);
 
-    scope.setBounds (wide ? section.withTrimmedBottom (16) : section.removeFromTop (scopeBodyHeight - 16));
+    scope.setBounds (section.removeFromTop (scopeBodyHeight - 16));
 }
