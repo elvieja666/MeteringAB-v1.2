@@ -126,6 +126,24 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
         return;
     }
 
+    if (kind == "lightchip")                         // pastilla sobre el gris (Oscilloscope Link)
+    {
+        r = r.reduced (0.5f);
+        const float radius = r.getHeight() * 0.5f;
+        const bool on = button.getToggleState();
+        const auto colour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::accent.getARGB()));
+        g.setColour (on ? Theme::raisedTop : Theme::pill.brighter (over ? 0.03f : 0.0f));
+        g.fillRoundedRectangle (r, radius);
+        if (on)                                      // prendido: borde y puntito del color de lo que escuchás
+        {
+            g.setColour (colour.withAlpha (0.6f));
+            g.drawRoundedRectangle (r, radius, 1.2f);
+            g.setColour (colour);
+            g.fillEllipse (juce::Rectangle<float> (7.0f, 7.0f).withCentre ({ r.getX() + 16.0f, r.getCentreY() }));
+        }
+        return;
+    }
+
     if (kind == "segment")                           // ms | Sync: la elegida en relieve
     {
         if (button.getToggleState())
@@ -148,6 +166,11 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
     {
         const auto chipColour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::accentBright.getARGB()));
         colour = button.getToggleState() ? chipColour.brighter (0.25f) : Theme::chipText;
+    }
+    else if (kind == "lightchip")
+    {
+        const auto chipColour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::accent.getARGB()));
+        colour = button.getToggleState() ? chipColour : Theme::inkDim;
     }
     else if (kind == "segment")
     {
@@ -462,8 +485,9 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     scope.setShowPre  ((bool) apvts.state.getProperty ("scopeShowPre",  true));
     scope.setShowPost ((bool) apvts.state.getProperty ("scopeShowPost", true));
 
-    for (juce::TextButton* b : { (juce::TextButton*) &showPreButton, (juce::TextButton*) &showPostButton, (juce::TextButton*) &linkButton, &freezeButton })
+    for (juce::TextButton* b : { (juce::TextButton*) &showPreButton, (juce::TextButton*) &showPostButton, &freezeButton })
         b->getProperties().set ("kind", "chip");
+    linkButton.getProperties().set ("kind", "lightchip");
 
     // Freeze: congela lo que se ve (para mirarlo y hacerle zoom tranquilo).
     freezeButton.setClickingTogglesState (false);
@@ -782,7 +806,7 @@ void MeteringABPanel::updateWaveButtons()
 
     // LINK: prendido toma el color de la onda que estás escuchando.
     const bool listeningPre = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f;
-    style (linkButton, scopeLinked, listeningPre ? scope.getPreColour() : scope.getPostColour());
+    style (linkButton, scopeLinked, listeningPre ? Theme::preInk : Theme::accent);   // como el botón grande
 }
 
 void MeteringABPanel::setScopeLinked (bool linked)
@@ -887,7 +911,7 @@ void MeteringABPanel::timerCallback()
 
         for (juce::Component* c : std::initializer_list<juce::Component*> {
                  &windowSlider, &windowLabel, &latencyLabel, &latencyMsLabel,
-                 &abButton, &listenLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel,
+                 &abButton, &listenLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel, &linkButton,
 
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
             c->setVisible (! isSendMode);
@@ -1159,14 +1183,16 @@ void MeteringABPanel::resized()
     auto right = columns.removeFromRight (sideWidth);
     auto middle = columns.reduced (10, 0);
 
-    // Escuchar: el botón grande PRE FX / POST FX y, debajo, cómo se nivela.
+    // Escuchar: el botón grande PRE FX / POST FX, debajo Oscilloscope Link y cómo se nivela.
     {
         auto k = left;
         listenLabel.setBounds (k.removeFromTop (22));
         k.removeFromTop (4);
-        abButton.setBounds (k.removeFromTop (88).expanded (4, 0));
+        abButton.setBounds (k.removeFromTop (76).expanded (4, 0));
         k.removeFromTop (4);
-        matchInfoLabel.setBounds (k.removeFromTop (16));
+        linkButton.setBounds (k.removeFromTop (26).withSizeKeepingCentre (150, 26));   // Oscilloscope Link
+        k.removeFromTop (6);
+        matchInfoLabel.setBounds (k.removeFromTop (14));
     }
 
     // Ventana: botones ms|Sync arriba, perilla con el valor, equivalencia abajo.
@@ -1204,8 +1230,6 @@ void MeteringABPanel::resized()
     showPostButton.setBounds (scopeHeader.removeFromRight (74));
     scopeHeader.removeFromRight (6);
     showPreButton.setBounds (scopeHeader.removeFromRight (66));
-    scopeHeader.removeFromRight (6);
-    linkButton.setBounds (scopeHeader.removeFromRight (60));
     scopeHeader.removeFromRight (6);
     freezeButton.setBounds (scopeHeader.removeFromRight (64));
     scopeLabel.setBounds (scopeHeader);

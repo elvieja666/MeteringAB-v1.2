@@ -60,6 +60,7 @@ public:
 //   raised  = en relieve sobre el gris (Medir, el botón grande)
 //   segment = mitad de ms | Sync (la elegida queda en relieve)
 //   chip    = pastilla oscura del osciloscopio (color en "chipColour")
+//   lightchip = pastilla sobre el gris (Oscilloscope Link; color en "chipColour")
 //   plain   = solo texto (▸ Osciloscopio)
 class MeteringABLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -143,7 +144,7 @@ private:
     juce::Label scopeLabel;
     juce::ComboBox zoomBox;
     ChipButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };   // clic derecho: menú de estilo
-    ChipButton linkButton { "LINK" };                 // prendido: el osciloscopio sigue a la escucha
+    ChipButton linkButton { "Oscilloscope Link" };    // debajo de Escuchar: el osciloscopio sigue a la escucha
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
     bool scopeLinked = true;
     void setScopeLinked (bool linked);
@@ -163,7 +164,7 @@ private:
     void setScopeOpen (bool open);
     void updateScopeSection();
 
-    juce::Component* scopeParts[6] = { &scope, &zoomBox, &linkButton, &showPreButton, &showPostButton, &freezeButton };
+    juce::Component* scopeParts[5] = { &scope, &zoomBox, &showPreButton, &showPostButton, &freezeButton };
 
     static constexpr int editorWidth = 640;
     static constexpr int scopeHeaderHeight = 44;      // barra "Osciloscopio" (siempre visible)
