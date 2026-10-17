@@ -93,7 +93,7 @@ public:
     static constexpr int scopeWidth = 1551;            // 712 * 2,178
     static constexpr int receiveWidth = 300 + 18 + scopeWidth + 18;   // = 1887 (al 100%)
     static constexpr int sideWidth = 300;             // la columna gris
-    static constexpr int sendWidth = 640, sendHeight = 86;           // Send: solo título, modo, Link ID y estado
+    static constexpr int sendWidth = sideWidth, sendHeight = 176;    // Send: solo la parte de arriba de la columna
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
     explicit MeteringABPanel (MeteringABProcessor&);

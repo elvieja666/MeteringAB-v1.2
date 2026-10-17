@@ -1026,8 +1026,8 @@ void MeteringABPanel::paint (juce::Graphics& g)
 
     // Título
     g.setColour (juce::Colour (0xff3a3d42));
-    g.setFont (Theme::font (isSendMode ? 16.0f : 14.0f, 600, 0.3f));
-    g.drawText ("METERING A/B", 20, isSendMode ? 10 : 12, 240, 32, juce::Justification::centredLeft);
+    g.setFont (Theme::font (14.0f, 600, 0.3f));
+    g.drawText ("METERING A/B", 20, 12, 240, 32, juce::Justification::centredLeft);
 
     // Pastilla del Link ID (− 1 +)
     {
@@ -1039,8 +1039,9 @@ void MeteringABPanel::paint (juce::Graphics& g)
     // Puntito de color al lado del estado
     {
         const auto lb = statusLabel.getBounds().toFloat();
+        const float dotY = isSendMode ? lb.getY() + 8.5f : lb.getCentreY();   // en Send, a la altura del primer renglón
         g.setColour (statusLabel.findColour (juce::Label::textColourId));
-        g.fillEllipse (lb.getX() - 13.0f, lb.getCentreY() - 3.5f, 7.0f, 7.0f);
+        g.fillEllipse (lb.getX() - 13.0f, dotY - 3.5f, 7.0f, 7.0f);
     }
 
     // Send: solo título, modo, Link ID y estado (ventana chica).
@@ -1121,24 +1122,7 @@ void MeteringABPanel::mouseMove (const juce::MouseEvent& e)
 
 void MeteringABPanel::resized()
 {
-    if (isSendMode)
-    {
-        // Send: una franja chica. Título | modo | Link ID (− 1 +) y debajo el estado.
-        auto area = getLocalBounds().reduced (20, 0);
-        auto top = area.removeFromTop (52).withTrimmedTop (10).withHeight (32);
-        top.removeFromLeft (200);
-        linkPlus.setBounds (top.removeFromRight (32));
-        linkValueLabel.setBounds (top.removeFromRight (40));
-        linkMinus.setBounds (top.removeFromRight (32));
-        linkLabel.setBounds (top.removeFromRight (62));
-        linkLabel.setJustificationType (juce::Justification::centredRight);
-        top.removeFromRight (10);
-        modeBox.setBounds (top);
-        statusLabel.setBounds (area.removeFromTop (22).withTrimmedLeft (14));
-        return;
-    }
-
-    // ---- Columna gris (de arriba a abajo) ----
+    // ---- Columna gris (de arriba a abajo). En Send queda solo esta parte de arriba. ----
     auto k = juce::Rectangle<int> (20, 0, sideWidth - 40, getHeight());
     k.removeFromTop (52);                                       // título (se dibuja en paint)
     modeBox.setBounds (k.removeFromTop (30));
@@ -1152,7 +1136,17 @@ void MeteringABPanel::resized()
         linkLabel.setJustificationType (juce::Justification::centredLeft);
     }
     k.removeFromTop (4);
+
+    if (isSendMode)                                             // Send: el estado en dos renglones y listo
+    {
+        statusLabel.setBounds (k.removeFromTop (38).withTrimmedLeft (14));
+        statusLabel.setJustificationType (juce::Justification::topLeft);
+        statusLabel.setMinimumHorizontalScale (1.0f);
+        return;
+    }
+
     statusLabel.setBounds (k.removeFromTop (22).withTrimmedLeft (14));
+    statusLabel.setJustificationType (juce::Justification::centredLeft);
     k.removeFromTop (6);
     k.removeFromTop (meterArea().getHeight());                  // medidores (se dibujan en paint)
     k.removeFromTop (16);
