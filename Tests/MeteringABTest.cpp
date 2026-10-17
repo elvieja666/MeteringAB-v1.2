@@ -1231,6 +1231,26 @@ int main (int argc, char** argv)
 
         panel->getFreezeButtonForTests().onClick();
         check (! sc.isFrozen(), "Freeze: otro clic descongela", 1);
+
+        // Sin botón Estilo: el menú se abre con clic derecho en PRE FX / POST FX / LINK.
+        auto& preBtn = panel->getShowPreButtonForTests();
+        const bool wasShown = sc.getShowPre();
+        const juce::ModifierKeys right (juce::ModifierKeys::rightButtonModifier);
+        auto rightClick = [&] (juce::Component& c) { return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), { 5.0f, 5.0f }, right, 1.0f,
+                                                                              0.0f, 0.0f, 0.0f, 0.0f, &c, &c, juce::Time::getCurrentTime(), { 5.0f, 5.0f },
+                                                                              juce::Time::getCurrentTime(), 1, false); };
+        preBtn.mouseDown (rightClick (preBtn));
+        preBtn.mouseUp (rightClick (preBtn));
+        check (panel->getStyleMenuOpenedForTests() == 1 && sc.getShowPre() == wasShown,
+               "Clic derecho en PRE FX: abre el menú de estilo (y no oculta la onda)", panel->getStyleMenuOpenedForTests());
+        auto& linkBtn = panel->getLinkButtonForTests();
+        linkBtn.mouseDown (rightClick (linkBtn));
+        check (panel->getStyleMenuOpenedForTests() == 2, "Clic derecho en LINK: también abre el menú", panel->getStyleMenuOpenedForTests());
+        bool noStyleButton = true;
+        for (auto* child : panel->getChildren())
+            if (auto* b = dynamic_cast<juce::Button*> (child))
+                noStyleButton = noStyleButton && b->getButtonText() != "Estilo";
+        check (noStyleButton, "Ya no está el botón Estilo", 1);
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;

@@ -468,7 +468,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     scope.setShowPre  ((bool) apvts.state.getProperty ("scopeShowPre",  true));
     scope.setShowPost ((bool) apvts.state.getProperty ("scopeShowPost", true));
 
-    for (auto* b : { &showPreButton, &showPostButton, &linkButton, &scopeStyleButton, &freezeButton })
+    for (juce::TextButton* b : { (juce::TextButton*) &showPreButton, (juce::TextButton*) &showPostButton, (juce::TextButton*) &linkButton, &freezeButton })
         b->getProperties().set ("kind", "chip");
 
     // Freeze: congela lo que se ve (para mirarlo y hacerle zoom tranquilo).
@@ -517,9 +517,12 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     scopeOpen = (bool) apvts.state.getProperty ("scopeOpen", false);   // arranca cerrado
 
     // Estilo: forma de dibujar, colores y grilla (se guardan con el proyecto).
-    scopeStyleButton.setTooltip ("Forma, colores y grilla del osciloscopio");
-    scopeStyleButton.onClick = [this] { showStyleMenu(); };
-    addAndMakeVisible (scopeStyleButton);
+    // Se abre con clic derecho sobre LINK, PRE FX o POST FX.
+    for (auto* b : { &showPreButton, &showPostButton, &linkButton })
+    {
+        b->onRightClick = [this, b] { showStyleMenu (*b); };
+        b->setTooltip (b->getTooltip() + "  ·  Clic derecho: estilo, colores y grilla"_u);
+    }
     applyScopeLook();
 
     statusLabel.setFont (Theme::font (12.5f, 400));
@@ -576,8 +579,14 @@ void MeteringABPanel::applyScopeLook()
     updateWaveButtons();
 }
 
-void MeteringABPanel::showStyleMenu()
+void MeteringABPanel::showStyleMenu (juce::Component& anchor)
 {
+    styleMenuAnchor = &anchor;
+    ++styleMenuOpenedForTests;
+
+    if (! anchor.isShowing())                      // fuera de pantalla (tests): no hay dónde mostrarlo
+        return;
+
     auto& state = processor.apvts.state;
     const int stylePre  = (int) scope.getStylePre();
     const int stylePost = (int) scope.getStylePost();
@@ -614,7 +623,7 @@ void MeteringABPanel::showStyleMenu()
     menu.addSeparator();
     menu.addItem (400, "Mostrar grilla", true, scope.getShowGrid());
 
-    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&scopeStyleButton),
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&anchor),
                         [this, safe = juce::Component::SafePointer<MeteringABPanel> (this)] (int result)
     {
         if (safe == nullptr || result == 0)
@@ -660,9 +669,10 @@ void MeteringABPanel::pickCustomColour (bool forPre)
         });
 
     // Funciona tanto en el plugin como en la ventana aparte.
-    auto* host = scopeStyleButton.getTopLevelComponent();
+    auto* anchor = styleMenuAnchor != nullptr ? styleMenuAnchor : static_cast<juce::Component*> (&showPostButton);
+    auto* host = anchor->getTopLevelComponent();
     juce::CallOutBox::launchAsynchronously (std::move (selector),
-                                            host->getLocalArea (&scopeStyleButton, scopeStyleButton.getLocalBounds()), host);
+                                            host->getLocalArea (anchor, anchor->getLocalBounds()), host);
 }
 
 void MeteringABPanel::setScopeOpen (bool open)
@@ -1156,8 +1166,6 @@ void MeteringABPanel::resized()
     showPreButton.setBounds (scopeHeader.removeFromRight (66));
     scopeHeader.removeFromRight (6);
     linkButton.setBounds (scopeHeader.removeFromRight (60));
-    scopeHeader.removeFromRight (6);
-    scopeStyleButton.setBounds (scopeHeader.removeFromRight (60));
     scopeHeader.removeFromRight (6);
     freezeButton.setBounds (scopeHeader.removeFromRight (64));
     scopeLabel.setBounds (scopeHeader);

@@ -17,6 +17,38 @@ public:
     void mouseDown (const juce::MouseEvent& e) override;
 };
 
+// Pastilla del osciloscopio que además abre un menú con clic derecho
+// (o Ctrl + clic); ese clic no cuenta como clic normal.
+class ChipButton : public juce::TextButton
+{
+public:
+    using juce::TextButton::TextButton;
+    std::function<void()> onRightClick;
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        if (e.mods.isPopupMenu())
+        {
+            if (onRightClick != nullptr)
+                onRightClick();
+            return;
+        }
+        juce::TextButton::mouseDown (e);
+    }
+
+    void mouseUp (const juce::MouseEvent& e) override
+    {
+        if (! e.mods.isPopupMenu())
+            juce::TextButton::mouseUp (e);
+    }
+
+    void mouseDrag (const juce::MouseEvent& e) override
+    {
+        if (! e.mods.isPopupMenu())
+            juce::TextButton::mouseDrag (e);
+    }
+};
+
 // Estilo de los controles. Cada botón dice qué tipo es con la propiedad "kind":
 //   raised  = en relieve sobre el gris (Medir, Ø, el botón grande)
 //   segment = mitad de ms | Sync (la elegida queda en relieve)
@@ -63,6 +95,9 @@ public:
     const ScopeView& getScopeForTests() const { return scope; }
     ScopeView& getScopeForTests()             { return scope; }
     juce::TextButton& getFreezeButtonForTests() { return freezeButton; }
+    ChipButton& getShowPreButtonForTests()      { return showPreButton; }
+    ChipButton& getLinkButtonForTests()         { return linkButton; }
+    int getStyleMenuOpenedForTests() const      { return styleMenuOpenedForTests; }
     float getShownPreForTests() const             { return shownPre; }
     bool isGainShownForTests() const              { return gainShown; }
     void clickMetersForTests()                    { resetMeters(); }
@@ -100,22 +135,23 @@ private:
     ScopeView scope { processor };
     juce::Label scopeLabel;
     juce::ComboBox zoomBox;
-    juce::TextButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };
-    juce::TextButton linkButton { "LINK" };           // prendido: el osciloscopio sigue a la escucha
+    ChipButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };   // clic derecho: menú de estilo
+    ChipButton linkButton { "LINK" };                 // prendido: el osciloscopio sigue a la escucha
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
     bool scopeLinked = true;
     void setScopeLinked (bool linked);
     void syncWavesToListen();
     juce::TextButton scopeToggleButton;               // ▾ / ▸ mostrar u ocultar el osciloscopio
-    juce::TextButton scopeStyleButton { "Estilo" };   // menú de opciones gráficas
-    void showStyleMenu();
+    void showStyleMenu (juce::Component& anchor);     // menú de opciones gráficas (clic derecho en LINK / PRE / POST)
+    juce::Component* styleMenuAnchor = nullptr;
+    int styleMenuOpenedForTests = 0;
     void applyScopeLook();                            // lee estilo y colores guardados
     void pickCustomColour (bool forPre);
     bool scopeOpen = false;
     void setScopeOpen (bool open);
     void updateScopeSection();
 
-    juce::Component* scopeParts[7] = { &scope, &zoomBox, &scopeStyleButton, &linkButton, &showPreButton, &showPostButton, &freezeButton };
+    juce::Component* scopeParts[6] = { &scope, &zoomBox, &linkButton, &showPreButton, &showPostButton, &freezeButton };
 
     static constexpr int editorWidth = 640;
     static constexpr int scopeHeaderHeight = 44;      // barra "Osciloscopio" (siempre visible)
