@@ -1042,54 +1042,76 @@ int main (int argc, char** argv)
     }
 
     {
-        // Contorno/líneas "adaptativo fino": el sostener lo decide cada columna.
+        // Contorno/líneas "graves sin onda + agudos prolijos" (1 ms por columna).
         constexpr int bins = MeteringABProcessor::scopeBins;
-        std::vector<float> mins ((size_t) bins, 0.0f), maxs ((size_t) bins, 0.0f);
-        for (int b = 100; b < 140; ++b) { maxs[(size_t) b] = 1.0f; mins[(size_t) b] = -1.0f; }   // golpe de 40 ms
-        const double binSec = 1.0e-3;                               // 1 ms por columna
-        std::vector<float> shortHold ((size_t) bins, MeteringABProcessor::scopeMinHoldMs);   // sin graves: 3 ms
-        const auto pts = ScopeView::smoothEnvelope (mins.data(), maxs.data(), shortHold.data(), 0, bins, binSec);
+        const double binSec = 1.0e-3;
+        using V = std::vector<float>;
+        auto env = [&] (const V& pos, const V& neg, const V& hmin, const V& hmax, int from = 0, int to = bins)
+        { return ScopeView::smoothEnvelope ({ pos.data(), neg.data(), hmin.data(), hmax.data() }, from, to, binSec); };
+        const V zero ((size_t) bins, 0.0f);
+
+        // Agudos: un golpe de 40 ms.
+        V hmin ((size_t) bins, 0.0f), hmax ((size_t) bins, 0.0f);
+        for (int b = 100; b < 140; ++b) { hmax[(size_t) b] = 1.0f; hmin[(size_t) b] = -1.0f; }
+        const auto pts = env (zero, zero, hmin, hmax);
         check ((int) pts.size() == bins + 2, "Contorno: un punto por columna (mucha definición)", (double) pts.size());
-
-        auto valueAt = [&] (int bin) { return pts[(size_t) bin + 1].hi; };
-        check (valueAt (96) < 0.05f && valueAt (103) > 0.9f, "Contorno: el golpe sube justo donde cae", valueAt (96));
-        check (valueAt (138) > 0.85f && valueAt (165) < 0.05f, "Contorno sin graves: baja enseguida al terminar el golpe", valueAt (165));
-        check (valueAt (147) > valueAt (150) && valueAt (150) > valueAt (153) && valueAt (147) < 0.9f,
-               "Contorno: la bajada es una curva, no un escalón", valueAt (150));
-
-        // Graves de 50 Hz (ciclos de 20 ms) con su "sostener" de un ciclo: el borde queda liso.
-        std::vector<float> bmin ((size_t) bins), bmax ((size_t) bins);
-        for (int b = 0; b < bins; ++b)
-        {
-            const float v = 0.5f * (float) std::abs (std::sin (juce::MathConstants<double>::pi * b / 10.0));
-            bmax[(size_t) b] = v; bmin[(size_t) b] = -v;
-        }
-        std::vector<float> bassHold ((size_t) bins, MeteringABProcessor::scopeHoldFor (0.5f, 0.5f, 20.0));
-        const auto bass = ScopeView::smoothEnvelope (bmin.data(), bmax.data(), bassHold.data(), 0, bins, binSec);
-        float lo = 1.0f, hi = 0.0f;
-        for (int i = 200; i < 1800; ++i) { lo = juce::jmin (lo, bass[(size_t) i].hi); hi = juce::jmax (hi, bass[(size_t) i].hi); }
-        check (hi - lo < 0.02f, "Contorno: con graves no se ven los ciclos (variación)", hi - lo);
-
+        auto valueAt = [&] (const std::vector<ScopeView::EnvelopePoint>& p, int bin) { return p[(size_t) bin + 1].hi; };
+        check (valueAt (pts, 94) < 0.05f && valueAt (pts, 104) > 0.9f, "Contorno: el golpe sube justo donde cae", valueAt (pts, 96));
+        check (valueAt (pts, 142) > 0.9f && valueAt (pts, 160) < 0.05f, "Agudos: se sostienen 8 ms y bajan enseguida", valueAt (pts, 160));
+        check (valueAt (pts, 147) > valueAt (pts, 149) && valueAt (pts, 149) > valueAt (pts, 151),
+               "Contorno: la bajada es una curva, no un escalón", valueAt (pts, 149));
         check (pts.front().bin == 0.0f && pts.back().bin == (float) bins, "Contorno: el dibujo cubre todo el tramo", pts.back().bin);
-        const auto part = ScopeView::smoothEnvelope (mins.data(), maxs.data(), shortHold.data(), 300, 500, binSec);
+        const auto part = env (zero, zero, hmin, hmax, 300, 500);
         check (part.front().bin == 300.0f && part.back().bin == 500.0f, "Contorno: con LINK cada tramo se dibuja aparte", part.size());
 
-        // Cuánto sostener según el grave: sin grave 3 ms; grave dominante de 40 Hz = un ciclo (~26 ms); tope 50 ms.
-        check (std::abs (MeteringABProcessor::scopeHoldFor (1.0f, 0.05f, 25.0) - 3.0f) < 0.01f, "Sostener: sin grave fuerte = 3 ms", 3);
-        check (std::abs (MeteringABProcessor::scopeHoldFor (1.0f, 0.9f, 25.0) - 26.25f) < 0.01f, "Sostener: grave de 40 Hz = un ciclo (ms)",
-               MeteringABProcessor::scopeHoldFor (1.0f, 0.9f, 25.0));
-        check (std::abs (MeteringABProcessor::scopeHoldFor (1.0f, 0.9f, 200.0) - 50.0f) < 0.01f, "Sostener: tope de 50 ms", 50);
+        // Grave de 50 Hz (un pico arriba y uno abajo cada 20 ms), asimétrico y con un
+        // medio ciclo más bajo cada tanto (vaivén del ciclo): el borde queda liso.
+        V pos ((size_t) bins, 0.0f), neg ((size_t) bins, 0.0f);
+        for (int b = 0; b < bins; b += 20)
+        {
+            pos[(size_t) b] = (b / 20) % 3 == 1 ? 0.35f : 0.5f;
+            if (b + 10 < bins) neg[(size_t) (b + 10)] = -0.4f;
+        }
+        const auto bass = env (pos, neg, zero, zero);
+        float lo = 1.0f, hi = 0.0f, lo2 = 0.0f, hi2 = -1.0f;
+        for (int i = 200; i < 1800; ++i)
+        {
+            lo = juce::jmin (lo, valueAt (bass, i)); hi = juce::jmax (hi, valueAt (bass, i));
+            lo2 = juce::jmin (lo2, bass[(size_t) i + 1].lo); hi2 = juce::jmax (hi2, bass[(size_t) i + 1].lo);
+        }
+        check (hi - lo < 0.02f && hi > 0.48f, "Grave: no se ven los ciclos ni el pozo de un solo ciclo", hi - lo);
+        check (hi2 - lo2 < 0.02f && lo2 < -0.38f, "Grave: borde de abajo con su propio nivel (asimétrico)", lo2);
+
+        // Cambio de volumen de verdad (varios ciclos más bajos): sí se ve.
+        V drop ((size_t) bins, 0.0f);
+        for (int b = 0; b < bins; b += 20)
+            drop[(size_t) b] = b < 1000 ? 0.5f : 0.2f;
+        const auto dropped = env (drop, zero, zero, zero);
+        check (valueAt (dropped, 900) > 0.48f && valueAt (dropped, 1100) < 0.22f, "Grave: un cambio de volumen se ve", valueAt (dropped, 1100));
+
+        // Silencio entre dos notas graves (400 ms): no las une, baja a cero.
+        V notes ((size_t) bins, 0.0f);
+        for (int b = 0; b < bins; b += 20)
+            if (b < 600 || b >= 1000) notes[(size_t) b] = 0.5f;
+        const auto gap = env (notes, zero, zero, zero);
+        check (valueAt (gap, 800) < 0.01f && valueAt (gap, 500) > 0.48f, "Grave: no une notas separadas por silencio", valueAt (gap, 800));
+
+        // Grave + agudos: los agudos van encima del grave.
+        const auto both = env (pos, neg, hmin, hmax);
+        check (valueAt (both, 120) > 0.99f && valueAt (both, 400) > 0.48f && valueAt (both, 400) < 0.52f,
+               "Grave + agudos: el golpe se suma encima del grave", valueAt (both, 400));
     }
     {
-        // De punta a punta: el audio marca cuánto sostener en cada columna.
-        auto holdWith = [] (double freq)
+        // De punta a punta: el audio separa graves (picos de medio ciclo) y agudos.
+        struct Bands { float lowPos, lowNeg, high; int peaks; };
+        auto bandsWith = [] (double freq)
         {
             MeteringABProcessor send, recv; juce::MidiBuffer m;
             setParam (send, ParamIDs::link, 14); setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 14);
             ChainHead head; send.setPlayHead (&head); recv.setPlayHead (&head);
             send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
             juce::AudioBuffer<float> b (2, 512); double ph = 0; long long count = 0;
-            for (int blk = 0; blk < 200; ++blk)
+            for (int blk = 0; blk < 180; ++blk)   // 1,92 s: casi un compás, sin dar la vuelta
             {
                 for (int i = 0; i < 512; ++i)
                 {
@@ -1100,12 +1122,24 @@ int main (int argc, char** argv)
                 send.processBlock (b, m); recv.processBlock (b, m);
             }
             send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
-            const int bin = juce::jmax (0, recv.scopeCurrentBin.load() - 20);
-            return recv.scopeTraces[MeteringABProcessor::preSum].hold[(size_t) bin].load();
+            const auto& t = recv.scopeTraces[MeteringABProcessor::preSum];
+            const int end = recv.scopeCurrentBin.load() - 30;
+            Bands r { 0.0f, 0.0f, 0.0f, 0 };
+            for (int k = juce::jmax (0, end - 300); k < end; ++k)
+            {
+                r.lowPos = juce::jmax (r.lowPos, t.lowPos[(size_t) k].load());
+                r.lowNeg = juce::jmin (r.lowNeg, t.lowNeg[(size_t) k].load());
+                r.high = juce::jmax (r.high, t.hiMax[(size_t) k].load());
+                r.peaks += t.lowPos[(size_t) k].load() > 0.0f ? 1 : 0;
+            }
+            return r;
         };
-        const float bass = holdWith (40.0), treble = holdWith (2000.0);
-        check (bass > 22.0f && bass < 32.0f, "Sostener con un bajo de 40 Hz: ~1 ciclo (ms)", bass);
-        check (treble < 3.5f, "Sostener con un agudo de 2 kHz: 3 ms (mucha definición)", treble);
+        const auto bass = bandsWith (40.0), treble = bandsWith (2000.0);
+        // 300 columnas a 120 BPM (1 compás = 2 s): ~293 ms = ~12 ciclos de 40 Hz.
+        check (bass.lowPos > 0.45f && bass.lowNeg < -0.45f && bass.high < 0.05f,
+               "Bajo de 40 Hz: va a los graves (picos de medio ciclo), casi nada en agudos", bass.lowPos);
+        check (bass.peaks >= 10 && bass.peaks <= 13, "Bajo de 40 Hz: un pico por ciclo", bass.peaks);
+        check (treble.high > 0.45f && treble.lowPos < 0.01f, "Agudo de 2 kHz: va a los agudos", treble.high);
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;

@@ -267,7 +267,7 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     preMeter.prepare (sampleRate);
     postMeter.prepare (sampleRate);
 
-    for (auto& t : bassTrackers)
+    for (auto& t : scopeBands)
         t.prepare (sampleRate);
     dryBuffer.setSize (2, juce::jmax (samplesPerBlock, 4096));
     dryMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
@@ -577,48 +577,88 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
 
         const float values[numScopeTraces] = { preSumValue / (float) numCh, postSumValue / (float) numCh,
                                                preCh[0], postCh[0], preCh[1], postCh[1] };
-        float lows[numScopeTraces];
+        const bool drawing = scopeRunning && scopeGateOpen;
+        const int bin = drawing ? juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins)) : -1;
+        const bool newBin = drawing && bin != lastScopeBin;   // columna nueva: reemplaza la del loop anterior
 
-        for (int t = 0; t < numScopeTraces; ++t)        // graves de cada onda (siempre, para no perder el hilo)
-            lows[t] = bassTrackers[(size_t) t].process (values[t]);
-
-        if (scopeRunning && scopeGateOpen)
+        for (int t = 0; t < numScopeTraces; ++t)        // graves / agudos de cada onda (siempre, para no perder el hilo)
         {
-            const int bin = juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins));
-            const auto k = (size_t) bin;
-            const bool newBin = bin != lastScopeBin;    // columna nueva: reemplaza la del loop anterior
+            auto& trace = scopeTraces[(size_t) t];
+            const float v = values[t];
+            const auto bands = scopeBands[(size_t) t].process (v, bin);
 
-            for (int t = 0; t < numScopeTraces; ++t)
+            if (drawing)
             {
-                auto& trace = scopeTraces[(size_t) t];
-                const float v = values[t];
-
-                const float lowAbs = std::abs (lows[t]);
-                const float period = (float) bassTrackers[(size_t) t].periodSamples();
-                auto& lowPeak = binLowPeak[(size_t) t];
-                auto& periodMax = binPeriodMax[(size_t) t];
+                const auto k = (size_t) bin;
 
                 if (newBin)
                 {
                     trace.min[k].store (v, std::memory_order_relaxed);
                     trace.max[k].store (v, std::memory_order_relaxed);
                     trace.sq[k].store (v * v, std::memory_order_relaxed);
-                    lowPeak = lowAbs;
-                    periodMax = period;
+                    trace.hiMin[k].store (bands.high, std::memory_order_relaxed);
+                    trace.hiMax[k].store (bands.high, std::memory_order_relaxed);
+                    trace.lowPos[k].store (0.0f, std::memory_order_relaxed);
+                    trace.lowNeg[k].store (0.0f, std::memory_order_relaxed);
                 }
                 else
                 {
                     if (v < trace.min[k].load (std::memory_order_relaxed)) trace.min[k].store (v, std::memory_order_relaxed);
                     if (v > trace.max[k].load (std::memory_order_relaxed)) trace.max[k].store (v, std::memory_order_relaxed);
                     trace.sq[k].store (trace.sq[k].load (std::memory_order_relaxed) + v * v, std::memory_order_relaxed);
-                    lowPeak = juce::jmax (lowPeak, lowAbs);
-                    periodMax = juce::jmax (periodMax, period);
+                    if (bands.high < trace.hiMin[k].load (std::memory_order_relaxed)) trace.hiMin[k].store (bands.high, std::memory_order_relaxed);
+                    if (bands.high > trace.hiMax[k].load (std::memory_order_relaxed)) trace.hiMax[k].store (bands.high, std::memory_order_relaxed);
                 }
-
-                const float fullPeak = juce::jmax (trace.max[k].load (std::memory_order_relaxed), -trace.min[k].load (std::memory_order_relaxed));
-                trace.hold[k].store (scopeHoldFor (fullPeak, lowPeak, periodMax * 1000.0 / currentSampleRate), std::memory_order_relaxed);
             }
 
+            // Graves: el pico de cada medio ciclo va a la columna donde ocurrió.
+            // Mientras el medio ciclo sigue, su pico se escribe provisorio (el borde
+            // llega hasta el cabezal); si el pico se mueve, la columna vieja vuelve a
+            // lo que tenía. Al terminar, queda fijo.
+            auto& pend = pendingPeaks[(size_t) t];
+            auto slot = [&] (int b, bool positive) -> std::atomic<float>& { return positive ? trace.lowPos[(size_t) b] : trace.lowNeg[(size_t) b]; };
+
+            auto undoPending = [&]
+            {
+                if (pend.bin >= 0 && juce::exactlyEqual (slot (pend.bin, pend.positive).load (std::memory_order_relaxed), pend.written))
+                    slot (pend.bin, pend.positive).store (pend.before, std::memory_order_relaxed);
+                pend.bin = -1;
+            };
+
+            auto writePeak = [&] (int b, float peak) -> bool
+            {
+                if (b < 0 || b >= scopeBins || juce::exactlyEqual (peak, 0.0f))
+                    return false;
+                auto& cell = slot (b, peak > 0.0f);
+                const float before = cell.load (std::memory_order_relaxed);
+                if (peak > 0.0f ? peak > before : peak < before)
+                    cell.store (peak, std::memory_order_relaxed);
+                pend = { b, peak > 0.0f, before, cell.load (std::memory_order_relaxed) };
+                return true;
+            };
+
+            if (bands.peakDone)
+            {
+                undoPending();
+                writePeak (bands.peakBin, bands.peak);
+                pend.bin = -1;                          // ya es definitivo
+            }
+
+            const int pb = scopeBands[(size_t) t].pendingBin();
+            const float pp = scopeBands[(size_t) t].pendingPeak();
+            const bool samePending = pend.bin == pb && pb >= 0
+                                     && juce::exactlyEqual (slot (pb, pend.positive).load (std::memory_order_relaxed), pend.written)
+                                     && (pend.positive ? pp <= pend.written : pp >= pend.written) && (pp > 0.0f) == pend.positive;
+            if (! samePending)
+            {
+                undoPending();
+                writePeak (pb, pp);
+            }
+        }
+
+        if (drawing)
+        {
+            const auto k = (size_t) bin;
             scopeCount[k].store (newBin ? 1 : scopeCount[k].load (std::memory_order_relaxed) + 1, std::memory_order_relaxed);
             scopeShowPreAt[k].store (pre ? 1 : 0, std::memory_order_relaxed);   // lo que sonaba al dibujarla
             lastScopeBin = bin;
@@ -681,7 +721,10 @@ void MeteringABProcessor::clearScope()
             trace.min[(size_t) b] = 0.0f;
             trace.max[(size_t) b] = 0.0f;
             trace.sq[(size_t) b] = 0.0f;
-            trace.hold[(size_t) b] = scopeMinHoldMs;
+            trace.hiMin[(size_t) b] = 0.0f;
+            trace.hiMax[(size_t) b] = 0.0f;
+            trace.lowPos[(size_t) b] = 0.0f;
+            trace.lowNeg[(size_t) b] = 0.0f;
         }
 
         scopeCount[(size_t) b] = 0;
@@ -689,6 +732,11 @@ void MeteringABProcessor::clearScope()
     }
 
     lastScopeBin = -1;
+
+    for (auto& t : scopeBands)                         // que ningún medio ciclo viejo caiga en el loop nuevo
+        t.reset();
+    for (auto& p : pendingPeaks)
+        p.bin = -1;
 }
 
 // Dónde arranca el bloque dentro del loop del osciloscopio (en negras).

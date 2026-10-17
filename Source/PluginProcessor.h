@@ -1,7 +1,7 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "LoudnessMeter.h"
-#include "BassTracker.h"
+#include "ScopeBands.h"
 #include "SharedBus.h"
 #include "LatencyMeasurer.h"
 
@@ -106,18 +106,11 @@ public:
     // medida que avanza la canción, así cada compás reemplaza al anterior.
     static constexpr int scopeBins = 2048;            // resolución horizontal (columnas por loop)
     // Una "traza" por señal y canal: mínimo, máximo y suma de cuadrados (RMS).
-    // hold: cuánto sostener el borde en Contorno / Solo líneas (ms), según el grave de esa columna.
-    struct ScopeTrace { std::array<std::atomic<float>, scopeBins> min, max, sq, hold; };
+    // Para Contorno / Solo líneas además (ver ScopeBands): el pico de los agudos
+    // (hiMin / hiMax) y el pico de cada medio ciclo del grave que cae en esa
+    // columna (lowPos arriba / lowNeg abajo; 0 = ningún medio ciclo terminó ahí).
+    struct ScopeTrace { std::array<std::atomic<float>, scopeBins> min, max, sq, hiMin, hiMax, lowPos, lowNeg; };
 
-    // Borde "adaptativo fino": sin un grave fuerte sostiene 3 ms (mucha definición);
-    // si domina un grave, sostiene un ciclo de ese grave (hasta 50 ms) para tapar sus ondas.
-    static constexpr float scopeMinHoldMs = 3.0f, scopeMaxHoldMs = 50.0f, scopeHoldCycles = 1.05f;
-    static float scopeHoldFor (float fullPeak, float lowPeak, double periodMs)
-    {
-        const float dominance = fullPeak > 1.0e-6f ? juce::jlimit (0.0f, 1.0f, (lowPeak / fullPeak - 0.12f) / 0.25f) : 0.0f;
-        const float cycle = juce::jlimit (scopeMinHoldMs, scopeMaxHoldMs, (float) (scopeHoldCycles * periodMs));
-        return scopeMinHoldMs + (cycle - scopeMinHoldMs) * dominance;
-    }
     enum ScopeTraceIndex { preSum = 0, postSum, preLeft, postLeft, preRight, postRight, numScopeTraces };
     std::array<ScopeTrace, numScopeTraces> scopeTraces;                  // L+R (promedio), solo L, solo R
     std::array<std::atomic<int>, scopeBins> scopeCount;                  // muestras en cada columna
@@ -179,8 +172,11 @@ private:
     juce::int64 hostBarCount = 0;
     double scopePhaseQuarters = 0.0;                  // dónde va el barrido (en negras)
     int    lastScopeBin = -1, lastScopeLength = -1;
-    std::array<BassTracker, numScopeTraces> bassTrackers;     // graves de cada onda (para el borde)
-    std::array<float, numScopeTraces> binLowPeak {}, binPeriodMax {};
+    std::array<ScopeBands, numScopeTraces> scopeBands;        // graves / agudos de cada onda (para el borde)
+    // Pico provisorio del medio ciclo en curso (así el borde llega hasta el cabezal):
+    // en qué columna se escribió y qué había antes ahí, para devolverlo si se mueve.
+    struct PendingPeak { int bin = -1; bool positive = true; float before = 0.0f, written = 0.0f; };
+    std::array<PendingPeak, numScopeTraces> pendingPeaks;
     bool   scopeWasPlaying = false;                   // para detectar cuándo se da play
     bool   scopeGateOpen = true;                      // false solo durante el tramo previo al play
     double scopeLastBlockPpq = 0.0;                   // para detectar saltos hacia atrás (ciclo)
