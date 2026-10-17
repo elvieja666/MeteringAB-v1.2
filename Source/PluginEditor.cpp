@@ -463,7 +463,6 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     // Osciloscopio sincronizado + largo en compases (se guarda con el proyecto).
     addAndMakeVisible (scope);
     scopeLabel.setText ({}, juce::dontSendNotification);
-    scope.setTooltip ("Rueda o pellizco: zoom  ·  Arrastrar: moverse  ·  Doble clic: ver todo"_u);
     scopeLabel.setColour (juce::Label::textColourId, Theme::darkDim);
     scopeLabel.setFont (Theme::font (12.0f, 300));
     addAndMakeVisible (scopeLabel);
@@ -491,7 +490,6 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     // Freeze: congela lo que se ve (para mirarlo y hacerle zoom tranquilo).
     freezeButton.setClickingTogglesState (false);
-    freezeButton.setTooltip ("Congelar el osciloscopio (después podés hacer zoom y moverte)"_u);
     freezeButton.getProperties().set ("chipColour", (juce::int64) Theme::accentBright.getARGB());
     freezeButton.onClick = [this]
     {
@@ -505,7 +503,6 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     for (auto* b : { &showPreButton, &showPostButton })
     {
         b->setClickingTogglesState (false);
-        b->setTooltip ("Clic: ver solo esta onda  ·  Cmd + clic: sumarla o sacarla (ver las dos)"_u);
         addAndMakeVisible (*b);
     }
 
@@ -543,7 +540,6 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     scopeToggleButton.setClickingTogglesState (false);
     scopeToggleButton.getProperties().set ("kind", "plain");
     scopeToggleButton.setColour (juce::TextButton::textColourOffId, Theme::darkText);
-    scopeToggleButton.setTooltip ("Mostrar u ocultar el osciloscopio");
     scopeToggleButton.onClick = [this] { setScopeOpen (! scopeOpen); };
     addAndMakeVisible (scopeToggleButton);
     scopeOpen = (bool) apvts.state.getProperty ("scopeOpen", false);   // arranca cerrado
@@ -553,7 +549,8 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     for (auto* b : { &showPreButton, &showPostButton, &linkButton })
     {
         b->onRightClick = [this, b] { showStyleMenu (*b); };
-        b->setTooltip (b->getTooltip() + "  ·  Clic derecho: estilo, colores y grilla"_u);
+        if (b == &linkButton)                       // en el osciloscopio no hay cartelitos
+            b->setTooltip (b->getTooltip() + "  ·  Clic derecho: forma con LINK"_u);
     }
     applyScopeLook();
 
