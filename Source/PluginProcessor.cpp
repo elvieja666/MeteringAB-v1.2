@@ -651,6 +651,8 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     displayPost = (float) postMeter.getDecibels();
     displayGain = targetDb;
     displayGainValid = preMeter.getMeanSquare() > 1.0e-6;   // hay audio medido
+    if (displayGainValid.load())
+        gainMeasured = true;
 }
 
 void MeteringABProcessor::setMixTargets (bool pre, bool immediately)

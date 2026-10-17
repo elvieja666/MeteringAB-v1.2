@@ -521,7 +521,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     timerCallback();          // en modo Send oculta los controles del Receive
     updateScopeSection();     // fija el alto según el modo y si el osciloscopio está abierto
-    startTimerHz (30);
+    startTimerHz (timerHz);
 }
 
 MeteringABPanel::~MeteringABPanel()
@@ -777,14 +777,23 @@ void MeteringABPanel::timerCallback()
 
     auto ease = [] (float& shown, float target)
     {
-        if (target <= -119.0f) shown = -120.0f;                // a -∞ de una (pausa o clic)
+        if (target <= -119.0f)
+        {
+            // En pausa bajan de a poco hasta -∞ (como un medidor que cae), no de golpe.
+            shown -= fallDbPerSecond / (float) timerHz;
+            if (shown < fallFloorDb)
+                shown = -120.0f;
+        }
         else if (shown <= -119.0f) shown = target;             // arranca sin "subir" desde -∞
         else shown += (target - shown) * 0.35f;
     };
     ease (shownPre,  audioStopped ? -120.0f : processor.displayPre.load());
     ease (shownPost, audioStopped ? -120.0f : processor.displayPost.load());
-    gainShown = ! audioStopped && processor.displayGainValid.load();
-    shownGain += (processor.displayGain.load() - shownGain) * 0.35f;
+
+    // La ganancia aplicada queda a la vista (también en pausa) una vez que hubo algo medido.
+    gainShown = processor.gainMeasured.load();
+    if (processor.displayGainValid.load())
+        shownGain += (processor.displayGain.load() - shownGain) * 0.35f;
 
     // El osciloscopio sigue a la escucha: cuando cambia PRE/POST FX (botón,
     // tecla asignada o automatización), muestra solo la onda que suena.
@@ -1050,8 +1059,7 @@ void MeteringABPanel::mouseDown (const juce::MouseEvent& e)
 void MeteringABPanel::resetMeters()
 {
     processor.requestMeterReset();
-    shownPre = shownPost = -120.0f;
-    gainShown = false;
+    shownPre = shownPost = -120.0f;                 // el clic los borra en el momento (la ganancia queda)
     repaint (meterArea());
 }
 

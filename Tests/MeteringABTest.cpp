@@ -440,10 +440,25 @@ int main (int argc, char** argv)
         // nuevo y la ganancia aplicada no salta (no se escucha un golpe de volumen).
         Chain c (31, -6.0f, 0);
         c.run (12.0);
-        c.head.playing = false;
+        {
+            // En la pantalla: al poner pausa, Original y Procesado bajan de a poco hasta -∞;
+            // la ganancia aplicada queda como estaba.
+            std::unique_ptr<juce::AudioProcessorEditor> ed (c.recv.createEditor());
+            auto* e = panelOf (ed);
+            for (int k = 0; k < 10; ++k) e->refreshNow();
+            const float playing = e->getShownPreForTests();
+            c.head.playing = false;
+            c.run (0.1);
+            e->refreshNow();
+            const float firstFrame = e->getShownPreForTests();
+            check (firstFrame < playing && firstFrame > playing - 5.0f, "Pausa: Original baja de a poco, no de golpe (dB)", firstFrame);
+            for (int k = 0; k < 90; ++k) e->refreshNow();            // 3 segundos
+            check (e->getShownPreForTests() <= -119.0f, "Pausa: al rato queda en -inf", e->getShownPreForTests());
+            check (e->isGainShownForTests(), "Pausa: la ganancia aplicada queda a la vista", 1);
+        }
         c.run (0.3);
-        check (c.recv.displayPre.load() <= -119.0f && c.recv.displayPost.load() <= -119.0f && ! c.recv.displayGainValid.load(),
-               "Pausa: Original y Procesado en -inf, ganancia sin valor", c.recv.displayPre.load());
+        check (c.recv.displayPre.load() <= -119.0f && c.recv.displayPost.load() <= -119.0f && std::abs (c.recv.displayGain.load() - 6.0f) < 0.3f,
+               "Pausa: medidores en cero y la ganancia se mantiene (dB)", c.recv.displayGain.load());
         c.head.playing = true;
         juce::AudioBuffer<float> dry; c.run (0.05, &dry); auto out = c.run (512.0 / 48000.0, &dry);
         check (std::abs (rmsDb (out) - rmsDb (dry)) < 0.3, "Al volver el play el nivel sigue igualado (dB de diferencia)", rmsDb (out) - rmsDb (dry));
@@ -458,7 +473,7 @@ int main (int argc, char** argv)
         std::unique_ptr<juce::AudioProcessorEditor> ed (r.createEditor());
         auto* e = panelOf (ed);
         e->clickMetersForTests();
-        check (e->getShownPreForTests() <= -119.0f && ! e->isGainShownForTests(), "Clic en los números: se borran enseguida", e->getShownPreForTests());
+        check (e->getShownPreForTests() <= -119.0f && e->isGainShownForTests(), "Clic en los números: se borran enseguida (la ganancia queda)", e->getShownPreForTests());
         c.run (512.0 / 48000.0);
         check (c.recv.displayPre.load() < before - 10.0f, "Clic en los números: el medidor arranca de cero (dB)", c.recv.displayPre.load());
     }

@@ -77,7 +77,8 @@ public:
     std::atomic<float> displayPre    { -120.0f };
     std::atomic<float> displayPost   { -120.0f };
     std::atomic<float> displayGain   { 0.0f };
-    std::atomic<bool>  displayGainValid { false };   // false: medidores en cero (pausa o clic), sin ganancia que mostrar
+    std::atomic<bool>  displayGainValid { false };   // false: medidores en cero (pausa o clic): la ganancia no se actualiza
+    std::atomic<bool>  gainMeasured { false };        // ya se midió alguna vez (desde ahí la ganancia queda a la vista)
 
     // Pone los medidores en cero (clic sobre los números). Lo aplica el audio en el próximo bloque.
     void requestMeterReset()                         { meterResetRequested = true; }
