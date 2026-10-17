@@ -485,8 +485,17 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
         addAndMakeVisible (*b);
     }
 
-    showPreButton.onClick  = [this] { setWaves (! scope.getShowPre(), scope.getShowPost()); };
-    showPostButton.onClick = [this] { setWaves (scope.getShowPre(), ! scope.getShowPost()); };
+    // Con LINK prendido, tocar PRE FX o POST FX apaga LINK y deja solo esa onda.
+    showPreButton.onClick  = [this]
+    {
+        if (scopeLinked) { setScopeLinked (false); setWaves (true, false); }
+        else             setWaves (! scope.getShowPre(), scope.getShowPost());
+    };
+    showPostButton.onClick = [this]
+    {
+        if (scopeLinked) { setScopeLinked (false); setWaves (false, true); }
+        else             setWaves (scope.getShowPre(), ! scope.getShowPost());
+    };
 
     // Botón ⇄ linkeado a la escucha: hace lo mismo que el botón PRE/POST FX
     // grande (alterna lo que suena) y el osciloscopio lo sigue.
@@ -724,8 +733,9 @@ void MeteringABPanel::updateWaveButtons()
         b.repaint();
     };
 
-    style (showPreButton,  scope.getShowPre(),  scope.getPreColour());
-    style (showPostButton, scope.getShowPost(), scope.getPostColour());
+    // Con LINK prendido solo se enciende LINK (PRE FX / POST FX quedan apagados).
+    style (showPreButton,  ! scopeLinked && scope.getShowPre(),  scope.getPreColour());
+    style (showPostButton, ! scopeLinked && scope.getShowPost(), scope.getPostColour());
 
     // LINK: prendido toma el color de la onda que estás escuchando.
     const bool listeningPre = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f;

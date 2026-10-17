@@ -1250,6 +1250,16 @@ int main (int argc, char** argv)
             if (auto* b = dynamic_cast<juce::Button*> (child))
                 noStyleButton = noStyleButton && b->getButtonText() != "Estilo";
         check (noStyleButton, "Ya no está el botón Estilo", 1);
+
+        // LINK prendido: solo LINK encendido; PRE FX / POST FX apagados aunque se vea una onda.
+        if (linkBtn.getToggleState())
+            linkBtn.onClick();                             // apagar y volver a prender: sigue a la escucha
+        linkBtn.onClick();
+        check (linkBtn.getToggleState() && ! preBtn.getToggleState() && (sc.getShowPre() != sc.getShowPost()),
+               "LINK prendido: solo LINK encendido (PRE/POST FX apagados)", linkBtn.getToggleState() * 100 + preBtn.getToggleState() * 10 + (sc.getShowPre() != sc.getShowPost()));
+        preBtn.onClick();                                  // tocar PRE FX: apaga LINK y deja solo PRE
+        check (! linkBtn.getToggleState() && preBtn.getToggleState() && sc.getShowPre() && ! sc.getShowPost(),
+               "Con LINK, tocar PRE FX apaga LINK y muestra solo PRE", linkBtn.getToggleState());
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;
