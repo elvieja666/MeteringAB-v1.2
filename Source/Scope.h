@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <optional>
 #include "PluginProcessor.h"
 #include "Text.h"
 #include "Theme.h"
@@ -39,6 +40,9 @@ public:
     void setStyles (Style pre, Style post)     { stylePre = pre; stylePost = post; repaint(); }
     Style getStylePre() const                  { return stylePre; }
     Style getStylePost() const                 { return stylePost; }
+    // Forma cuando LINK sigue a la escucha (vacío = la de PRE y la de POST).
+    void setLinkStyle (std::optional<Style> s) { linkStyle = s; repaint(); }
+    std::optional<Style> getLinkStyle() const  { return linkStyle; }
     void setColours (juce::Colour pre, juce::Colour post) { preColour = pre; postColour = post; repaint(); }
     juce::Colour getPreColour() const          { return preColour; }
     juce::Colour getPostColour() const         { return postColour; }
@@ -116,8 +120,8 @@ public:
 
             if (followListen)
             {
-                drawSignal (pre,  preColour,  stylePre,  Mask { &showPreAt, 1 });
-                drawSignal (post, postColour, stylePost, Mask { &showPreAt, 0 });
+                drawSignal (pre,  preColour,  linkStyle.value_or (stylePre),  Mask { &showPreAt, 1 });
+                drawSignal (post, postColour, linkStyle.value_or (stylePost), Mask { &showPreAt, 0 });
             }
             else
             {
@@ -533,6 +537,7 @@ private:
     Flags showPreAt {};
     bool linked = true;
     Style stylePre = Style::contour, stylePost = Style::contour;
+    std::optional<Style> linkStyle;
     juce::Colour preColour { palettes[0].pre }, postColour { palettes[0].post };
     bool showGrid = true;
     int currentBin = 0;

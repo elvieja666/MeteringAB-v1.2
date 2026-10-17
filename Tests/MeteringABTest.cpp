@@ -394,6 +394,14 @@ int main (int argc, char** argv)
                 outer->setUiScale (1.0f);
             }
 
+            if (shot == 7)   // LINK con su propia forma (Solo líneas), PRE/POST siguen en Contorno
+            {
+                a->apvts.state.setProperty ("scopeStyleLink", 2, nullptr);
+                std::unique_ptr<juce::AudioProcessorEditor> ed2 (a->createEditor());
+                panelOf (ed2)->refreshNow();
+                save (*ed2, "/link-forma.png");
+            }
+
             if (shot == 3)   // ventana en modo Sync (compases)
             {
                 chain->head.playing = false; chain->run (0.1);          // pausa: medidores en -∞
@@ -565,6 +573,21 @@ int main (int argc, char** argv)
         auto* e = panelOf (ed);
         check (e->getScopeForTests().getStylePre() == ScopeView::Style::detailed && e->getScopeForTests().getStylePost() == ScopeView::Style::lines,
                "Forma separada: PRE Detallado (de antes) y POST Solo líneas", 1);
+    }
+    {
+        // Forma con LINK: por defecto igual que PRE / POST; se puede elegir aparte y se guarda.
+        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
+        a.apvts.state.setProperty ("scopeStylePre", 0, nullptr);
+        a.apvts.state.setProperty ("scopeStylePost", 0, nullptr);
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+            check (! panelOf (ed)->getScopeForTests().getLinkStyle().has_value(), "Forma con LINK: por defecto igual que PRE / POST", 1);
+        }
+        a.apvts.state.setProperty ("scopeStyleLink", 2, nullptr);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+        const auto& sc = panelOf (ed)->getScopeForTests();
+        check (sc.getLinkStyle() == ScopeView::Style::lines && sc.getStylePre() == ScopeView::Style::contour,
+               "Forma con LINK aparte (Solo líneas) sin tocar PRE / POST (Contorno)", 1);
     }
     {
         MeteringABProcessor fresh;

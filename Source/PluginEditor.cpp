@@ -547,6 +547,9 @@ void MeteringABPanel::applyScopeLook()
     const int legacyStyle = (int) state.getProperty ("scopeStyle", 0);
     scope.setStyles ((ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStylePre",  legacyStyle)),
                      (ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStylePost", legacyStyle)));
+    // Forma con LINK prendido (-1 = la misma que PRE / POST).
+    const int linkStyle = juce::jlimit (-1, 2, (int) state.getProperty ("scopeStyleLink", -1));
+    scope.setLinkStyle (linkStyle < 0 ? std::optional<ScopeView::Style>() : std::optional<ScopeView::Style> ((ScopeView::Style) linkStyle));
     scope.setShowGrid ((bool) state.getProperty ("scopeGrid", true));
     scope.setChannels ((ScopeView::Channels) juce::jlimit (0, 3, (int) state.getProperty ("scopeChannels", 0)));
 
@@ -578,6 +581,12 @@ void MeteringABPanel::showStyleMenu()
     for (int i = 0; i < ScopeView::styleNames.size(); ++i)
         menu.addItem (150 + i, ScopeView::styleNames[i], true, stylePost == i);
 
+    menu.addSectionHeader ("Forma con LINK");
+    const int linkStyle = (int) state.getProperty ("scopeStyleLink", -1);
+    menu.addItem (600, "Igual que PRE / POST", true, linkStyle < 0);
+    for (int i = 0; i < ScopeView::styleNames.size(); ++i)
+        menu.addItem (601 + i, ScopeView::styleNames[i], true, linkStyle == i);
+
     menu.addSectionHeader ("Canales");
     const int channels = (int) state.getProperty ("scopeChannels", 0);
     for (int i = 0; i < ScopeView::channelNames.size(); ++i)
@@ -608,6 +617,7 @@ void MeteringABPanel::showStyleMenu()
         else if (result == 300 || result == 301) { pickCustomColour (result == 300); return; }
         else if (result == 400)                 st.setProperty ("scopeGrid", ! scope.getShowGrid(), nullptr);
         else if (result >= 500 && result < 600) st.setProperty ("scopeChannels", result - 500, nullptr);
+        else if (result >= 600 && result < 700) st.setProperty ("scopeStyleLink", result - 601, nullptr);   // 600 = -1 (igual)
 
         applyScopeLook();
     });
