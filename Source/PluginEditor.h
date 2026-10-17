@@ -61,6 +61,8 @@ public:
     // Para las pruebas: ejecuta una actualización de la interfaz (lo que hace el timer).
     void refreshNow() { timerCallback(); }
     const ScopeView& getScopeForTests() const { return scope; }
+    ScopeView& getScopeForTests()             { return scope; }
+    juce::TextButton& getFreezeButtonForTests() { return freezeButton; }
     float getShownPreForTests() const             { return shownPre; }
     bool isGainShownForTests() const              { return gainShown; }
     void clickMetersForTests()                    { resetMeters(); }
@@ -100,6 +102,7 @@ private:
     juce::ComboBox zoomBox;
     juce::TextButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };
     juce::TextButton linkButton { "LINK" };           // prendido: el osciloscopio sigue a la escucha
+    juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
     bool scopeLinked = true;
     void setScopeLinked (bool linked);
     void syncWavesToListen();
@@ -112,7 +115,7 @@ private:
     void setScopeOpen (bool open);
     void updateScopeSection();
 
-    juce::Component* scopeParts[6] = { &scope, &zoomBox, &scopeStyleButton, &linkButton, &showPreButton, &showPostButton };
+    juce::Component* scopeParts[7] = { &scope, &zoomBox, &scopeStyleButton, &linkButton, &showPreButton, &showPostButton, &freezeButton };
 
     static constexpr int editorWidth = 640;
     static constexpr int scopeHeaderHeight = 44;      // barra "Osciloscopio" (siempre visible)

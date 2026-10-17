@@ -313,6 +313,27 @@ int main (int argc, char** argv)
             const char* names[] = { "/audio-contorno.png", "/audio-lineas.png", "/audio-detallado.png" };
             juce::File f (juce::String (argv[1]) + names[style]);
             f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+
+            // Freeze + zoom (x8 y x40) sobre la misma parte.
+            auto& sc = panelOf (ed)->getScopeForTests();
+            panelOf (ed)->getFreezeButtonForTests().onClick();
+            const char* base[] = { "/audio-contorno", "/audio-lineas", "/audio-detallado" };
+            const double zooms[][2] = { { 0.36, 0.125 }, { 0.392, 0.025 } };
+            for (int z = 0; z < 2; ++z)
+            {
+                sc.setView (zooms[z][0], zooms[z][1]);
+                auto zimg = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
+                juce::File zf (juce::String (argv[1]) + base[style] + (z == 0 ? "-zoom8.png" : "-zoom40.png"));
+                zf.deleteFile(); juce::FileOutputStream zos (zf); juce::PNGImageFormat().writeImageToStream (zimg, zos);
+            }
+            if (style == 0)                             // la interfaz entera, con Freeze y zoom
+            {
+                sc.setView (0.36, 0.125);
+                auto* panel = panelOf (ed);
+                auto pimg = panel->createComponentSnapshot (panel->getLocalBounds(), true, 2.0f);
+                juce::File pf (juce::String (argv[1]) + "/audio-panel-freeze.png");
+                pf.deleteFile(); juce::FileOutputStream pos (pf); juce::PNGImageFormat().writeImageToStream (pimg, pos);
+            }
             send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
         }
         return 0;
@@ -1140,6 +1161,76 @@ int main (int argc, char** argv)
                "Bajo de 40 Hz: va a los graves (picos de medio ciclo), casi nada en agudos", bass.lowPos);
         check (bass.peaks >= 10 && bass.peaks <= 13, "Bajo de 40 Hz: un pico por ciclo", bass.peaks);
         check (treble.high > 0.45f && treble.lowPos < 0.01f, "Agudo de 2 kHz: va a los agudos", treble.high);
+    }
+    {
+        // Zoom: el audio guarda la onda muestra a muestra (120 BPM, 1 compás = 2 s = 96000 muestras).
+        Chain c (21, -6.0f, 0);
+        c.run (1.5);
+        auto& r = c.recv;
+        const int slots = r.scopeRawSlots.load();
+        check (slots == 96000, "Zoom: un casillero por muestra (1 compás a 120 BPM)", slots);
+        int filled = 0;
+        for (int i = 1000; i < 60000; i += 1000)
+        {
+            const auto p = r.scopeRaw[MeteringABProcessor::preSum][(size_t) i].load();
+            filled += (MeteringABProcessor::rawLo (p) == MeteringABProcessor::rawHi (p) && p != 0) ? 1 : 0;
+        }
+        check (filled >= 55, "Zoom: cada casillero es una muestra (mínimo = máximo)", filled);
+        check (std::abs (MeteringABProcessor::rawHi (MeteringABProcessor::packRaw (-0.25f, 0.5f)) - 0.5f) < 1.0e-4f
+               && std::abs (MeteringABProcessor::rawLo (MeteringABProcessor::packRaw (-0.25f, 0.5f)) + 0.25f) < 1.0e-4f,
+               "Zoom: mínimo y máximo se guardan bien", 1);
+
+        // Interfaz: Freeze (botón), zoom con la rueda en el mouse, arrastrar, doble clic.
+        r.apvts.state.setProperty ("scopeOpen", true, nullptr);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (r.createEditor());
+        auto* panel = panelOf (ed);
+        auto& sc = panel->getScopeForTests();
+        check (! sc.isFrozen() && ! sc.isZoomed(), "Osciloscopio: arranca sin congelar y sin zoom", 1);
+
+        const juce::ModifierKeys none;
+        auto mouse = [&] (float x) { return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), { x, 100.0f }, none, 1.0f,
+                                                               0.0f, 0.0f, 0.0f, 0.0f, &sc, &sc, juce::Time::getCurrentTime(), { x, 100.0f },
+                                                               juce::Time::getCurrentTime(), 1, false); };
+        sc.mouseDown (mouse (200.0f));
+        sc.mouseUp (mouse (200.0f));
+        check (! sc.isFrozen(), "Clic en el osciloscopio ya no congela (es para arrastrar)", 1);
+
+        panel->getFreezeButtonForTests().onClick();
+        check (sc.isFrozen() && panel->getFreezeButtonForTests().getToggleState(), "Freeze: el botón congela", 1);
+
+        const auto plot = sc.getLocalBounds().toFloat().withTrimmedLeft (38.0f).withTrimmedRight (10.0f);
+        const float mx = plot.getX() + plot.getWidth() * 0.25f;          // mouse en 1/4 del ancho
+        juce::MouseWheelDetails w {}; w.deltaY = 0.5f;
+        sc.mouseWheelMove (mouse (mx), w);
+        const double anchor = sc.getViewStart() + 0.25 * sc.getViewSpan();
+        check (sc.isZoomed() && sc.getViewSpan() < 0.5 && std::abs (anchor - 0.25) < 1.0e-3,
+               "Rueda: zoom dejando quieto el punto bajo el mouse", sc.getViewSpan());
+
+        const double before = sc.getViewStart();
+        sc.mouseDown (mouse (300.0f));
+        sc.mouseDrag (mouse (200.0f));                                     // arrastrar a la izquierda = ir hacia adelante
+        check (sc.getViewStart() > before, "Arrastrar: se mueve por el loop", sc.getViewStart() - before);
+
+        sc.mouseMagnify (mouse (mx), 1000.0f);
+        check (sc.getViewSpan() * slots >= 47.0 && sc.getViewSpan() * slots < 60.0, "Zoom máximo: ~48 muestras a lo ancho", sc.getViewSpan() * slots);
+
+        sc.setView (2.0, 0.1);
+        check (sc.getViewStart() + sc.getViewSpan() <= 1.0 + 1.0e-9, "Zoom: no se va del loop", sc.getViewStart());
+
+        sc.mouseDoubleClick (mouse (mx));
+        check (! sc.isZoomed(), "Doble clic: vuelve a ver todo", sc.getViewSpan());
+
+        // Con zoom se dibuja la onda real (se ve distinto que sin zoom) y se pinta sin problemas.
+        sc.setView (0.3, 0.01);
+        auto deep = sc.createComponentSnapshot (sc.getLocalBounds(), true, 1.0f);
+        int lit = 0;
+        for (int x = 60; x < deep.getWidth() - 20; x += 2)
+            for (int y = 30; y < deep.getHeight() - 20; y += 2)
+                lit += deep.getPixelAt (x, y).getBrightness() > 0.5f ? 1 : 0;
+        check (lit > 50, "Zoom x100: se dibuja la onda", lit);
+
+        panel->getFreezeButtonForTests().onClick();
+        check (! sc.isFrozen(), "Freeze: otro clic descongela", 1);
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;

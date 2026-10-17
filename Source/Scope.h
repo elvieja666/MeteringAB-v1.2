@@ -14,7 +14,10 @@
 //    vuelve a empezar reemplazando lo del compás anterior.
 //  - Escala vertical fija en dB: 0 arriba y abajo, -∞ en el centro.
 //  - PRE FX y encima POST FX (ya nivelado), con colores y estilo a elección.
-//  - Clic: congelar / descongelar.
+//  - Freeze (botón de arriba): congela lo que se ve.
+//  - Zoom: rueda del mouse / pellizco en el trackpad (centrado en el mouse),
+//    arrastrar para moverse, doble clic para volver a ver todo. Con zoom se ve
+//    la onda real, muestra por muestra.
 // ---------------------------------------------------------------------------
 class ScopeView : public juce::Component, public juce::SettableTooltipClient
 {
@@ -59,6 +62,20 @@ public:
     bool getShowGrid() const                   { return showGrid; }
 
     bool isFrozen() const { return frozen; }
+    void setFrozen (bool shouldFreeze)
+    {
+        if (shouldFreeze == frozen)
+            return;
+
+        if (shouldFreeze)
+        {
+            capture();                                  // lo último que se vio...
+            captureAllRaw();                            // ...con todo el detalle, para hacer zoom después
+        }
+
+        frozen = shouldFreeze;
+        repaint();
+    }
 
     // Mostrar u ocultar cada onda (botones PRE FX / POST FX).
     void setShowPre (bool shouldShow)  { showPre = shouldShow;  repaint(); }
@@ -66,10 +83,63 @@ public:
     bool getShowPre() const            { return showPre; }
     bool getShowPost() const           { return showPost; }
 
-    void mouseDown (const juce::MouseEvent&) override
+    // Zoom: qué parte del loop se ve (0 = comienzo, 1 = final).
+    double getViewStart() const { return viewStart; }
+    double getViewSpan() const  { return viewSpan; }
+    bool isZoomed() const       { return viewSpan < 0.9999; }
+    void resetZoom()            { setView (0.0, 1.0); }
+
+    void setView (double start, double span)
     {
-        frozen = ! frozen;
+        viewSpan = juce::jlimit (minViewSpan(), 1.0, span);
+        viewStart = juce::jlimit (0.0, 1.0 - viewSpan, start);
+        setMouseCursor (isZoomed() ? juce::MouseCursor::DraggingHandCursor : juce::MouseCursor::NormalCursor);
         repaint();
+    }
+
+    // Zoom (factor > 1 acerca) dejando quieto el punto que está bajo el mouse.
+    void zoomAt (float x, double factor)
+    {
+        const auto plot = plotArea();
+        const double rel = juce::jlimit (0.0, 1.0, (double) (x - plot.getX()) / juce::jmax (1.0f, plot.getWidth()));
+        const double anchor = viewStart + rel * viewSpan;
+        const double span = juce::jlimit (minViewSpan(), 1.0, viewSpan / factor);
+        setView (anchor - rel * span, span);
+    }
+
+    // Mover lo que se ve (en píxeles: positivo = la onda va a la derecha).
+    void panBy (float pixels)
+    {
+        setView (viewStart - (double) pixels / juce::jmax (1.0f, plotArea().getWidth()) * viewSpan, viewSpan);
+    }
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        dragStartView = viewStart;
+        dragStartX = e.position.x;
+    }
+
+    void mouseDrag (const juce::MouseEvent& e) override
+    {
+        if (! isZoomed())
+            return;
+        setView (dragStartView - (double) (e.position.x - dragStartX) / juce::jmax (1.0f, plotArea().getWidth()) * viewSpan, viewSpan);
+    }
+
+    void mouseDoubleClick (const juce::MouseEvent&) override { resetZoom(); }
+
+    void mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w) override
+    {
+        if (std::abs (w.deltaX) > std::abs (w.deltaY))   // trackpad de costado: moverse
+            panBy (w.deltaX * 400.0f);
+        else if (! juce::exactlyEqual (w.deltaY, 0.0f))   // rueda / trackpad arriba-abajo: zoom
+            zoomAt (e.position.x, std::exp ((double) w.deltaY * 2.5));
+    }
+
+    void mouseMagnify (const juce::MouseEvent& e, float scaleFactor) override
+    {
+        if (scaleFactor > 0.0f)
+            zoomAt (e.position.x, (double) scaleFactor);
     }
 
     void paint (juce::Graphics& g) override
@@ -81,13 +151,19 @@ public:
         g.setColour (Theme::darkPanel);
         g.fillRoundedRectangle (bounds, 12.0f);
 
-        const auto plot = bounds.withTrimmedLeft (38.0f).withTrimmedTop (20.0f).withTrimmedRight (10.0f).withTrimmedBottom (8.0f);
+        const auto plot = plotArea();
         drawTimeGrid (g, plot);
 
         // Una o dos "franjas": L y R separados usa dos (L arriba, R abajo).
         const bool split = channels == Channels::split;
         const int lanes = split ? 2 : 1;
         const double binSecs = binSeconds();
+        const View view { viewStart, viewSpan, plot.getX(), plot.getWidth() };
+
+        // Con zoom: ¿cuánto detalle hay? (casilleros visibles por píxel)
+        const double visibleSlots = viewSpan * rawSlots;
+        const bool rawUseful = isZoomed() && rawLoaded && visibleSlots <= 256.0 * plot.getWidth();
+        const bool waveForEnvelope = rawUseful && viewSpan * MeteringABProcessor::scopeBins <= plot.getWidth() / 6.0f;
 
         for (int lane = 0; lane < lanes; ++lane)
         {
@@ -101,16 +177,27 @@ public:
             drawLevelGrid (g, area, midY, half);
 
             auto yFor = [&] (float v) { return midY - juce::jlimit (-1.0f, 1.0f, v) * half; };
-            const auto& pre  = traces[(size_t) (lane * 2)];
-            const auto& post = traces[(size_t) (lane * 2 + 1)];
+            const int preIndex = lane * 2, postIndex = lane * 2 + 1;
 
-            auto drawSignal = [&] (const TraceCopy& t, juce::Colour colour, Style style, Mask mask)
+            juce::Graphics::ScopedSaveState clip (g);
+            g.reduceClipRegion (area.expanded (0.0f, 2.0f).toNearestInt());
+
+            auto drawSignal = [&] (int index, juce::Colour colour, Style style, Mask mask)
             {
+                const auto& t = traces[(size_t) index];
+                const auto& raw = rawCopy[(size_t) traceSource[(size_t) index]];
+
+                if (rawUseful && (style == Style::detailed || waveForEnvelope))
+                {
+                    drawWave (g, area, raw, rawSlots, view, yFor, colour, mask);
+                    return;
+                }
+
                 switch (style)
                 {
-                    case Style::contour:  drawEnvelope (g, area, t, yFor, colour, true, mask, binSecs);  break;
-                    case Style::lines:    drawEnvelope (g, area, t, yFor, colour, false, mask, binSecs); break;
-                    case Style::detailed: drawDetailed (g, area, t.min, t.max, yFor, colour, mask); break;
+                    case Style::contour:  drawEnvelope (g, area, t, view, yFor, colour, true, mask, binSecs);  break;
+                    case Style::lines:    drawEnvelope (g, area, t, view, yFor, colour, false, mask, binSecs); break;
+                    case Style::detailed: drawDetailed (g, area, t.min, t.max, view, yFor, colour, mask); break;
                 }
             };
 
@@ -120,16 +207,16 @@ public:
 
             if (followListen)
             {
-                drawSignal (pre,  preColour,  linkStyle.value_or (stylePre),  Mask { &showPreAt, 1 });
-                drawSignal (post, postColour, linkStyle.value_or (stylePost), Mask { &showPreAt, 0 });
+                drawSignal (preIndex,  preColour,  linkStyle.value_or (stylePre),  Mask { &showPreAt, 1 });
+                drawSignal (postIndex, postColour, linkStyle.value_or (stylePost), Mask { &showPreAt, 0 });
             }
             else
             {
                 if (showPre)
-                    drawSignal (pre, preColour, stylePre, {});
+                    drawSignal (preIndex, preColour, stylePre, {});
 
                 if (showPost)
-                    drawSignal (post, postColour, stylePost, {});    // POST encima
+                    drawSignal (postIndex, postColour, stylePost, {});    // POST encima
             }
 
             // Etiqueta del canal (L / R) cuando no es la suma.
@@ -152,9 +239,12 @@ public:
         // Cabezal del barrido
         if (! frozen)
         {
-            const float x = plot.getX() + (float) currentBin / (float) MeteringABProcessor::scopeBins * plot.getWidth();
-            g.setColour (juce::Colours::white.withAlpha (0.55f));
-            g.drawVerticalLine ((int) x, plot.getY(), plot.getBottom());
+            const float x = view.x ((double) currentBin / (double) MeteringABProcessor::scopeBins);
+            if (x >= plot.getX() && x <= plot.getRight())
+            {
+                g.setColour (juce::Colours::white.withAlpha (0.55f));
+                g.drawVerticalLine ((int) x, plot.getY(), plot.getBottom());
+            }
         }
 
         // Estado (la leyenda ahora son los botones PRE FX / POST FX de arriba)
@@ -164,6 +254,23 @@ public:
         {
             g.setColour (juce::Colour (0xff8a8f98));
             g.drawText ("Ambas ondas ocultas", plot.toNearestInt(), juce::Justification::centred);
+        }
+
+        // Con zoom: qué parte del loop se ve (barrita abajo) y cuánto zoom hay.
+        if (isZoomed())
+        {
+            const auto track = juce::Rectangle<float> (plot.getX(), plot.getBottom() - 4.0f, plot.getWidth(), 3.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.08f));
+            g.fillRoundedRectangle (track, 1.5f);
+            g.setColour (juce::Colours::white.withAlpha (0.45f));
+            g.fillRoundedRectangle (track.withX (track.getX() + (float) viewStart * track.getWidth())
+                                         .withWidth (juce::jmax (4.0f, (float) viewSpan * track.getWidth())), 1.5f);
+
+            const double factor = 1.0 / viewSpan;
+            const auto text = "Zoom x" + juce::String (factor, factor < 10.0 ? 1 : 0) + juce::String::fromUTF8 ("  \xc2\xb7  doble clic: ver todo");
+            g.setColour (juce::Colour (0xffe8e6e3).withAlpha (0.75f));
+            g.drawText (text, juce::Rectangle<float> (plot.getX() + 8.0f, plot.getBottom() - 22.0f, 260.0f, 14.0f).toNearestInt(),
+                        juce::Justification::centredLeft);
         }
 
         if (frozen)
@@ -192,6 +299,9 @@ private:
 
         const int used = channels == Channels::split ? 4 : 2;
 
+        for (int t = 0; t < 4; ++t)
+            traceSource[(size_t) t] = sources[t];
+
         for (int b = 0; b < MeteringABProcessor::scopeBins; ++b)
         {
             showPreAt[(size_t) b] = processor.scopeShowPreAt[(size_t) b].load (std::memory_order_relaxed);
@@ -214,23 +324,81 @@ private:
         currentBin = processor.scopeCurrentBin.load (std::memory_order_relaxed);
         lengthBars = processor.getScopeLengthBars();
         beatsPerBar = juce::jlimit (1, 32, processor.timeSigNum.load());
+        rawSlots = juce::jlimit (1, MeteringABProcessor::scopeRawCapacity, processor.scopeRawSlots.load (std::memory_order_relaxed));
+
+        // Con zoom: copiar el detalle de muestra solo de lo que se ve (si no es demasiado).
+        rawLoaded = false;
+        const double visibleSlots = viewSpan * rawSlots;
+        if (isZoomed() && visibleSlots <= 256.0 * juce::jmax (1.0f, plotArea().getWidth()))
+        {
+            const int from = juce::jmax (0, (int) std::floor (viewStart * rawSlots) - 2);
+            const int to   = juce::jmin (rawSlots, (int) std::ceil ((viewStart + viewSpan) * rawSlots) + 2);
+            for (int t = 0; t < used; ++t)
+                copyRaw (sources[t], from, to);
+            rawLoaded = true;
+        }
+    }
+
+    // Freeze: guardar todo el detalle de muestra (de todas las ondas) para hacer zoom quieto.
+    void captureAllRaw()
+    {
+        rawSlots = juce::jlimit (1, MeteringABProcessor::scopeRawCapacity, processor.scopeRawSlots.load (std::memory_order_relaxed));
+        for (int t = 0; t < MeteringABProcessor::numScopeTraces; ++t)
+            copyRaw (t, 0, rawSlots);
+        rawLoaded = true;
+    }
+
+    void copyRaw (int source, int from, int to)
+    {
+        const auto& src = processor.scopeRaw[(size_t) source];
+        auto& dst = rawCopy[(size_t) source];
+        if (src == nullptr)
+            return;
+        if ((int) dst.size() < MeteringABProcessor::scopeRawCapacity)
+            dst.assign ((size_t) MeteringABProcessor::scopeRawCapacity, 0u);
+        for (int i = from; i < to; ++i)
+            dst[(size_t) i] = src[(size_t) i].load (std::memory_order_relaxed);
+    }
+
+    // Dónde se dibuja la onda (sin los márgenes de las escalas).
+    juce::Rectangle<float> plotArea() const
+    {
+        return getLocalBounds().toFloat().withTrimmedLeft (38.0f).withTrimmedTop (20.0f).withTrimmedRight (10.0f).withTrimmedBottom (8.0f);
+    }
+
+    // Zoom máximo: que se vean al menos ~48 muestras.
+    double minViewSpan() const
+    {
+        const int slots = juce::jlimit (1, MeteringABProcessor::scopeRawCapacity, processor.scopeRawSlots.load (std::memory_order_relaxed));
+        return juce::jlimit (1.0e-5, 1.0, 48.0 / (double) slots);
     }
 
     // Grilla de tiempos: líneas por tiempo y subdivisiones, con etiquetas k/n.
+    // Con zoom las subdivisiones se van achicando (corcheas, semis, fusas...).
     void drawTimeGrid (juce::Graphics& g, juce::Rectangle<float> plot) const
     {
         const double totalBeats = lengthBars * beatsPerBar;
-        const int subdivisions = totalBeats <= 8.0 ? 4 : 1;             // 16avos si hay lugar
+        int subdivisions = totalBeats <= 8.0 ? 4 : 1;                   // 16avos si hay lugar
+        const double pixelsPerBeat = plot.getWidth() / (totalBeats * viewSpan);
+        while (subdivisions < 256 && pixelsPerBeat / (subdivisions * 2) >= 14.0 && isZoomed())
+            subdivisions *= 2;
+
         const int totalLines = juce::roundToInt (totalBeats * subdivisions);
-        const bool labelSubdivisions = totalBeats < 2.0;
-        const float minLabelGap = 34.0f;
+        const bool labelSubdivisions = totalBeats * viewSpan < 2.0;
         float lastLabelX = -1000.0f;
+        const View view { viewStart, viewSpan, plot.getX(), plot.getWidth() };
+
+        const int firstLine = juce::jmax (0, (int) std::floor (viewStart * totalLines));
+        const int lastLine  = juce::jmin (totalLines, (int) std::ceil ((viewStart + viewSpan) * totalLines));
 
         g.setFont (Theme::font (11.0f, 400));
 
-        for (int k = 0; k <= totalLines; ++k)
+        for (int k = firstLine; k <= lastLine; ++k)
         {
-            const float x = plot.getX() + (float) k / (float) totalLines * plot.getWidth();
+            const float x = view.x ((double) k / (double) totalLines);
+            if (x < plot.getX() - 0.5f || x > plot.getRight() + 0.5f)
+                continue;
+
             const bool isBeat = k % subdivisions == 0;
             const bool isBar  = isBeat && (k / subdivisions) % beatsPerBar == 0;
 
@@ -241,22 +409,29 @@ private:
             }
 
             const bool wantsLabel = labelSubdivisions ? true : isBeat;
-
-            if (wantsLabel && x - lastLabelX >= minLabelGap)
+            juce::String text;
+            if (k == 0)        text = "0";
+            else if (isBeat)   text = juce::String (k / subdivisions) + "/" + juce::String (beatsPerBar);
+            else
             {
-                juce::String text;
-                if (k == 0)                 text = "0";
-                else if (labelSubdivisions) text = juce::String (k) + "/" + juce::String (beatsPerBar * subdivisions);
-                else                        text = juce::String (k / subdivisions) + "/" + juce::String (beatsPerBar);
+                int num = k, den = beatsPerBar * subdivisions;               // fracción simplificada del compás
+                while (num % 2 == 0 && den % 2 == 0) { num /= 2; den /= 2; }
+                if (den <= beatsPerBar * 4)                                   // hasta semicorcheas (más chico no se lee)
+                    text = juce::String (num) + "/" + juce::String (den);
+            }
 
+            const float textWidth = juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), text);
+            if (wantsLabel && text.isNotEmpty() && x - textWidth * 0.5f - lastLabelX >= 10.0f)
+            {
+                const bool atLeft = x - plot.getX() < 22.0f, atRight = plot.getRight() - x < 22.0f;
                 g.setColour (juce::Colour (0xff8a8f98));
-                const auto labelArea = k == 0          ? juce::Rectangle<float> (x - 2.0f,  plot.getY() - 18.0f, 44.0f, 14.0f)
-                                     : k == totalLines ? juce::Rectangle<float> (x - 42.0f, plot.getY() - 18.0f, 44.0f, 14.0f)
-                                                       : juce::Rectangle<float> (x - 22.0f, plot.getY() - 18.0f, 44.0f, 14.0f);
+                const auto labelArea = atLeft  ? juce::Rectangle<float> (x - 2.0f,  plot.getY() - 18.0f, 44.0f, 14.0f)
+                                     : atRight ? juce::Rectangle<float> (x - 42.0f, plot.getY() - 18.0f, 44.0f, 14.0f)
+                                               : juce::Rectangle<float> (x - 22.0f, plot.getY() - 18.0f, 44.0f, 14.0f);
                 g.drawText (text, labelArea.toNearestInt(),
-                            k == 0 ? juce::Justification::centredLeft
-                                   : k == totalLines ? juce::Justification::centredRight : juce::Justification::centred);
-                lastLabelX = x;
+                            atLeft ? juce::Justification::centredLeft
+                                   : atRight ? juce::Justification::centredRight : juce::Justification::centred);
+                lastLabelX = atLeft ? x + textWidth : x + textWidth * 0.5f;
             }
         }
     }
@@ -303,6 +478,15 @@ private:
     }
 
     using Bins = std::array<float, MeteringABProcessor::scopeBins>;
+
+    // Zoom: qué parte del loop se ve y dónde cae en la pantalla.
+    struct View
+    {
+        double start, span;
+        float left, width;
+        float x (double loopFraction) const { return left + (float) ((loopFraction - start) / span) * width; }
+        double fractionAt (float px) const  { return start + (double) (px - left) / width * span; }
+    };
     struct TraceCopy { Bins min {}, max {}, sq {}, hiMin {}, hiMax {}, lowPos {}, lowNeg {}; };
 
     // Máscara opcional: con LINK, qué columnas dibujar de cada onda.
@@ -522,11 +706,12 @@ private:
     // Contorno (con relleno) o solo líneas: borde definido (ver smoothEnvelope).
     // Las columnas fuera de la máscara quedan vacías (cada tramo se dibuja aparte).
     template <typename YFunc>
-    static void drawEnvelope (juce::Graphics& g, juce::Rectangle<float> plot, const TraceCopy& t, YFunc yFor, juce::Colour colour, bool filled, Mask mask, double binSeconds)
+    static void drawEnvelope (juce::Graphics& g, juce::Rectangle<float>, const TraceCopy& t, View view, YFunc yFor,
+                              juce::Colour colour, bool filled, Mask mask, double binSeconds)
     {
         const int bins = MeteringABProcessor::scopeBins;
         juce::Path fill, lines;
-        auto xFor = [&] (float b) { return plot.getX() + b / (float) bins * plot.getWidth(); };
+        auto xFor = [&] (float b) { return view.x ((double) b / (double) bins); };
 
         int b = 0;
         while (b < bins)
@@ -577,7 +762,7 @@ private:
     // los ciclos de los graves), todo de un mismo color.
     template <typename YFunc>
     static void drawDetailed (juce::Graphics& g, juce::Rectangle<float> plot, const Bins& mins, const Bins& maxs,
-                              YFunc yFor, juce::Colour colour, Mask mask)
+                              View view, YFunc yFor, juce::Colour colour, Mask mask)
     {
         const int bins = MeteringABProcessor::scopeBins;
         const int columns = juce::jmax (1, (int) plot.getWidth() * 2);
@@ -586,8 +771,9 @@ private:
 
         for (int c = 0; c < columns; ++c)
         {
-            const int from = c * bins / columns;
-            const int to   = juce::jmax (from + 1, (c + 1) * bins / columns);
+            const double f0 = view.start + view.span * c / columns, f1 = view.start + view.span * (c + 1) / columns;
+            const int from = juce::jlimit (0, bins - 1, (int) std::floor (f0 * bins));
+            const int to   = juce::jlimit (from + 1, bins, (int) std::ceil (f1 * bins));
             float lo = 1.0f, hi = -1.0f;
             bool any = false;
 
@@ -613,8 +799,91 @@ private:
         g.fillRectList (peaks);
     }
 
+    // Con zoom: la onda real. Si en cada medio píxel entran varias muestras, sus
+    // picos (como Detallado); si se acerca más, una línea que une muestra a muestra.
+    template <typename YFunc>
+    static void drawWave (juce::Graphics& g, juce::Rectangle<float> plot, const std::vector<std::uint32_t>& raw, int slots,
+                          View view, YFunc yFor, juce::Colour colour, Mask mask)
+    {
+        if ((int) raw.size() < slots)
+            return;
+
+        const int bins = MeteringABProcessor::scopeBins;
+        auto binOf = [&] (int slot) { return juce::jlimit (0, bins - 1, (int) ((long long) slot * bins / slots)); };
+        const int columns = juce::jmax (1, (int) plot.getWidth() * 2);
+        const double slotsPerColumn = view.span * slots / columns;
+        g.setColour (colour);
+
+        if (slotsPerColumn > 1.0)
+        {
+            juce::RectangleList<float> peaks;
+            const float columnWidth = plot.getWidth() / (float) columns;
+
+            for (int c = 0; c < columns; ++c)
+            {
+                const int from = juce::jlimit (0, slots - 1, (int) std::floor ((view.start + view.span * c / columns) * slots));
+                const int to   = juce::jlimit (from + 1, slots, (int) std::ceil ((view.start + view.span * (c + 1) / columns) * slots));
+                float lo = 1.0f, hi = -1.0f;
+                bool any = false;
+
+                for (int i = from; i < to; ++i)
+                {
+                    if (! mask.includes (binOf (i)))
+                        continue;
+                    lo = juce::jmin (lo, MeteringABProcessor::rawLo (raw[(size_t) i]));
+                    hi = juce::jmax (hi, MeteringABProcessor::rawHi (raw[(size_t) i]));
+                    any = true;
+                }
+
+                if (! any)
+                    continue;
+
+                const float x = plot.getX() + (float) c * columnWidth;
+                const float yHi = yFor (hi), yLo = yFor (lo);
+                peaks.addWithoutMerging ({ x, yHi, columnWidth + 0.35f, juce::jmax (0.8f, yLo - yHi) });
+            }
+
+            g.fillRectList (peaks);
+            return;
+        }
+
+        // Muestra a muestra: una línea (se corta donde la máscara de LINK no la incluye).
+        const int from = juce::jmax (0, (int) std::floor (view.start * slots) - 1);
+        const int to   = juce::jmin (slots, (int) std::ceil ((view.start + view.span) * slots) + 1);
+        juce::Path path;
+        bool drawing = false;
+
+        for (int i = from; i < to; ++i)
+        {
+            if (! mask.includes (binOf (i)))
+            {
+                drawing = false;
+                continue;
+            }
+
+            const float x = view.x (((double) i + 0.5) / slots);
+            const float lo = MeteringABProcessor::rawLo (raw[(size_t) i]), hi = MeteringABProcessor::rawHi (raw[(size_t) i]);
+            const float first = yFor (lo), second = yFor (hi);
+
+            if (! drawing) path.startNewSubPath (x, first);
+            else           path.lineTo (x, first);
+            if (! juce::exactlyEqual (lo, hi))
+                path.lineTo (x, second);
+            drawing = true;
+        }
+
+        g.strokePath (path, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
+
     MeteringABProcessor& processor;
     std::array<TraceCopy, 4> traces;                  // [PRE, POST] de la franja de arriba, [PRE, POST] de abajo
+    std::array<int, 4> traceSource { 0, 1, 0, 1 };      // de qué traza del audio sale cada una
+    std::array<std::vector<std::uint32_t>, 6> rawCopy;  // detalle de muestra (para el zoom)
+    int rawSlots = 1;
+    bool rawLoaded = false;
+    double viewStart = 0.0, viewSpan = 1.0;             // zoom: qué parte del loop se ve
+    double dragStartView = 0.0;
+    float dragStartX = 0.0f;
     Channels channels = Channels::sum;
     Flags showPreAt {};
     bool linked = true;

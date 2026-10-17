@@ -446,7 +446,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     // Osciloscopio sincronizado + largo en compases (se guarda con el proyecto).
     addAndMakeVisible (scope);
     scopeLabel.setText ({}, juce::dontSendNotification);
-    scope.setTooltip ("Clic para congelar / descongelar");
+    scope.setTooltip ("Rueda o pellizco: zoom  ·  Arrastrar: moverse  ·  Doble clic: ver todo"_u);
     scopeLabel.setColour (juce::Label::textColourId, Theme::darkDim);
     scopeLabel.setFont (Theme::font (12.0f, 300));
     addAndMakeVisible (scopeLabel);
@@ -468,8 +468,19 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     scope.setShowPre  ((bool) apvts.state.getProperty ("scopeShowPre",  true));
     scope.setShowPost ((bool) apvts.state.getProperty ("scopeShowPost", true));
 
-    for (auto* b : { &showPreButton, &showPostButton, &linkButton, &scopeStyleButton })
+    for (auto* b : { &showPreButton, &showPostButton, &linkButton, &scopeStyleButton, &freezeButton })
         b->getProperties().set ("kind", "chip");
+
+    // Freeze: congela lo que se ve (para mirarlo y hacerle zoom tranquilo).
+    freezeButton.setClickingTogglesState (false);
+    freezeButton.setTooltip ("Congelar el osciloscopio (después podés hacer zoom y moverte)"_u);
+    freezeButton.getProperties().set ("chipColour", (juce::int64) Theme::accentBright.getARGB());
+    freezeButton.onClick = [this]
+    {
+        scope.setFrozen (! scope.isFrozen());
+        freezeButton.setToggleState (scope.isFrozen(), juce::dontSendNotification);
+    };
+    addAndMakeVisible (freezeButton);
 
     zoomBox.getProperties().set ("kind", "chip");
 
@@ -1147,6 +1158,8 @@ void MeteringABPanel::resized()
     linkButton.setBounds (scopeHeader.removeFromRight (60));
     scopeHeader.removeFromRight (6);
     scopeStyleButton.setBounds (scopeHeader.removeFromRight (60));
+    scopeHeader.removeFromRight (6);
+    freezeButton.setBounds (scopeHeader.removeFromRight (64));
     scopeLabel.setBounds (scopeHeader);
 
     scope.setBounds (section.removeFromTop (scopeBodyHeight - 16));

@@ -89,7 +89,8 @@ Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al vo
   - *Colores*: paletas listas (Gris / Azul, Grises, Azul / Rosa, Blanco / Rojo, Violeta / Lima) o **Personalizado**, eligiendo el color de PRE y de POST con un selector. Los botones PRE FX / POST FX toman los mismos colores.
   - *Mostrar grilla*: prende o apaga las líneas de fondo (las de cada compás quedan siempre).
   - Todo se guarda con el proyecto.
-- **Clic sobre el osciloscopio** para congelarlo; otro clic lo descongela.
+- **Freeze** (botón arriba del osciloscopio): lo congela; otro clic lo descongela.
+- **Zoom**: rueda del mouse o pellizco en el trackpad, centrado donde está el mouse (hasta ver unas 48 muestras a lo ancho). **Arrastrá** para moverte (o deslizá de costado en el trackpad) y **doble clic** para volver a ver todo. Con zoom se ve la onda real, muestra por muestra; funciona congelado o en vivo.
 - Sirve para ver, por ejemplo, cuánto achica un compresor o un saturador los golpes: los picos grises que sobresalen por encima de los azules son lo que el efecto recortó.
 
 ### Valores exactos

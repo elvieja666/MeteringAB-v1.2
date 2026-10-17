@@ -269,6 +269,14 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     for (auto& t : scopeBands)
         t.prepare (sampleRate);
+
+    for (auto& raw : scopeRaw)                       // zoom del osciloscopio (una sola vez)
+        if (raw == nullptr)
+        {
+            raw.reset (new std::atomic<std::uint32_t>[(size_t) scopeRawCapacity]);
+            for (int i = 0; i < scopeRawCapacity; ++i)
+                raw[(size_t) i].store (0, std::memory_order_relaxed);
+        }
     dryBuffer.setSize (2, juce::jmax (samplesPerBlock, 4096));
     dryMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
     postMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
@@ -512,6 +520,13 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     const bool scopeRunning = hostPlaying;
     const double loopQuarters = getScopeLengthBars() * timeSigNum.load() * 4.0 / timeSigDen.load();
     const double quartersPerSample = hostBpm.load() / 60.0 / currentSampleRate;
+    const int rawSlots = juce::jlimit (1, scopeRawCapacity, (int) std::floor (loopQuarters / quartersPerSample));
+    const bool rawReady = scopeRaw[0] != nullptr;
+    if (rawSlots != scopeRawSlots.load (std::memory_order_relaxed))
+    {
+        scopeRawSlots.store (rawSlots, std::memory_order_relaxed);
+        lastRawSlot = -1;
+    }
 
     // Logic ya compensa la latencia de los efectos (lee el audio adelantado),
     // así que la posición que informa coincide con el audio que llega acá:
@@ -656,6 +671,30 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
             }
         }
 
+        // Detalle de muestra (zoom): mínimo y máximo de cada casillero.
+        if (drawing && rawReady)
+        {
+            const int rawSlot = juce::jlimit (0, rawSlots - 1, (int) (scopeQuarters / loopQuarters * rawSlots));
+            const bool newSlot = rawSlot != lastRawSlot;
+
+            for (int t = 0; t < numScopeTraces; ++t)
+            {
+                auto& cell = scopeRaw[(size_t) t][(size_t) rawSlot];
+                const float v = values[t];
+                if (newSlot)
+                {
+                    cell.store (packRaw (v, v), std::memory_order_relaxed);
+                }
+                else
+                {
+                    const auto old = cell.load (std::memory_order_relaxed);
+                    cell.store (packRaw (juce::jmin (v, rawLo (old)), juce::jmax (v, rawHi (old))), std::memory_order_relaxed);
+                }
+            }
+
+            lastRawSlot = rawSlot;
+        }
+
         if (drawing)
         {
             const auto k = (size_t) bin;
@@ -732,6 +771,13 @@ void MeteringABProcessor::clearScope()
     }
 
     lastScopeBin = -1;
+    lastRawSlot = -1;
+
+    const int rawInUse = juce::jlimit (1, scopeRawCapacity, scopeRawSlots.load (std::memory_order_relaxed));
+    for (auto& raw : scopeRaw)                         // solo los casilleros en uso (rápido)
+        if (raw != nullptr)
+            for (int i = 0; i < rawInUse; ++i)
+                raw[(size_t) i].store (0, std::memory_order_relaxed);
 
     for (auto& t : scopeBands)                         // que ningún medio ciclo viejo caiga en el loop nuevo
         t.reset();

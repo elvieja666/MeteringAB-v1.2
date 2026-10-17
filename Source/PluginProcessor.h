@@ -121,6 +121,21 @@ public:
     // adelante sigue como estaba hasta que el cabezal llegue.
     std::array<std::atomic<std::uint8_t>, scopeBins> scopeShowPreAt;
 
+    // Onda con detalle de muestra, para hacer zoom en el osciloscopio. Todo el loop
+    // en "casilleros": uno por muestra (hasta ~11 s a 48 kHz); si el loop es más
+    // largo, cada casillero junta varias muestras. Cada casillero guarda mínimo y
+    // máximo (16 bits cada uno, de -1 a 1) en un solo número.
+    static constexpr int scopeRawCapacity = 1 << 19;
+    static std::uint32_t packRaw (float lo, float hi)
+    {
+        auto q = [] (float v) { return (std::uint32_t) (std::uint16_t) (std::int16_t) std::lround (juce::jlimit (-1.0f, 1.0f, v) * 32767.0f); };
+        return q (lo) | (q (hi) << 16);
+    }
+    static float rawLo (std::uint32_t p) { return (float) (std::int16_t) (std::uint16_t) (p & 0xffffu) / 32767.0f; }
+    static float rawHi (std::uint32_t p) { return (float) (std::int16_t) (std::uint16_t) (p >> 16) / 32767.0f; }
+    std::array<std::unique_ptr<std::atomic<std::uint32_t>[]>, 6> scopeRaw;   // una por traza (mismo orden)
+    std::atomic<int> scopeRawSlots { 1 };             // casilleros en uso (según tempo y largo)
+
     // Atajos a la suma L+R (los usan las pruebas).
     std::array<std::atomic<float>, scopeBins>& scopePreMin  = scopeTraces[preSum].min;
     std::array<std::atomic<float>, scopeBins>& scopePreMax  = scopeTraces[preSum].max;
@@ -171,7 +186,7 @@ private:
     double hostPpq = 0.0, hostBarStart = 0.0;
     juce::int64 hostBarCount = 0;
     double scopePhaseQuarters = 0.0;                  // dónde va el barrido (en negras)
-    int    lastScopeBin = -1, lastScopeLength = -1;
+    int    lastScopeBin = -1, lastScopeLength = -1, lastRawSlot = -1;
     std::array<ScopeBands, numScopeTraces> scopeBands;        // graves / agudos de cada onda (para el borde)
     // Pico provisorio del medio ciclo en curso (así el borde llega hasta el cabezal):
     // en qué columna se escribió y qué había antes ahí, para devolverlo si se mueve.
