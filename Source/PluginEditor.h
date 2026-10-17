@@ -113,6 +113,11 @@ public:
     ChipButton& getShowPostButtonForTests()     { return showPostButton; }
     bool isScopeLinkedForTests() const          { return scopeLinked; }
     bool isSendLayout() const                   { return isSendMode; }
+
+    // Botón "Tamaño original": aparece cuando agrandaste o achicaste el plugin.
+    std::function<void()> onResetSize;
+    void setResetSizeVisible (bool shouldShow);
+    juce::TextButton& getResetSizeButtonForTests() { return resetSizeButton; }
     int getStyleMenuOpenedForTests() const      { return styleMenuOpenedForTests; }
     float getShownPreForTests() const             { return shownPre; }
     float getShownPostForTests() const            { return shownPost; }
@@ -153,6 +158,8 @@ private:
     juce::ComboBox zoomBox;
     ChipButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };   // clic derecho: menú de estilo
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
+    juce::TextButton resetSizeButton { juce::String::fromUTF8 ("Tama\xc3\xb1o original") };   // vuelve al tamaño por defecto
+    bool resetSizeWanted = false;
     bool scopeLinked = true;                          // el osciloscopio sigue a la escucha (siempre, salvo
                                                       // que elijas una onda a mano hasta el próximo cambio)
     void setScopeLinked (bool linked);
@@ -208,7 +215,7 @@ public:
     static constexpr float minScale = 0.4f, maxScale = 1.5f;
     // Por defecto el osciloscopio mide 781 x 359: la referencia (1041 x 478) un 25% más
     // chica. Todo lo demás (la columna gris) se escala junto, en proporción (≈ 950 x 393).
-    static constexpr float defaultScale = (float) MeteringABPanel::scopeWidth > 0 ? 781.0f / (float) MeteringABPanel::scopeWidth : 0.5f;
+    static constexpr float defaultScale = 1.1f * 781.0f / (float) MeteringABPanel::scopeWidth;   // + 10%
 
     explicit MeteringABEditor (MeteringABProcessor&);
     ~MeteringABEditor() override;

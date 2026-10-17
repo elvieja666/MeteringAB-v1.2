@@ -92,7 +92,8 @@ juce::Font MeteringABLookAndFeel::getTextButtonFont (juce::TextButton& button, i
         return Theme::font (22.0f, 600, 0.05f);
 
     if (button.getProperties()["kind"].toString() == "plain")
-        return Theme::font (button.getProperties().contains ("open") ? 14.0f : 16.0f, 300);
+        return Theme::font (button.getProperties().contains ("small") ? 12.0f
+                            : button.getProperties().contains ("open") ? 14.0f : 16.0f, button.getProperties().contains ("small") ? 400 : 300);
 
     return Theme::font (juce::jmin (14.0f, (float) buttonHeight * 0.5f), 400);
 }
@@ -474,6 +475,13 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     };
     addAndMakeVisible (freezeButton);
 
+    // Tamaño original: arriba a la derecha de la columna gris (solo si cambiaste el tamaño).
+    resetSizeButton.getProperties().set ("kind", "plain");
+    resetSizeButton.getProperties().set ("small", true);
+    resetSizeButton.setColour (juce::TextButton::textColourOffId, Theme::accent);
+    resetSizeButton.onClick = [this] { if (onResetSize != nullptr) onResetSize(); };
+    addChildComponent (resetSizeButton);
+
     zoomBox.getProperties().set ("kind", "chip");
 
     for (auto* b : { &showPreButton, &showPostButton })
@@ -701,8 +709,15 @@ void MeteringABPanel::pickCustomColour (bool forPre)
 
 
 // Muestra u oculta la sección del osciloscopio y ajusta el alto de la ventana.
+void MeteringABPanel::setResetSizeVisible (bool shouldShow)
+{
+    resetSizeWanted = shouldShow;
+    resetSizeButton.setVisible (shouldShow && ! isSendMode);
+}
+
 void MeteringABPanel::updateScopeSection()
 {
+    resetSizeButton.setVisible (resetSizeWanted && ! isSendMode);
     // Receive: el osciloscopio está siempre, a la derecha. Send: no hay.
     const bool showScope = ! isSendMode;
 
@@ -1125,6 +1140,7 @@ void MeteringABPanel::resized()
 {
     // ---- Columna gris (de arriba a abajo). En Send queda solo esta parte de arriba. ----
     auto k = juce::Rectangle<int> (20, 0, (isSendMode ? sendWidth : sideWidth) - 40, getHeight());
+    resetSizeButton.setBounds (k.getRight() - 110, 14, 110, 28);   // al lado del título
     k.removeFromTop (52);                                       // título (se dibuja en paint)
     modeBox.setBounds (k.removeFromTop (30));
     k.removeFromTop (8);
@@ -1210,7 +1226,8 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     : AudioProcessorEditor (&p), processor (p), panel (p)
 {
     addAndMakeVisible (panel);
-    scale = juce::jlimit (minScale, maxScale, (float) (double) processor.apvts.state.getProperty ("uiScaleV3", (double) defaultScale));
+    panel.onResetSize = [this] { setUiScale (defaultScale); };
+    scale = juce::jlimit (minScale, maxScale, (float) (double) processor.apvts.state.getProperty ("uiScaleV4", (double) defaultScale));
 
     // Esquina para arrastrar; mantiene la proporción del plugin.
     setResizable (true, true);
@@ -1256,16 +1273,17 @@ void MeteringABEditor::resized()
         // El usuario arrastró la esquina: la escala sale del ancho.
         scale = juce::jlimit (minScale, maxScale, (float) getWidth() / (float) juce::jmax (1, panel.getWidth()));
         shownScale = scale;
-        processor.apvts.state.setProperty ("uiScaleV3", scale, nullptr);
+        processor.apvts.state.setProperty ("uiScaleV4", scale, nullptr);
     }
 
     panel.setTransform (juce::AffineTransform::scale (shownScale));
+    panel.setResetSizeVisible (std::abs (scale - defaultScale) > 0.005f);
 }
 
 void MeteringABEditor::setUiScale (float newScale)
 {
     scale = juce::jlimit (minScale, maxScale, newScale);
-    processor.apvts.state.setProperty ("uiScaleV3", scale, nullptr);
+    processor.apvts.state.setProperty ("uiScaleV4", scale, nullptr);
     fitToPanel();
 }
 
