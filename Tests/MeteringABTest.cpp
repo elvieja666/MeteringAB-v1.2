@@ -575,15 +575,21 @@ int main (int argc, char** argv)
         auto* outer = dynamic_cast<MeteringABEditor*> (ed.get());
         check (ed->isResizable() && std::abs (panelOf (ed)->getScopeForTests().getWidth() * outer->getUiScale() - 987.97f) < 1.0f,
                "Escalable: por defecto el osciloscopio mide 988 px (la referencia -25%, +10%, +15%)", panelOf (ed)->getScopeForTests().getWidth() * outer->getUiScale());
-        check (! panelOf (ed)->getResetSizeButtonForTests().isVisible(), "Tamaño original: oculto si no cambiaste el tamaño", 1);
         outer->setUiScale (1.5f);
         check (ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * 1.5) && ed->getHeight() == juce::roundToInt (MeteringABPanel::receiveHeight * 1.5),
                "Escalable: al 150% todo crece en proporción (alto px)", ed->getHeight());
         check (std::abs (outer->getPanel().getTransform().mat00 - 1.5f) < 1.0e-4f, "Escalable: el contenido se dibuja al 150%", outer->getPanel().getTransform().mat00);
-        check (panelOf (ed)->getResetSizeButtonForTests().isVisible(), "Tamaño original: aparece al cambiar el tamaño", 1);
-        panelOf (ed)->getResetSizeButtonForTests().onClick();
-        check (std::abs (outer->getUiScale() - MeteringABEditor::defaultScale) < 1.0e-4f && ! panelOf (ed)->getResetSizeButtonForTests().isVisible(),
-               "Tamaño original: vuelve al tamaño por defecto", outer->getUiScale());
+        {
+            // Clic derecho en la esquina de escalar: menú "Reset size".
+            auto* corner = outer->resizableCorner.get();
+            const juce::ModifierKeys right (juce::ModifierKeys::rightButtonModifier);
+            juce::MouseEvent ev (juce::Desktop::getInstance().getMainMouseSource(), { 3.0f, 3.0f }, right, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                 corner, corner, juce::Time::getCurrentTime(), { 3.0f, 3.0f }, juce::Time::getCurrentTime(), 1, false);
+            if (corner != nullptr) outer->mouseDown (ev);
+            check (corner != nullptr && outer->sizeMenuOpenedForTests == 1, "Clic derecho en la esquina: menú Reset size", outer->sizeMenuOpenedForTests);
+            outer->setUiScale (MeteringABEditor::defaultScale);    // lo que hace "Reset size"
+            check (std::abs (outer->getUiScale() - MeteringABEditor::defaultScale) < 1.0e-4f, "Reset size: vuelve al tamaño por defecto", outer->getUiScale());
+        }
         outer->setUiScale (1.5f);
         setParam (a, ParamIDs::mode, 0); panelOf (ed)->refreshNow();
         check (ed->getWidth() == juce::roundToInt (MeteringABPanel::sendWidth * 1.5) && ed->getHeight() == juce::roundToInt (MeteringABEditor::sendHeight * 1.5)

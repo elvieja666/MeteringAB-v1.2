@@ -114,10 +114,6 @@ public:
     bool isScopeLinkedForTests() const          { return scopeLinked; }
     bool isSendLayout() const                   { return isSendMode; }
 
-    // Botón "Tamaño original": aparece cuando agrandaste o achicaste el plugin.
-    std::function<void()> onResetSize;
-    void setResetSizeVisible (bool shouldShow);
-    juce::TextButton& getResetSizeButtonForTests() { return resetSizeButton; }
     int getStyleMenuOpenedForTests() const      { return styleMenuOpenedForTests; }
     float getShownPreForTests() const             { return shownPre; }
     float getShownPostForTests() const            { return shownPost; }
@@ -158,8 +154,6 @@ private:
     juce::ComboBox zoomBox;
     ChipButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };   // clic derecho: menú de estilo
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
-    juce::TextButton resetSizeButton { juce::String ("Reset size") };   // vuelve al tamaño por defecto
-    bool resetSizeWanted = false;
     bool scopeLinked = true;                          // el osciloscopio sigue a la escucha (siempre, salvo
                                                       // que elijas una onda a mano hasta el próximo cambio)
     void setScopeLinked (bool linked);
@@ -226,6 +220,10 @@ public:
 
     MeteringABPanel& getPanel()                       { return panel; }
     float getUiScale() const                          { return scale; }
+    // Clic derecho en la esquina de escalar: menú con "Reset size".
+    void showSizeMenu();
+    void mouseDown (const juce::MouseEvent&) override;
+    int sizeMenuOpenedForTests = 0;
     void setUiScale (float newScale);
 
 private:

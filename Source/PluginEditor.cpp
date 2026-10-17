@@ -475,13 +475,6 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     };
     addAndMakeVisible (freezeButton);
 
-    // Tamaño original: arriba a la derecha de la columna gris (solo si cambiaste el tamaño).
-    resetSizeButton.getProperties().set ("kind", "plain");
-    resetSizeButton.getProperties().set ("small", true);
-    resetSizeButton.setColour (juce::TextButton::textColourOffId, Theme::accent);
-    resetSizeButton.onClick = [this] { if (onResetSize != nullptr) onResetSize(); };
-    addChildComponent (resetSizeButton);
-
     zoomBox.getProperties().set ("kind", "chip");
 
     for (auto* b : { &showPreButton, &showPostButton })
@@ -709,15 +702,8 @@ void MeteringABPanel::pickCustomColour (bool forPre)
 
 
 // Muestra u oculta la sección del osciloscopio y ajusta el alto de la ventana.
-void MeteringABPanel::setResetSizeVisible (bool shouldShow)
-{
-    resetSizeWanted = shouldShow;
-    resetSizeButton.setVisible (shouldShow && ! isSendMode);
-}
-
 void MeteringABPanel::updateScopeSection()
 {
-    resetSizeButton.setVisible (resetSizeWanted && ! isSendMode);
     // Receive: el osciloscopio está siempre, a la derecha. Send: no hay.
     const bool showScope = ! isSendMode;
 
@@ -1140,7 +1126,6 @@ void MeteringABPanel::resized()
 {
     // ---- Columna gris (de arriba a abajo). En Send queda solo esta parte de arriba. ----
     auto k = juce::Rectangle<int> (20, 0, (isSendMode ? sendWidth : sideWidth) - 40, getHeight());
-    resetSizeButton.setBounds (k.getRight() - 110, 14, 110, 28);   // al lado del título
     k.removeFromTop (52);                                       // título (se dibuja en paint)
     modeBox.setBounds (k.removeFromTop (30));
     k.removeFromTop (8);
@@ -1226,7 +1211,6 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     : AudioProcessorEditor (&p), processor (p), panel (p)
 {
     addAndMakeVisible (panel);
-    panel.onResetSize = [this] { setUiScale (defaultScale); };
     scale = juce::jlimit (minScale, maxScale, (float) (double) processor.apvts.state.getProperty ("uiScaleV5", (double) defaultScale));
 
     // Esquina para arrastrar; mantiene la proporción del plugin.
@@ -1252,6 +1236,11 @@ void MeteringABEditor::fitToPanel()
     // Send: la misma escala que el Receive (su columna gris queda igual), pero sin
     // esquina para escalarlo. Receive: con la esquina.
     setResizable (! send, ! send);
+    if (resizableCorner != nullptr)                  // clic derecho en la esquina: menú de tamaño
+    {
+        resizableCorner->removeMouseListener (this);
+        resizableCorner->addMouseListener (this, false);
+    }
     shownScale = scale;
 
     constrainer.setFixedAspectRatio ((double) w / (double) h);
@@ -1277,7 +1266,7 @@ void MeteringABEditor::resized()
     }
 
     panel.setTransform (juce::AffineTransform::scale (shownScale));
-    panel.setResetSizeVisible (std::abs (scale - defaultScale) > 0.005f);
+
 }
 
 void MeteringABEditor::setUiScale (float newScale)
@@ -1291,4 +1280,28 @@ void MeteringABEditor::childBoundsChanged (juce::Component* child)
 {
     if (child == &panel && ! fitting)
         fitToPanel();
+}
+
+// Clic derecho (o Ctrl + clic) en la esquina de abajo a la derecha: "Reset size".
+void MeteringABEditor::mouseDown (const juce::MouseEvent& e)
+{
+    if (e.mods.isPopupMenu() && resizableCorner != nullptr && e.eventComponent == resizableCorner.get())
+        showSizeMenu();
+}
+
+void MeteringABEditor::showSizeMenu()
+{
+    ++sizeMenuOpenedForTests;
+
+    if (resizableCorner == nullptr || ! resizableCorner->isShowing())   // fuera de pantalla (tests)
+        return;
+
+    juce::PopupMenu menu;
+    menu.addItem (1, "Reset size", std::abs (scale - defaultScale) > 0.005f);
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (resizableCorner.get()),
+                        [safe = juce::Component::SafePointer<MeteringABEditor> (this)] (int result)
+                        {
+                            if (safe != nullptr && result == 1)
+                                safe->setUiScale (defaultScale);
+                        });
 }
