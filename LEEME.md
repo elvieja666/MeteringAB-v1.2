@@ -68,7 +68,7 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 ### Tamaño de la ventana
 
-Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achicarlo: todo crece en proporción, de 75% a 200%. El tamaño queda guardado con el proyecto.
+Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achicarlo: todo crece en proporción, de 50% a 150%. Por defecto abre al 75% (1415 × 585). El osciloscopio mantiene siempre la proporción 2,18 : 1. El tamaño queda guardado con el proyecto.
 
 ### Osciloscopio
 

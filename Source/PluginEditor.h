@@ -87,7 +87,11 @@ class MeteringABPanel : public juce::Component, private juce::Timer
 {
 public:
     // Medidas de la ventana: parte principal + sección del osciloscopio.
-    static constexpr int receiveWidth = 1040, receiveHeight = 780;   // Receive: columna + osciloscopio
+    // Receive: columna + osciloscopio. El osciloscopio mantiene la proporción
+    // 2,178 : 1 (ancho : alto) de la referencia; su alto = 780 - 52 - 16 = 712.
+    static constexpr int receiveHeight = 780;
+    static constexpr int scopeWidth = 1551;            // 712 * 2,178
+    static constexpr int receiveWidth = 300 + 18 + scopeWidth + 18;   // = 1887 (al 100%)
     static constexpr int sideWidth = 300;             // la columna gris
     static constexpr int sendWidth = 640, sendHeight = 86;           // Send: solo título, modo, Link ID y estado
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
@@ -200,7 +204,8 @@ public:
     static constexpr int mainHeight = MeteringABPanel::receiveHeight;
     static constexpr int sendHeight = MeteringABPanel::sendHeight;
     static constexpr int baseWidth  = MeteringABPanel::receiveWidth;
-    static constexpr float minScale = 0.75f, maxScale = 2.0f;
+    static constexpr float minScale = 0.5f, maxScale = 1.5f;
+    static constexpr float defaultScale = 0.75f;      // por defecto, un 25% más chico (1415 x 585)
 
     explicit MeteringABEditor (MeteringABProcessor&);
     ~MeteringABEditor() override;
