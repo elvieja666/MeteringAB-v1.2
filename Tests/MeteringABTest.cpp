@@ -573,8 +573,8 @@ int main (int argc, char** argv)
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
         auto* outer = dynamic_cast<MeteringABEditor*> (ed.get());
-        check (ed->isResizable() && ed->getWidth() == 1415 && ed->getHeight() == 585,
-               "Escalable: arranca al 75% (1415 x 585) y se puede agrandar (ancho px)", ed->getWidth());
+        check (ed->isResizable() && std::abs (panelOf (ed)->getScopeForTests().getWidth() * outer->getUiScale() - 781.0f) < 1.0f,
+               "Escalable: por defecto el osciloscopio mide 781 px (la referencia -25%)", panelOf (ed)->getScopeForTests().getWidth() * outer->getUiScale());
         outer->setUiScale (1.5f);
         check (ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * 1.5) && ed->getHeight() == juce::roundToInt (MeteringABPanel::receiveHeight * 1.5),
                "Escalable: al 150% todo crece en proporción (alto px)", ed->getHeight());
@@ -703,7 +703,8 @@ int main (int argc, char** argv)
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         a.apvts.state.setProperty ("scopeOpen", true, nullptr);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        check (ed != nullptr && ed->getWidth() == 1415 && ed->getHeight() == 585, "Editor Receive: 1415 x 585 por defecto (alto px)", ed->getHeight());
+        check (ed != nullptr && ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * MeteringABEditor::defaultScale),
+               "Editor Receive: tamaño por defecto (ancho px)", ed->getWidth());
         const auto& scopeBox = panelOf (ed)->getScopeForTests();
         check (std::abs ((double) scopeBox.getWidth() / scopeBox.getHeight() - 2.178) < 0.01,
                "Osciloscopio con la proporción de la referencia (2,178 : 1)", (double) scopeBox.getWidth() / scopeBox.getHeight());

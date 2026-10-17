@@ -68,7 +68,7 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 ### Tamaño de la ventana
 
-Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achicarlo: todo crece en proporción, de 50% a 150%. Por defecto abre al 75% (1415 × 585). El osciloscopio mantiene siempre la proporción 2,18 : 1. El tamaño queda guardado con el proyecto. En Send el plugin tiene un tamaño fijo (300 × 176) y no se escala.
+Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achicarlo: todo crece en proporción, de 40% a 150%. Por defecto el osciloscopio mide 781 × 359 (la referencia un 25% más chica) y todo el plugin se escala junto (950 × 393). El osciloscopio mantiene siempre la proporción 2,18 : 1. El tamaño queda guardado con el proyecto. En Send el plugin tiene un tamaño fijo (300 × 176) y no se escala.
 
 ### Osciloscopio
 
