@@ -1231,17 +1231,18 @@ void MeteringABEditor::fitToPanel()
     const int w = juce::jmax (1, panel.getWidth()), h = juce::jmax (1, panel.getHeight());
     const bool send = panel.isSendLayout();
 
-    // Send: tamaño fijo (no hace falta escalarlo). Receive: con la esquina.
+    // Send: la misma escala que el Receive (su columna gris queda igual), pero sin
+    // esquina para escalarlo. Receive: con la esquina.
     setResizable (! send, ! send);
-    shownScale = send ? sendScale : scale;
+    shownScale = scale;
 
     constrainer.setFixedAspectRatio ((double) w / (double) h);
     constrainer.setSizeLimits (juce::roundToInt (w * minScale), juce::roundToInt (h * minScale),
                                juce::roundToInt (w * maxScale), juce::roundToInt (h * maxScale));
 
     if (send)
-        constrainer.setSizeLimits (juce::roundToInt (w * sendScale), juce::roundToInt (h * sendScale),
-                                   juce::roundToInt (w * sendScale), juce::roundToInt (h * sendScale));
+        constrainer.setSizeLimits (juce::roundToInt (w * scale), juce::roundToInt (h * scale),
+                                   juce::roundToInt (w * scale), juce::roundToInt (h * scale));
 
     setSize (juce::roundToInt (w * shownScale), juce::roundToInt (h * shownScale));
     resized();

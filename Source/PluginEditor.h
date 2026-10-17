@@ -93,7 +93,7 @@ public:
     static constexpr int scopeWidth = 1551;            // 712 * 2,178
     static constexpr int sideWidth = 340;             // la columna gris (Receive)
     static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1927 (al 100%)
-    static constexpr int sendWidth = 300, sendHeight = 176;    // Send: solo la parte de arriba de la columna
+    static constexpr int sendWidth = sideWidth, sendHeight = 176;    // Send: solo la parte de arriba de la columna
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
     explicit MeteringABPanel (MeteringABProcessor&);
@@ -228,8 +228,7 @@ private:
     MeteringABPanel panel;
     juce::ComponentBoundsConstrainer constrainer;
     float scale = 1.0f;                               // escala del Receive (la que elegís con la esquina)
-    float shownScale = 1.0f;                          // la que se usa ahora (Send: fija al 100%)
-    static constexpr float sendScale = 1.0f;          // Send: tamaño fijo, sin esquina para escalar
+    float shownScale = 1.0f;                          // la que se usa ahora (Send: la misma que el Receive)
     bool fitting = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MeteringABEditor)
