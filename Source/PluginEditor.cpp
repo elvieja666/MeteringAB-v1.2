@@ -582,6 +582,89 @@ void MeteringABPanel::applyScopeLook()
     updateWaveButtons();
 }
 
+// Colores para elegir por onda (los de las paletas, sin repetir).
+static const std::array<std::pair<const char*, juce::uint32>, 9> waveColours {{
+    { "Gris",        0xffa9aeb6 }, { "Gris oscuro", 0xff6c7077 }, { "Gris claro", 0xffb8bbc1 },
+    { "Blanco",      0xffd9d7d3 }, { "Azul",        0xff5aa9ff }, { "Rosa",       0xffff6fa8 },
+    { "Rojo",        0xffeb5757 }, { "Violeta",     0xff9b8cff }, { "Lima",       0xffb5e655 },
+}};
+
+// Menú de estilo de cada botón: PRE FX y POST FX muestran solo lo de su onda
+// (forma y color); LINK, solo la forma con LINK. Canales y grilla, en todos.
+juce::PopupMenu MeteringABPanel::buildStyleMenu (StyleMenuFor which) const
+{
+    auto& state = processor.apvts.state;
+    juce::PopupMenu menu;
+
+    if (which == StyleMenuFor::link)
+    {
+        menu.addSectionHeader ("Forma con LINK");
+        const int linkStyle = (int) state.getProperty ("scopeStyleLink", -1);
+        menu.addItem (600, "Igual que PRE / POST", true, linkStyle < 0);
+        for (int i = 0; i < ScopeView::styleNames.size(); ++i)
+            menu.addItem (601 + i, ScopeView::styleNames[i], true, linkStyle == i);
+    }
+    else
+    {
+        const bool pre = which == StyleMenuFor::pre;
+        const int style = (int) (pre ? scope.getStylePre() : scope.getStylePost());
+        const int formBase = pre ? 100 : 150, colourBase = pre ? 700 : 750;
+        const auto current = pre ? scope.getPreColour() : scope.getPostColour();
+
+        menu.addSectionHeader (pre ? "Forma PRE FX" : "Forma POST FX");
+        for (int i = 0; i < ScopeView::styleNames.size(); ++i)
+            menu.addItem (formBase + i, ScopeView::styleNames[i], true, style == i);
+
+        menu.addSectionHeader (pre ? "Color PRE FX" : "Color POST FX");
+        bool known = false;
+        for (int i = 0; i < (int) waveColours.size(); ++i)
+        {
+            const bool on = current.getARGB() == waveColours[(size_t) i].second;
+            known = known || on;
+            menu.addColouredItem (colourBase + i, waveColours[(size_t) i].first, juce::Colour (waveColours[(size_t) i].second), true, on);
+        }
+        menu.addItem (pre ? 300 : 301, juce::String::fromUTF8 ("Elegir otro color\xe2\x80\xa6"), true, ! known);
+    }
+
+    menu.addSectionHeader ("Osciloscopio");
+    juce::PopupMenu channelsMenu;
+    const int channels = (int) state.getProperty ("scopeChannels", 0);
+    for (int i = 0; i < ScopeView::channelNames.size(); ++i)
+        channelsMenu.addItem (500 + i, ScopeView::channelNames[i], true, channels == i);
+    menu.addSubMenu ("Canales: " + ScopeView::channelNames[juce::jlimit (0, ScopeView::channelNames.size() - 1, channels)], channelsMenu);
+    menu.addItem (400, "Mostrar grilla", true, scope.getShowGrid());
+    return menu;
+}
+
+void MeteringABPanel::applyStyleMenuResult (int result)
+{
+    if (result == 0)
+        return;
+
+    auto& st = processor.apvts.state;
+
+    // Color de una sola onda: pasa a "personalizado" conservando el de la otra.
+    auto setWaveColour = [&] (bool pre, juce::Colour c)
+    {
+        st.setProperty ("scopeCustomPre",  (pre ? c : scope.getPreColour()).toString(),  nullptr);
+        st.setProperty ("scopeCustomPost", (pre ? scope.getPostColour() : c).toString(), nullptr);
+        st.setProperty ("scopePalette", ScopeView::customPalette, nullptr);
+    };
+
+    if (result >= 100 && result < 150)      st.setProperty ("scopeStylePre", result - 100, nullptr);
+    else if (result >= 150 && result < 200) st.setProperty ("scopeStylePost", result - 150, nullptr);
+    else if (result == 300 || result == 301) { pickCustomColour (result == 300); return; }
+    else if (result == 400)                 st.setProperty ("scopeGrid", ! scope.getShowGrid(), nullptr);
+    else if (result >= 500 && result < 600) st.setProperty ("scopeChannels", result - 500, nullptr);
+    else if (result >= 600 && result < 700) st.setProperty ("scopeStyleLink", result - 601, nullptr);   // 600 = -1 (igual)
+    else if (result >= 700 && result < 700 + (int) waveColours.size())
+        setWaveColour (true,  juce::Colour (waveColours[(size_t) (result - 700)].second));
+    else if (result >= 750 && result < 750 + (int) waveColours.size())
+        setWaveColour (false, juce::Colour (waveColours[(size_t) (result - 750)].second));
+
+    applyScopeLook();
+}
+
 void MeteringABPanel::showStyleMenu (juce::Component& anchor)
 {
     styleMenuAnchor = &anchor;
@@ -590,59 +673,14 @@ void MeteringABPanel::showStyleMenu (juce::Component& anchor)
     if (! anchor.isShowing())                      // fuera de pantalla (tests): no hay dónde mostrarlo
         return;
 
-    auto& state = processor.apvts.state;
-    const int stylePre  = (int) scope.getStylePre();
-    const int stylePost = (int) scope.getStylePost();
-    const int palette   = (int) state.getProperty ("scopePalette", 0);
+    const auto which = &anchor == &showPreButton  ? StyleMenuFor::pre
+                     : &anchor == &showPostButton ? StyleMenuFor::post : StyleMenuFor::link;
 
-    juce::PopupMenu menu;
-    menu.addSectionHeader ("Forma PRE FX");
-    for (int i = 0; i < ScopeView::styleNames.size(); ++i)
-        menu.addItem (100 + i, ScopeView::styleNames[i], true, stylePre == i);
-
-    menu.addSectionHeader ("Forma POST FX");
-    for (int i = 0; i < ScopeView::styleNames.size(); ++i)
-        menu.addItem (150 + i, ScopeView::styleNames[i], true, stylePost == i);
-
-    menu.addSectionHeader ("Forma con LINK");
-    const int linkStyle = (int) state.getProperty ("scopeStyleLink", -1);
-    menu.addItem (600, "Igual que PRE / POST", true, linkStyle < 0);
-    for (int i = 0; i < ScopeView::styleNames.size(); ++i)
-        menu.addItem (601 + i, ScopeView::styleNames[i], true, linkStyle == i);
-
-    menu.addSectionHeader ("Canales");
-    const int channels = (int) state.getProperty ("scopeChannels", 0);
-    for (int i = 0; i < ScopeView::channelNames.size(); ++i)
-        menu.addItem (500 + i, ScopeView::channelNames[i], true, channels == i);
-
-    menu.addSectionHeader ("Colores (PRE / POST)");
-    for (int i = 0; i < (int) ScopeView::palettes.size(); ++i)
-        menu.addItem (200 + i, ScopeView::palettes[(size_t) i].name, true, palette == i);
-
-    menu.addItem (200 + ScopeView::customPalette, "Personalizado", true, palette == ScopeView::customPalette);
-    menu.addItem (300, juce::String::fromUTF8 ("  Elegir color PRE\xe2\x80\xa6"));
-    menu.addItem (301, juce::String::fromUTF8 ("  Elegir color POST\xe2\x80\xa6"));
-
-    menu.addSeparator();
-    menu.addItem (400, "Mostrar grilla", true, scope.getShowGrid());
-
-    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&anchor),
-                        [this, safe = juce::Component::SafePointer<MeteringABPanel> (this)] (int result)
+    buildStyleMenu (which).showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&anchor),
+                                          [safe = juce::Component::SafePointer<MeteringABPanel> (this)] (int result)
     {
-        if (safe == nullptr || result == 0)
-            return;
-
-        auto& st = processor.apvts.state;
-
-        if (result >= 100 && result < 150)      st.setProperty ("scopeStylePre", result - 100, nullptr);
-        else if (result >= 150 && result < 200) st.setProperty ("scopeStylePost", result - 150, nullptr);
-        else if (result >= 200 && result < 300) st.setProperty ("scopePalette", result - 200, nullptr);
-        else if (result == 300 || result == 301) { pickCustomColour (result == 300); return; }
-        else if (result == 400)                 st.setProperty ("scopeGrid", ! scope.getShowGrid(), nullptr);
-        else if (result >= 500 && result < 600) st.setProperty ("scopeChannels", result - 500, nullptr);
-        else if (result >= 600 && result < 700) st.setProperty ("scopeStyleLink", result - 601, nullptr);   // 600 = -1 (igual)
-
-        applyScopeLook();
+        if (safe != nullptr)
+            safe->applyStyleMenuResult (result);
     });
 }
 

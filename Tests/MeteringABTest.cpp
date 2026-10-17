@@ -1,3 +1,4 @@
+#include <set>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include <cstdio>
@@ -1250,6 +1251,41 @@ int main (int argc, char** argv)
             if (auto* b = dynamic_cast<juce::Button*> (child))
                 noStyleButton = noStyleButton && b->getButtonText() != "Estilo";
         check (noStyleButton, "Ya no está el botón Estilo", 1);
+
+        // Cada botón muestra solo lo suyo.
+        auto ids = [&] (MeteringABPanel::StyleMenuFor which)
+        {
+            std::set<int> out;
+            std::function<void (const juce::PopupMenu&)> walk = [&] (const juce::PopupMenu& m)
+            {
+                for (juce::PopupMenu::MenuItemIterator it (m); it.next();)
+                {
+                    auto& item = it.getItem();
+                    if (item.itemID != 0) out.insert (item.itemID);
+                    if (item.subMenu != nullptr) walk (*item.subMenu);
+                }
+            };
+            walk (panel->buildStyleMenu (which));
+            return out;
+        };
+        auto any = [] (const std::set<int>& v, int lo, int hi) { for (int i : v) if (i >= lo && i < hi) return true; return false; };
+        const auto mPre = ids (MeteringABPanel::StyleMenuFor::pre), mPost = ids (MeteringABPanel::StyleMenuFor::post),
+                   mLink = ids (MeteringABPanel::StyleMenuFor::link);
+        check (any (mPre, 100, 150) && any (mPre, 700, 750) && ! any (mPre, 150, 200) && ! any (mPre, 600, 700) && ! any (mPre, 750, 800),
+               "Menú de PRE FX: solo forma y color de PRE", (double) mPre.size());
+        check (any (mPost, 150, 200) && any (mPost, 750, 800) && ! any (mPost, 100, 150) && ! any (mPost, 600, 700) && ! any (mPost, 700, 750),
+               "Menú de POST FX: solo forma y color de POST", (double) mPost.size());
+        check (any (mLink, 600, 700) && ! any (mLink, 100, 200) && ! any (mLink, 700, 800),
+               "Menú de LINK: solo la forma con LINK", (double) mLink.size());
+        check (mPre.count (400) && mPost.count (400) && mLink.count (400) && mLink.count (500), "Canales y grilla en los tres menús", 1);
+
+        // Elegir un color de PRE no cambia el de POST.
+        const auto postBefore = sc.getPostColour();
+        panel->applyStyleMenuResult (700 + 7);             // Violeta para PRE
+        check (sc.getPreColour() == juce::Colour (0xff9b8cff) && sc.getPostColour() == postBefore,
+               "Color de PRE: cambia solo PRE", 1);
+        panel->applyStyleMenuResult (152);                 // Solo líneas para POST
+        check (sc.getStylePost() == ScopeView::Style::lines, "Forma de POST desde su menú", 1);
 
         // LINK prendido: solo LINK encendido; PRE FX / POST FX apagados aunque se vea una onda.
         if (linkBtn.getToggleState())

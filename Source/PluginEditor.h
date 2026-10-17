@@ -142,6 +142,11 @@ private:
     void syncWavesToListen();
     juce::TextButton scopeToggleButton;               // ▾ / ▸ mostrar u ocultar el osciloscopio
     void showStyleMenu (juce::Component& anchor);     // menú de opciones gráficas (clic derecho en LINK / PRE / POST)
+public:
+    enum class StyleMenuFor { pre, post, link };
+    juce::PopupMenu buildStyleMenu (StyleMenuFor which) const;   // cada botón, solo lo suyo
+    void applyStyleMenuResult (int result);
+private:
     juce::Component* styleMenuAnchor = nullptr;
     int styleMenuOpenedForTests = 0;
     void applyScopeLook();                            // lee estilo y colores guardados
