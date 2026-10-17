@@ -1123,7 +1123,7 @@ void MeteringABPanel::mouseMove (const juce::MouseEvent& e)
 void MeteringABPanel::resized()
 {
     // ---- Columna gris (de arriba a abajo). En Send queda solo esta parte de arriba. ----
-    auto k = juce::Rectangle<int> (20, 0, sideWidth - 40, getHeight());
+    auto k = juce::Rectangle<int> (20, 0, (isSendMode ? sendWidth : sideWidth) - 40, getHeight());
     k.removeFromTop (52);                                       // título (se dibuja en paint)
     modeBox.setBounds (k.removeFromTop (30));
     k.removeFromTop (8);
