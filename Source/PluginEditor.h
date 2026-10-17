@@ -89,11 +89,12 @@ public:
     // Medidas de la ventana: parte principal + sección del osciloscopio.
     // Receive: columna + osciloscopio. El osciloscopio mantiene la proporción
     // 2,178 : 1 (ancho : alto) de la referencia; su alto = 780 - 52 - 16 = 712.
-    static constexpr int receiveHeight = 780;
-    static constexpr int scopeWidth = 1551;            // 712 * 2,178
+    static constexpr int receiveHeight = 663;          // columna gris compacta (más grande en pantalla)
+    static constexpr int scopeHeight = receiveHeight - 52 - 16;   // = 595
+    static constexpr int scopeWidth = 1101;            // 595 * 1,85
     static constexpr int sideWidth = 380;             // la columna gris (Receive)
     static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1967 (al 100%)
-    static constexpr int sendWidth = sideWidth, sendHeight = 176;    // Send: solo la parte de arriba de la columna
+    static constexpr int sendWidth = sideWidth, sendHeight = 168;    // Send: solo la parte de arriba de la columna
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
     explicit MeteringABPanel (MeteringABProcessor&);
@@ -209,7 +210,7 @@ public:
     static constexpr float minScale = 0.4f, maxScale = 1.5f;
     // Por defecto el osciloscopio mide 781 x 359: la referencia (1041 x 478) un 25% más
     // chica. Todo lo demás (la columna gris) se escala junto, en proporción (≈ 950 x 393).
-    static constexpr float defaultScale = 1.15f * 1.1f * 781.0f / (float) MeteringABPanel::scopeWidth;   // + 10% y + 15%
+    static constexpr float defaultScale = 497.0f / (float) MeteringABPanel::receiveHeight;   // mismo alto que antes (497 px)
 
     explicit MeteringABEditor (MeteringABProcessor&);
     ~MeteringABEditor() override;

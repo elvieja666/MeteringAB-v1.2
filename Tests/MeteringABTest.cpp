@@ -573,8 +573,8 @@ int main (int argc, char** argv)
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
         auto* outer = dynamic_cast<MeteringABEditor*> (ed.get());
-        check (ed->isResizable() && std::abs (panelOf (ed)->getScopeForTests().getWidth() * outer->getUiScale() - 987.97f) < 1.0f,
-               "Escalable: por defecto el osciloscopio mide 988 px (la referencia -25%, +10%, +15%)", panelOf (ed)->getScopeForTests().getWidth() * outer->getUiScale());
+        check (ed->isResizable() && std::abs (panelOf (ed)->getScopeForTests().getHeight() * outer->getUiScale() - 446.0f) < 1.0f,
+               "Escalable: por defecto el osciloscopio mide 446 px de alto (plugin de 497)", panelOf (ed)->getScopeForTests().getWidth() * outer->getUiScale());
         outer->setUiScale (1.5f);
         check (ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * 1.5) && ed->getHeight() == juce::roundToInt (MeteringABPanel::receiveHeight * 1.5),
                "Escalable: al 150% todo crece en proporción (alto px)", ed->getHeight());
@@ -615,7 +615,7 @@ int main (int argc, char** argv)
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
         auto* e = panelOf (ed);
         check (e->getWidth() == MeteringABPanel::receiveWidth && e->getScopeForTests().getX() >= MeteringABPanel::sideWidth
-               && e->getScopeForTests().getHeight() > 600,
+               && e->getScopeForTests().getHeight() == MeteringABPanel::scopeHeight,
                "Osciloscopio a la derecha de la columna gris, a toda altura (x px)", e->getScopeForTests().getX());
     }
     {
@@ -719,8 +719,8 @@ int main (int argc, char** argv)
         check (ed != nullptr && ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * MeteringABEditor::defaultScale),
                "Editor Receive: tamaño por defecto (ancho px)", ed->getWidth());
         const auto& scopeBox = panelOf (ed)->getScopeForTests();
-        check (std::abs ((double) scopeBox.getWidth() / scopeBox.getHeight() - 2.178) < 0.01,
-               "Osciloscopio con la proporción de la referencia (2,178 : 1)", (double) scopeBox.getWidth() / scopeBox.getHeight());
+        check (std::abs ((double) scopeBox.getWidth() / scopeBox.getHeight() - 1.85) < 0.01,
+               "Osciloscopio con proporción 1,85 : 1", (double) scopeBox.getWidth() / scopeBox.getHeight());
     }
 
 
