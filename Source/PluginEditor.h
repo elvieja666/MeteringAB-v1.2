@@ -91,8 +91,8 @@ public:
     // 2,178 : 1 (ancho : alto) de la referencia; su alto = 780 - 52 - 16 = 712.
     static constexpr int receiveHeight = 780;
     static constexpr int scopeWidth = 1551;            // 712 * 2,178
-    static constexpr int sideWidth = 340;             // la columna gris (Receive)
-    static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1927 (al 100%)
+    static constexpr int sideWidth = 380;             // la columna gris (Receive)
+    static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1967 (al 100%)
     static constexpr int sendWidth = sideWidth, sendHeight = 176;    // Send: solo la parte de arriba de la columna
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
