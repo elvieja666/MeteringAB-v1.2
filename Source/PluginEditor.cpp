@@ -462,9 +462,9 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     // Osciloscopio sincronizado + largo en compases (se guarda con el proyecto).
     addAndMakeVisible (scope);
-    scopeLabel.setText ({}, juce::dontSendNotification);
-    scopeLabel.setColour (juce::Label::textColourId, Theme::darkDim);
-    scopeLabel.setFont (Theme::font (12.0f, 300));
+    scopeLabel.setText ("Osciloscopio", juce::dontSendNotification);
+    scopeLabel.setColour (juce::Label::textColourId, Theme::darkText);
+    scopeLabel.setFont (Theme::font (15.0f, 300));
     addAndMakeVisible (scopeLabel);
 
     zoomBox.addItemList (ScopeLengths::names, 1);
@@ -536,13 +536,12 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     updateWaveButtons();
 
-    // ▾ Osciloscopio: mostrar u ocultar toda la sección (se guarda con el proyecto).
-    scopeToggleButton.setClickingTogglesState (false);
-    scopeToggleButton.getProperties().set ("kind", "plain");
-    scopeToggleButton.setColour (juce::TextButton::textColourOffId, Theme::darkText);
-    scopeToggleButton.onClick = [this] { setScopeOpen (! scopeOpen); };
-    addAndMakeVisible (scopeToggleButton);
-    scopeOpen = (bool) apvts.state.getProperty ("scopeOpen", false);   // arranca cerrado
+    // Columna gris: títulos a la izquierda.
+    for (auto* l : { &listenLabel, &windowLabel, &latencyLabel })
+        l->setJustificationType (juce::Justification::centredLeft);
+    linkLabel.setJustificationType (juce::Justification::centredLeft);
+    latencyMsLabel.setJustificationType (juce::Justification::centredLeft);
+    latencyInfoLabel.setJustificationType (juce::Justification::centredRight);
 
     // Estilo: forma de dibujar, colores y grilla (se guardan con el proyecto).
     // Se abre con clic derecho sobre LINK, PRE FX o POST FX.
@@ -742,33 +741,20 @@ void MeteringABPanel::pickCustomColour (bool forPre)
                                             host->getLocalArea (anchor, anchor->getLocalBounds()), host);
 }
 
-void MeteringABPanel::setScopeOpen (bool open)
-{
-    scopeOpen = open;
-    processor.apvts.state.setProperty ("scopeOpen", open, nullptr);
-    updateScopeSection();
-}
 
 // Muestra u oculta la sección del osciloscopio y ajusta el alto de la ventana.
 void MeteringABPanel::updateScopeSection()
 {
-    const bool showSection = ! isSendMode;
-    const bool showBody = showSection && scopeOpen;
-
-    scopeToggleButton.setVisible (showSection);
-    scopeToggleButton.setButtonText ("Osciloscopio");
-    scopeToggleButton.getProperties().set ("open", showBody);     // triángulo ▾ / ▸
-    scopeToggleButton.repaint();
+    // Receive: el osciloscopio está siempre, a la derecha. Send: no hay.
+    const bool showScope = ! isSendMode;
 
     for (auto* c : scopeParts)
-        c->setVisible (showBody);
+        c->setVisible (showScope);
 
-    scopeLabel.setVisible (false);
+    scopeLabel.setVisible (showScope);
 
-    const int width  = editorWidth;
-    const int height = ! showSection ? sendHeight
-                     : showBody      ? mainHeight + scopeHeaderHeight + scopeBodyHeight
-                                     : mainHeight + scopeHeaderHeight;
+    const int width  = isSendMode ? sendWidth : receiveWidth;
+    const int height = isSendMode ? sendHeight : receiveHeight;
 
     if (getWidth() != width || getHeight() != height)
         setSize (width, height);
@@ -1035,23 +1021,26 @@ void MeteringABPanel::timerCallback()
         statusLabel.setColour (juce::Label::textColourId, Colours::bad);
     }
 
-    repaint (0, 76, editorWidth, 80);
+    repaint (meterArea());
     repaint (statusLabel.getBounds().withX (0).withWidth (40));   // puntito del estado
 
-    if (! isSendMode && scopeOpen && ! scope.isFrozen())
+    if (! isSendMode && ! scope.isFrozen())
         scope.repaint();
 }
 
 // Número grande (letra fina) con la unidad chica al lado, centrados juntos.
 static void drawNumberWithUnit (juce::Graphics& g, const juce::String& number, const juce::String& unit,
-                                juce::Rectangle<int> area, float size, juce::Colour colour)
+                                juce::Rectangle<int> area, float size, juce::Colour colour, int align = 0)   // -1 izq, 0 centro, 1 der
 {
     const auto numberFont = Theme::font (size, 300);
     const auto unitFont   = Theme::font (size * 0.44f, 400);
     const float gap = unit.isEmpty() ? 0.0f : 4.0f;
     const float wNum  = juce::GlyphArrangement::getStringWidth (numberFont, number);
     const float wUnit = unit.isEmpty() ? 0.0f : juce::GlyphArrangement::getStringWidth (unitFont, unit);
-    float x = (float) area.getCentreX() - (wNum + gap + wUnit) * 0.5f;
+    const float total = wNum + gap + wUnit;
+    float x = align < 0 ? (float) area.getX()
+            : align > 0 ? (float) area.getRight() - total
+                        : (float) area.getCentreX() - total * 0.5f;
     const float baseline = (float) area.getCentreY() + size * 0.36f;
 
     g.setColour (colour);
@@ -1068,22 +1057,22 @@ static void drawNumberWithUnit (juce::Graphics& g, const juce::String& number, c
 
 void MeteringABPanel::paint (juce::Graphics& g)
 {
-    const int topHeight = isSendMode ? getHeight() : mainHeight;
-
-    // Panel gris claro arriba; osciloscopio abajo, en oscuro.
-    g.setGradientFill (juce::ColourGradient (Theme::topLight, 0.0f, 0.0f, Theme::topDark, 0.0f, (float) topHeight, false));
-    g.fillRect (0, 0, getWidth(), topHeight);
+    // Receive: columna gris a la izquierda y el osciloscopio en oscuro a la derecha.
+    // Send: toda la franja gris.
+    const int sideW = isSendMode ? getWidth() : sideWidth;
+    g.setGradientFill (juce::ColourGradient (Theme::topLight, 0.0f, 0.0f, Theme::topDark, 0.0f, (float) getHeight(), false));
+    g.fillRect (0, 0, sideW, getHeight());
 
     if (! isSendMode)
     {
         g.setColour (Theme::darkBg);
-        g.fillRect (0, topHeight, getWidth(), getHeight() - topHeight);
+        g.fillRect (sideW, 0, getWidth() - sideW, getHeight());
     }
 
     // Título
     g.setColour (juce::Colour (0xff3a3d42));
-    g.setFont (Theme::font (16.0f, 600, 0.16f));
-    g.drawText ("METERING A/B", 20, 10, 220, 32, juce::Justification::centredLeft);
+    g.setFont (Theme::font (isSendMode ? 16.0f : 14.0f, 600, 0.3f));
+    g.drawText ("METERING A/B", 20, isSendMode ? 10 : 12, 240, 32, juce::Justification::centredLeft);
 
     // Pastilla del Link ID (− 1 +)
     {
@@ -1103,7 +1092,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
     if (isSendMode)
         return;
 
-    // Números: Original | Ganancia | Procesado, en un recuadro hundido.
+    // Números: Original | Ganancia | Procesado, juntos en un recuadro hundido (uno debajo del otro).
     const auto meters = meterArea();
     Theme::drawWell (g, meters.toFloat(), 14.0f);
 
@@ -1117,15 +1106,21 @@ void MeteringABPanel::paint (juce::Graphics& g)
         { "Procesado",         level (shownPost), "LUFS", Theme::inkStrong },
     };
 
-    const int colWidth = meters.getWidth() / 3;
+    auto rows = meters.reduced (16, 4);
+    const int rowHeight = rows.getHeight() / 3;
 
     for (int i = 0; i < 3; ++i)
     {
-        auto col = meters.withX (meters.getX() + i * colWidth).withWidth (colWidth).reduced (8, 7);
+        auto row = rows.removeFromTop (rowHeight);
+        if (i < 2)
+        {
+            g.setColour (juce::Colours::black.withAlpha (0.06f));
+            g.fillRect (row.getX(), row.getBottom(), row.getWidth(), 1);
+        }
         g.setColour (Theme::inkDim);
         g.setFont (Theme::font (12.0f, 300));
-        g.drawText (readouts[i].title, col.removeFromTop (16), juce::Justification::centred);
-        drawNumberWithUnit (g, readouts[i].number, readouts[i].unit, col, 29.0f, readouts[i].colour);
+        g.drawText (readouts[i].title, row.withTrimmedTop (6), juce::Justification::centredLeft);
+        drawNumberWithUnit (g, readouts[i].number, readouts[i].unit, row, 27.0f, readouts[i].colour, 1);
     }
 
     // Fondo de ms | Sync
@@ -1136,19 +1131,18 @@ void MeteringABPanel::paint (juce::Graphics& g)
     }
 
     // Latencia medida: número grande + "muestras"
-    drawNumberWithUnit (g, latencyNumberText, "muestras", latencyNumberArea, 26.0f, Theme::inkStrong);
+    drawNumberWithUnit (g, latencyNumberText, "muestras", latencyNumberArea, 28.0f, Theme::inkStrong, -1);
 
-    // Ayuda
-    g.setColour (Theme::inkFaint);
-    g.setFont (Theme::font (10.5f, 300));
-    g.drawText ("Clic en un número para escribir el valor exacto  ·  Shift + arrastrar = ajuste fino  ·  Doble clic = valor por defecto"_u,
-                20, mainHeight - 24, editorWidth - 40, 16, juce::Justification::centred);
+    // Líneas finas entre Ventana | Latencia | Escuchar
+    g.setColour (juce::Colours::black.withAlpha (0.07f));
+    for (int y : { latencyLabel.getY() - 10, listenLabel.getY() - 10 })
+        g.fillRect (20, y, sideWidth - 40, 1);
 }
 
 // Clic sobre los números: medidores a cero (vuelven a medir desde ahí).
 juce::Rectangle<int> MeteringABPanel::meterArea() const
 {
-    return { 20, 80, editorWidth - 40, 70 };
+    return { 20, 152, sideWidth - 40, 160 };
 }
 
 void MeteringABPanel::mouseDown (const juce::MouseEvent& e)
@@ -1172,72 +1166,83 @@ void MeteringABPanel::mouseMove (const juce::MouseEvent& e)
 
 void MeteringABPanel::resized()
 {
-    auto area = juce::Rectangle<int> (0, 0, editorWidth, mainHeight).reduced (20, 0);
-
-    // Fila superior: título | modo | Link ID (− 1 +)
-    auto top = area.removeFromTop (52).withTrimmedTop (10).withHeight (32);
-    top.removeFromLeft (200);
-    linkPlus.setBounds (top.removeFromRight (32));
-    linkValueLabel.setBounds (top.removeFromRight (40));
-    linkMinus.setBounds (top.removeFromRight (32));
-    linkLabel.setBounds (top.removeFromRight (62));
-    top.removeFromRight (10);
-    modeBox.setBounds (top);
-
-    statusLabel.setBounds (area.removeFromTop (22).withTrimmedLeft (14));
-    area.removeFromTop (6);
-    area.removeFromTop (70);   // medidores (se dibujan en paint)
-    area.removeFromTop (12);
-
-    // Tres columnas con los títulos alineados: Escuchar | Ventana | Latencia
-    auto columns = area.removeFromTop (columnsHeight);
-    const int sideWidth = 190;
-    auto left  = columns.removeFromLeft (sideWidth);
-    auto right = columns.removeFromRight (sideWidth);
-    auto middle = columns.reduced (10, 0);
-
-    // Escuchar: el botón grande PRE FX / POST FX, debajo Oscilloscope Link y cómo se nivela.
+    if (isSendMode)
     {
-        auto k = left;
-        listenLabel.setBounds (k.removeFromTop (22));
+        // Send: una franja chica. Título | modo | Link ID (− 1 +) y debajo el estado.
+        auto area = getLocalBounds().reduced (20, 0);
+        auto top = area.removeFromTop (52).withTrimmedTop (10).withHeight (32);
+        top.removeFromLeft (200);
+        linkPlus.setBounds (top.removeFromRight (32));
+        linkValueLabel.setBounds (top.removeFromRight (40));
+        linkMinus.setBounds (top.removeFromRight (32));
+        linkLabel.setBounds (top.removeFromRight (62));
+        linkLabel.setJustificationType (juce::Justification::centredRight);
+        top.removeFromRight (10);
+        modeBox.setBounds (top);
+        statusLabel.setBounds (area.removeFromTop (22).withTrimmedLeft (14));
+        return;
+    }
+
+    // ---- Columna gris (de arriba a abajo) ----
+    auto k = juce::Rectangle<int> (20, 0, sideWidth - 40, getHeight());
+    k.removeFromTop (52);                                       // título (se dibuja en paint)
+    modeBox.setBounds (k.removeFromTop (30));
+    k.removeFromTop (8);
+    {
+        auto row = k.removeFromTop (30);
+        linkPlus.setBounds (row.removeFromRight (32));
+        linkValueLabel.setBounds (row.removeFromRight (40));
+        linkMinus.setBounds (row.removeFromRight (32));
+        linkLabel.setBounds (row);
+        linkLabel.setJustificationType (juce::Justification::centredLeft);
+    }
+    k.removeFromTop (4);
+    statusLabel.setBounds (k.removeFromTop (22).withTrimmedLeft (14));
+    k.removeFromTop (6);
+    k.removeFromTop (meterArea().getHeight());                  // medidores (se dibujan en paint)
+    k.removeFromTop (16);
+
+    // Ventana: título y ms|Sync, perilla con el valor, equivalencia abajo.
+    {
+        auto header = k.removeFromTop (24);
+        syncButtons[1].setBounds (header.removeFromRight (46));
+        syncButtons[0].setBounds (header.removeFromRight (38));
+        windowLabel.setBounds (header);
         k.removeFromTop (4);
-        abButton.setBounds (k.removeFromTop (76).expanded (4, 0));
+        const auto knobs = k.removeFromTop (96);
+        windowSlider.setBounds (knobs);
+        windowSyncSlider.setBounds (knobs);
+        windowInfoLabel.setBounds (k.removeFromTop (16));
+    }
+    k.removeFromTop (22);
+
+    // Latencia: número a la izquierda, Medir a la derecha, estado debajo.
+    {
+        latencyLabel.setBounds (k.removeFromTop (20));
         k.removeFromTop (4);
-        linkButton.setBounds (k.removeFromTop (26).withSizeKeepingCentre (150, 26));   // Oscilloscope Link
+        auto row = k.removeFromTop (52);
+        auto rightSide = row.removeFromRight (126);
+        measureButton.setBounds (rightSide.withSizeKeepingCentre (126, 42).translated (0, -3));
+        latencyNumberArea = row.removeFromTop (34);
+        latencyMsLabel.setBounds (row.removeFromTop (16));
+        latencyInfoLabel.setBounds (k.removeFromTop (16));
+    }
+    k.removeFromTop (22);
+
+    // Escuchar: el botón grande PRE FX / POST FX, Oscilloscope Link y cómo se nivela.
+    {
+        listenLabel.setBounds (k.removeFromTop (20));
+        k.removeFromTop (6);
+        abButton.setBounds (k.removeFromTop (70).expanded (4, 0));
+        k.removeFromTop (6);
+        linkButton.setBounds (k.removeFromTop (26).withSizeKeepingCentre (170, 26));   // Oscilloscope Link
         k.removeFromTop (6);
         matchInfoLabel.setBounds (k.removeFromTop (14));
     }
 
-    // Ventana: botones ms|Sync arriba, perilla con el valor, equivalencia abajo.
-    {
-        auto k = middle;
-        auto header = k.removeFromTop (22).withSizeKeepingCentre (138, 22);
-        windowLabel.setBounds (header.removeFromLeft (54));
-        syncButtons[0].setBounds (header.removeFromLeft (38));
-        syncButtons[1].setBounds (header.removeFromLeft (46));
-        k.removeFromTop (4);
-        windowInfoLabel.setBounds (k.removeFromBottom (16));
-        windowSlider.setBounds (k.withSizeKeepingCentre (200, k.getHeight()));
-        windowSyncSlider.setBounds (k.withSizeKeepingCentre (200, k.getHeight()));
-    }
-
-    // Latencia: título, valor medido, Medir y estado.
-    {
-        auto k = right;
-        latencyLabel.setBounds (k.removeFromTop (22));
-        latencyNumberArea = k.removeFromTop (30);
-        latencyMsLabel.setBounds (k.removeFromTop (16));
-        k.removeFromTop (6);
-        measureButton.setBounds (k.removeFromTop (40).withSizeKeepingCentre (160, 40));
-        k.removeFromTop (2);
-        latencyInfoLabel.setBounds (k.removeFromTop (16));
-    }
-
-    // ---- Sección del osciloscopio (debajo del panel gris) ----
-    auto section = getLocalBounds().withTrimmedTop (mainHeight + 1).reduced (20, 0);
-
-    auto scopeHeader = section.removeFromTop (scopeHeaderHeight - 1).withSizeKeepingCentre (section.getWidth(), 28);
-    scopeToggleButton.setBounds (scopeHeader.removeFromLeft (128).translated (-8, 0));
+    // ---- Osciloscopio (a la derecha, siempre) ----
+    auto section = getLocalBounds().withTrimmedLeft (sideWidth).reduced (18, 0);
+    auto scopeHeader = section.removeFromTop (scopeHeaderHeight).withSizeKeepingCentre (section.getWidth(), 28);
     zoomBox.setBounds (scopeHeader.removeFromRight (96));
     scopeHeader.removeFromRight (8);
     showPostButton.setBounds (scopeHeader.removeFromRight (74));
@@ -1247,7 +1252,7 @@ void MeteringABPanel::resized()
     freezeButton.setBounds (scopeHeader.removeFromRight (64));
     scopeLabel.setBounds (scopeHeader);
 
-    scope.setBounds (section.removeFromTop (scopeBodyHeight - 16));
+    scope.setBounds (section.withTrimmedBottom (16));
 }
 
 // ---------------------------------------------------------------------------
@@ -1276,7 +1281,7 @@ void MeteringABEditor::paint (juce::Graphics& g)
 void MeteringABEditor::fitToPanel()
 {
     const juce::ScopedValueSetter<bool> busy (fitting, true);
-    const int w = baseWidth, h = juce::jmax (1, panel.getHeight());
+    const int w = juce::jmax (1, panel.getWidth()), h = juce::jmax (1, panel.getHeight());
 
     constrainer.setFixedAspectRatio ((double) w / (double) h);
     constrainer.setSizeLimits (juce::roundToInt (w * minScale), juce::roundToInt (h * minScale),
@@ -1291,7 +1296,7 @@ void MeteringABEditor::resized()
     if (! fitting)
     {
         // El usuario arrastró la esquina: la escala sale del ancho.
-        scale = juce::jlimit (minScale, maxScale, (float) getWidth() / (float) baseWidth);
+        scale = juce::jlimit (minScale, maxScale, (float) getWidth() / (float) juce::jmax (1, panel.getWidth()));
         processor.apvts.state.setProperty ("uiScale", scale, nullptr);
     }
 

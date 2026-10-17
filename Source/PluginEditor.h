@@ -80,15 +80,18 @@ public:
     juce::Font getLabelFont (juce::Label&) override;
 };
 
-// Todo el contenido del plugin, a tamaño "normal" (640 de ancho). La ventana
-// del plugin (MeteringABEditor, más abajo) lo muestra agrandado o achicado.
+// Todo el contenido del plugin, a tamaño "normal". Receive: columna gris a la
+// izquierda (medidores, Ventana, Latencia, Escuchar) y el osciloscopio a la
+// derecha, siempre visible. Send: una franja chica. La ventana del plugin
+// (MeteringABEditor, más abajo) lo muestra agrandado o achicado.
 class MeteringABPanel : public juce::Component, private juce::Timer
 {
 public:
     // Medidas de la ventana: parte principal + sección del osciloscopio.
-    static constexpr int columnsHeight = 152;         // Escuchar | Ventana | Latencia
-    static constexpr int mainHeight = 162 + columnsHeight + 36;   // hasta la línea que separa el osciloscopio
-    static constexpr int sendHeight = 86;             // Send: solo título, modo, Link ID y estado
+    static constexpr int receiveWidth = 1040, receiveHeight = 780;   // Receive: columna + osciloscopio
+    static constexpr int sideWidth = 300;             // la columna gris
+    static constexpr int sendWidth = 640, sendHeight = 86;           // Send: solo título, modo, Link ID y estado
+    static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
     explicit MeteringABPanel (MeteringABProcessor&);
     ~MeteringABPanel() override;
@@ -150,7 +153,6 @@ private:
     bool scopeLinked = true;
     void setScopeLinked (bool linked);
     void syncWavesToListen();
-    juce::TextButton scopeToggleButton;               // ▾ / ▸ mostrar u ocultar el osciloscopio
     void showStyleMenu (juce::Component& anchor);     // menú de opciones gráficas (clic derecho en LINK / PRE / POST)
 public:
     enum class StyleMenuFor { pre, post, link };
@@ -161,15 +163,11 @@ private:
     int styleMenuOpenedForTests = 0;
     void applyScopeLook();                            // lee estilo y colores guardados
     void pickCustomColour (bool forPre);
-    bool scopeOpen = false;
-    void setScopeOpen (bool open);
     void updateScopeSection();
 
     juce::Component* scopeParts[5] = { &scope, &zoomBox, &showPreButton, &showPostButton, &freezeButton };
 
-    static constexpr int editorWidth = 640;
-    static constexpr int scopeHeaderHeight = 44;      // barra "Osciloscopio" (siempre visible)
-    static constexpr int scopeBodyHeight = 316;       // el osciloscopio en sí, más margen
+    static constexpr int scopeHeaderHeight = 52;      // barra "Osciloscopio" arriba del gráfico
     void setWaves (bool pre, bool post);
     void updateWaveButtons();
 
@@ -200,9 +198,9 @@ private:
 class MeteringABEditor : public juce::AudioProcessorEditor
 {
 public:
-    static constexpr int mainHeight = MeteringABPanel::mainHeight;
+    static constexpr int mainHeight = MeteringABPanel::receiveHeight;
     static constexpr int sendHeight = MeteringABPanel::sendHeight;
-    static constexpr int baseWidth  = 640;
+    static constexpr int baseWidth  = MeteringABPanel::receiveWidth;
     static constexpr float minScale = 0.75f, maxScale = 2.0f;
 
     explicit MeteringABEditor (MeteringABProcessor&);
