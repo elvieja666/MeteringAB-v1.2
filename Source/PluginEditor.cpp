@@ -481,21 +481,26 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     for (auto* b : { &showPreButton, &showPostButton })
     {
         b->setClickingTogglesState (false);
-        b->setTooltip ("Mostrar u ocultar esta onda en el osciloscopio");
+        b->setTooltip ("Clic: ver solo esta onda  ·  Cmd + clic: sumarla o sacarla (ver las dos)"_u);
         addAndMakeVisible (*b);
     }
 
-    // Con LINK prendido, tocar PRE FX o POST FX apaga LINK y deja solo esa onda.
-    showPreButton.onClick  = [this]
+    // Clic: ver solo esa onda (si estaba la otra, pasa a esta). Cmd + clic: sumarla
+    // o sacarla sin tocar la otra (para ver las dos juntas). Con LINK prendido,
+    // tocar PRE FX o POST FX apaga LINK.
+    auto waveClick = [this] (bool isPre, const juce::ModifierKeys& mods)
     {
-        if (scopeLinked) { setScopeLinked (false); setWaves (true, false); }
-        else             setWaves (! scope.getShowPre(), scope.getShowPost());
+        if (scopeLinked)
+            setScopeLinked (false);
+
+        if (mods.isCommandDown())
+            setWaves (isPre ? ! scope.getShowPre() : scope.getShowPre(),
+                      isPre ? scope.getShowPost()   : ! scope.getShowPost());
+        else
+            setWaves (isPre, ! isPre);
     };
-    showPostButton.onClick = [this]
-    {
-        if (scopeLinked) { setScopeLinked (false); setWaves (false, true); }
-        else             setWaves (scope.getShowPre(), ! scope.getShowPost());
-    };
+    showPreButton.onClick  = [this, waveClick] { waveClick (true,  showPreButton.lastClickMods); };
+    showPostButton.onClick = [this, waveClick] { waveClick (false, showPostButton.lastClickMods); };
 
     // Botón ⇄ linkeado a la escucha: hace lo mismo que el botón PRE/POST FX
     // grande (alterna lo que suena) y el osciloscopio lo sigue.

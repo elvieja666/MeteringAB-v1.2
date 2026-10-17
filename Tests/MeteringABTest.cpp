@@ -1320,6 +1320,20 @@ int main (int argc, char** argv)
         preBtn.onClick();                                  // tocar PRE FX: apaga LINK y deja solo PRE
         check (! linkBtn.getToggleState() && preBtn.getToggleState() && sc.getShowPre() && ! sc.getShowPost(),
                "Con LINK, tocar PRE FX apaga LINK y muestra solo PRE", linkBtn.getToggleState());
+
+        // Clic = solo esa onda; Cmd + clic = sumarla / sacarla.
+        auto& postBtn = panel->getShowPostButtonForTests();
+        auto clickWith = [] (ChipButton& b, juce::ModifierKeys mods) { b.lastClickMods = mods; b.onClick(); };
+        const juce::ModifierKeys cmd (juce::ModifierKeys::commandModifier);
+        clickWith (postBtn, {});
+        check (! sc.getShowPre() && sc.getShowPost(), "Con PRE, clic en POST FX: pasa a POST (solo)", 1);
+        clickWith (preBtn, cmd);
+        check (sc.getShowPre() && sc.getShowPost() && preBtn.getToggleState() && postBtn.getToggleState(),
+               "Cmd + clic en PRE FX: se ven las dos", 1);
+        clickWith (postBtn, cmd);
+        check (sc.getShowPre() && ! sc.getShowPost(), "Cmd + clic en POST FX: la saca (queda PRE)", 1);
+        clickWith (postBtn, cmd); clickWith (preBtn, {});
+        check (sc.getShowPre() && ! sc.getShowPost(), "Con las dos, clic en PRE FX: solo PRE", 1);
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;

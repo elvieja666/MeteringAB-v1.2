@@ -24,6 +24,13 @@ class ChipButton : public juce::TextButton
 public:
     using juce::TextButton::TextButton;
     std::function<void()> onRightClick;
+    juce::ModifierKeys lastClickMods;                 // teclas del último clic (Cmd + clic = sumar)
+
+    void clicked (const juce::ModifierKeys& mods) override
+    {
+        lastClickMods = mods;
+        juce::TextButton::clicked (mods);
+    }
 
     void mouseDown (const juce::MouseEvent& e) override
     {
@@ -96,6 +103,7 @@ public:
     ScopeView& getScopeForTests()             { return scope; }
     juce::TextButton& getFreezeButtonForTests() { return freezeButton; }
     ChipButton& getShowPreButtonForTests()      { return showPreButton; }
+    ChipButton& getShowPostButtonForTests()     { return showPostButton; }
     ChipButton& getLinkButtonForTests()         { return linkButton; }
     int getStyleMenuOpenedForTests() const      { return styleMenuOpenedForTests; }
     float getShownPreForTests() const             { return shownPre; }
