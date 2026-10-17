@@ -1327,8 +1327,12 @@ int main (int argc, char** argv)
         panel->applyStyleMenuResult (152);                 // Solo líneas para POST
         check (sc.getStylePost() == ScopeView::Style::lines, "Forma de POST desde su menú", 1);
 
-        // Siguiendo la escucha se enciende el botón de la onda que se ve; tocar PRE FX
-        // la elige a mano hasta el próximo cambio de escucha.
+        // Siguiendo la escucha no se enciende ningún botón; tocar PRE FX la elige a
+        // mano (y se enciende) hasta el próximo cambio de escucha.
+        setParam (r, ParamIDs::pre, 1); panel->refreshNow();
+        setParam (r, ParamIDs::pre, 0); panel->refreshNow();
+        check (panel->isScopeLinkedForTests() && ! preBtn.getToggleState() && ! panel->getShowPostButtonForTests().getToggleState(),
+               "Cambiar la escucha no enciende PRE FX / POST FX", preBtn.getToggleState());
         preBtn.lastClickMods = {};
         preBtn.onClick();
         check (! panel->isScopeLinkedForTests() && preBtn.getToggleState() && sc.getShowPre() && ! sc.getShowPost(),

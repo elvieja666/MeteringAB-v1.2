@@ -742,8 +742,9 @@ void MeteringABPanel::updateWaveButtons()
     };
 
     // Con LINK prendido solo se enciende LINK (PRE FX / POST FX quedan apagados).
-    style (showPreButton,  scope.getShowPre(),  scope.getPreColour());
-    style (showPostButton, scope.getShowPost(), scope.getPostColour());
+    // Siguiendo la escucha no se enciende ninguno: solo cuando los tocás (onda elegida a mano).
+    style (showPreButton,  ! scopeLinked && scope.getShowPre(),  scope.getPreColour());
+    style (showPostButton, ! scopeLinked && scope.getShowPost(), scope.getPostColour());
 
 }
 
