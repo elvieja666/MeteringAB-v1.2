@@ -641,13 +641,13 @@ int main (int argc, char** argv)
         a.apvts.state.setProperty ("scopeStylePost", 0, nullptr);
         {
             std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-            check (! panelOf (ed)->getScopeForTests().getLinkStyle().has_value(), "Forma con LINK: por defecto igual que PRE / POST", 1);
+            check (panelOf (ed)->getScopeForTests().getLinkStyle() == ScopeView::Style::detailed, "Siguiendo la escucha: Detallado por defecto", 1);
         }
         a.apvts.state.setProperty ("scopeStyleLink", 2, nullptr);   // de un proyecto viejo: ya no se usa
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
         const auto& sc = panelOf (ed)->getScopeForTests();
-        check (! sc.getLinkStyle().has_value() && sc.getStylePre() == ScopeView::Style::contour,
-               "Siguiendo la escucha, cada onda usa su propia forma", 1);
+        check (sc.getLinkStyle() == ScopeView::Style::detailed && sc.getStylePre() == ScopeView::Style::contour,
+               "Siguiendo la escucha: siempre Detallado; PRE / POST a mano con su forma", 1);
     }
     {
         MeteringABProcessor fresh;

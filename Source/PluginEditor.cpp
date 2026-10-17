@@ -557,8 +557,9 @@ void MeteringABPanel::applyScopeLook()
     const int legacyStyle = (int) state.getProperty ("scopeStyle", 0);
     scope.setStyles ((ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStylePre",  legacyStyle)),
                      (ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStylePost", legacyStyle)));
-    // Siguiendo la escucha, cada onda usa su propia forma (PRE o POST).
-    scope.setLinkStyle (std::nullopt);
+    // Siguiendo la escucha: siempre Detallado (picos). Las formas de PRE FX y
+    // POST FX (clic derecho en cada botón) se usan cuando elegís la onda a mano.
+    scope.setLinkStyle (ScopeView::Style::detailed);
     scope.setShowGrid ((bool) state.getProperty ("scopeGrid", true));
     scope.setChannels ((ScopeView::Channels) juce::jlimit (0, 3, (int) state.getProperty ("scopeChannels", 0)));
 
