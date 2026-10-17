@@ -1227,7 +1227,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
 {
     addAndMakeVisible (panel);
     panel.onResetSize = [this] { setUiScale (defaultScale); };
-    scale = juce::jlimit (minScale, maxScale, (float) (double) processor.apvts.state.getProperty ("uiScaleV4", (double) defaultScale));
+    scale = juce::jlimit (minScale, maxScale, (float) (double) processor.apvts.state.getProperty ("uiScaleV5", (double) defaultScale));
 
     // Esquina para arrastrar; mantiene la proporción del plugin.
     setResizable (true, true);
@@ -1273,7 +1273,7 @@ void MeteringABEditor::resized()
         // El usuario arrastró la esquina: la escala sale del ancho.
         scale = juce::jlimit (minScale, maxScale, (float) getWidth() / (float) juce::jmax (1, panel.getWidth()));
         shownScale = scale;
-        processor.apvts.state.setProperty ("uiScaleV4", scale, nullptr);
+        processor.apvts.state.setProperty ("uiScaleV5", scale, nullptr);
     }
 
     panel.setTransform (juce::AffineTransform::scale (shownScale));
@@ -1283,7 +1283,7 @@ void MeteringABEditor::resized()
 void MeteringABEditor::setUiScale (float newScale)
 {
     scale = juce::jlimit (minScale, maxScale, newScale);
-    processor.apvts.state.setProperty ("uiScaleV4", scale, nullptr);
+    processor.apvts.state.setProperty ("uiScaleV5", scale, nullptr);
     fitToPanel();
 }
 
