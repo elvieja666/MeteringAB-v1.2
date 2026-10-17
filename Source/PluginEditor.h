@@ -108,6 +108,7 @@ public:
     ChipButton& getLinkButtonForTests()         { return linkButton; }
     int getStyleMenuOpenedForTests() const      { return styleMenuOpenedForTests; }
     float getShownPreForTests() const             { return shownPre; }
+    float getShownPostForTests() const            { return shownPost; }
     bool isGainShownForTests() const              { return gainShown; }
     void clickMetersForTests()                    { resetMeters(); }
 
@@ -180,6 +181,8 @@ private:
     static constexpr int   timerHz = 30;
     static constexpr float fallDbPerSecond = 40.0f;   // en pausa, Original y Procesado caen a este ritmo...
     static constexpr float fallFloorDb = -70.0f;      // ...y por debajo de esto pasan a -∞
+    float fallStepPre = 0.0f, fallStepPost = 0.0f;    // al parar: cuánto baja cada uno por cuadro (llegan juntos)
+    bool metersFalling = false;
     bool audioWasStopped = false;
     juce::Rectangle<int> meterArea() const;
     void resetMeters();

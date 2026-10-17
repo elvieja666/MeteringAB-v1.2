@@ -867,20 +867,36 @@ void MeteringABPanel::timerCallback()
 
     audioWasStopped = audioStopped;
 
-    auto ease = [] (float& shown, float target)
+    const float targetPre  = audioStopped ? -120.0f : processor.displayPre.load();
+    const float targetPost = audioStopped ? -120.0f : processor.displayPost.load();
+    const bool stopped = targetPre <= -119.0f && targetPost <= -119.0f;   // pausa (Logic parado o sin audio)
+
+    if (stopped && ! metersFalling)
+    {
+        // Al parar, Original y Procesado bajan juntos: cada uno a su ritmo para
+        // llegar a -∞ al mismo tiempo (el más alto baja a 40 dB/s, el otro más lento).
+        const float top = juce::jmax (shownPre, shownPost);
+        const float frames = juce::jmax (1.0f, (top - fallFloorDb) / fallDbPerSecond * (float) timerHz);
+        fallStepPre  = shownPre  > fallFloorDb ? (shownPre  - fallFloorDb) / frames : 0.0f;
+        fallStepPost = shownPost > fallFloorDb ? (shownPost - fallFloorDb) / frames : 0.0f;
+    }
+
+    metersFalling = stopped;
+
+    auto ease = [stopped] (float& shown, float target, float stopStep)
     {
         if (target <= -119.0f)
         {
             // En pausa bajan de a poco hasta -∞ (como un medidor que cae), no de golpe.
-            shown -= fallDbPerSecond / (float) timerHz;
-            if (shown < fallFloorDb)
+            shown -= stopped ? stopStep : fallDbPerSecond / (float) timerHz;
+            if (shown < fallFloorDb + 0.01f)
                 shown = -120.0f;
         }
         else if (shown <= -119.0f) shown = target;             // arranca sin "subir" desde -∞
         else shown += (target - shown) * 0.35f;
     };
-    ease (shownPre,  audioStopped ? -120.0f : processor.displayPre.load());
-    ease (shownPost, audioStopped ? -120.0f : processor.displayPost.load());
+    ease (shownPre,  targetPre,  fallStepPre);
+    ease (shownPost, targetPost, fallStepPost);
 
     // La ganancia aplicada queda a la vista (también en pausa) una vez que hubo algo medido.
     gainShown = processor.gainMeasured.load();

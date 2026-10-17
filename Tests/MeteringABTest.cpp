@@ -485,6 +485,15 @@ int main (int argc, char** argv)
             e->refreshNow();
             const float firstFrame = e->getShownPreForTests();
             check (firstFrame < playing && firstFrame > playing - 5.0f, "Pausa: Original baja de a poco, no de golpe (dB)", firstFrame);
+            // Original y Procesado llegan juntos a -∞ (aunque arranquen en valores distintos).
+            int preOff = -1, postOff = -1;
+            for (int k = 0; k < 90 && (preOff < 0 || postOff < 0); ++k)
+            {
+                e->refreshNow();
+                if (preOff < 0 && e->getShownPreForTests() <= -119.0f) preOff = k;
+                if (postOff < 0 && e->getShownPostForTests() <= -119.0f) postOff = k;
+            }
+            check (preOff >= 0 && preOff == postOff, "Pausa: Original y Procesado llegan juntos a -inf (cuadros de diferencia)", postOff - preOff);
             for (int k = 0; k < 90; ++k) e->refreshNow();            // 3 segundos
             check (e->getShownPreForTests() <= -119.0f, "Pausa: al rato queda en -inf", e->getShownPreForTests());
             check (e->isGainShownForTests(), "Pausa: la ganancia aplicada queda a la vista", 1);
