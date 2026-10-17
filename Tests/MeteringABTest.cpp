@@ -1038,7 +1038,9 @@ int main (int argc, char** argv)
 
         auto valueAt = [&] (int bin) { return pts[(size_t) bin + 1].hi; };
         check (valueAt (96) < 0.05f && valueAt (103) > 0.9f, "Contorno: el golpe sube justo donde cae", valueAt (96));
-        check (valueAt (138) > 0.9f && valueAt (152) < 0.05f, "Contorno sin graves: baja enseguida al terminar el golpe", valueAt (152));
+        check (valueAt (138) > 0.85f && valueAt (165) < 0.05f, "Contorno sin graves: baja enseguida al terminar el golpe", valueAt (165));
+        check (valueAt (147) > valueAt (150) && valueAt (150) > valueAt (153) && valueAt (147) < 0.9f,
+               "Contorno: la bajada es una curva, no un escalón", valueAt (150));
 
         // Graves de 50 Hz (ciclos de 20 ms) con su "sostener" de un ciclo: el borde queda liso.
         std::vector<float> bmin ((size_t) bins), bmax ((size_t) bins);

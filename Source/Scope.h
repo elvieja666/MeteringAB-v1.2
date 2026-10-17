@@ -311,8 +311,12 @@ public:
     // golpe y se sostiene lo que diga cada columna (holdMs, lo calcula el audio
     // según el grave: 3 ms sin grave fuerte = mucha definición; un ciclo del grave
     // = sin ondas). Después baja rápido y se suaviza apenas.
-    static constexpr double envelopeReleaseMs = 3.0;
-    static constexpr double envelopeSmoothMs  = 1.5;
+    // Esquinas redondeadas ("intermedio 2"): la bajada y el suavizado crecen con
+    // lo que se sostiene (más suave con graves, más nítido con agudos).
+    static constexpr double envelopeReleaseMs     = 5.0;    // bajada mínima
+    static constexpr double envelopeReleaseFactor = 0.5;    // ...o la mitad de lo que se sostiene
+    static constexpr double envelopeSmoothMs      = 1.8;    // suavizado mínimo
+    static constexpr double envelopeSmoothFactor  = 0.1;    // ...o el 10% de lo que se sostiene
     static constexpr double envelopeSpreadMs  = 20.0;   // el "sostener" no cambia de golpe entre columnas
     static constexpr double envelopeNotchMs   = 14.0;   // pozos más angostos que esto se tapan
 
@@ -329,11 +333,11 @@ public:
             return points;
 
         const double secs = binSeconds > 0.0 ? binSeconds : 1.0e-3;
-        const double a = std::exp (-secs / (envelopeReleaseMs * 0.001));
         auto toBins = [secs] (double ms) { return juce::jmax (1, (int) std::lround (ms * 0.001 / secs)); };
 
         // 0) Cuánto sostener en cada columna: el mayor de las vecinas (±20 ms), así no salta.
         std::vector<int> holdBins ((size_t) n);
+        std::vector<float> holdSpread ((size_t) n);
         const int spread = toBins (envelopeSpreadMs);
         for (int i = 0; i < n; ++i)
         {
@@ -342,9 +346,10 @@ public:
                 for (int j = juce::jmax (0, i - spread); j <= juce::jmin (n - 1, i + spread); ++j)
                     ms = juce::jmax (ms, holdMs[from + j]);
             holdBins[(size_t) i] = toBins (ms);
+            holdSpread[(size_t) i] = ms;
         }
 
-        // 1) Sostener el pico ese tiempo y después bajar con un release de 3 ms.
+        // 1) Sostener el pico ese tiempo y después bajar (5 ms, o la mitad de lo sostenido).
         std::vector<float> up ((size_t) n), down ((size_t) n);
         float eu = 0.0f, el = 0.0f;
 
@@ -357,8 +362,10 @@ public:
                 lo = juce::jmin (lo, mins[from + j]);
             }
 
-            eu = juce::jmax (hi, (float) (eu * a));
-            el = juce::jmin (lo, (float) (el * a));
+            const double releaseMs = juce::jmax (envelopeReleaseMs, envelopeReleaseFactor * holdSpread[(size_t) i]);
+            const auto a = (float) std::exp (-secs / (releaseMs * 0.001));
+            eu = juce::jmax (hi, eu * a);
+            el = juce::jmin (lo, el * a);
             up[(size_t) i] = eu;
             down[(size_t) i] = el;
         }
@@ -394,29 +401,28 @@ public:
             }
         }
 
-        // 2) Suavizado fino (gaussiano de 1,5 ms), dentro del tramo.
-        const double sigma = juce::jmax (0.5, envelopeSmoothMs * 0.001 / secs);
-        const int radius = juce::jmin (64, (int) std::ceil (3.0 * sigma));
-        std::vector<float> kernel ((size_t) (2 * radius + 1));
-        float sum = 0.0f;
-        for (int k = -radius; k <= radius; ++k)
-            sum += kernel[(size_t) (k + radius)] = (float) std::exp (-0.5 * (k / sigma) * (k / sigma));
-        for (auto& w : kernel)
-            w /= sum;
-
+        // 2) Suavizado que se adapta: gaussiano de 1,8 ms, o el 10% de lo sostenido
+        //    (redondea las esquinas sin perder los detalles chicos).
         points.reserve ((size_t) n + 2);
         points.push_back ({ (float) from, 0.0f, 0.0f });       // punta izquierda (se completa abajo)
 
         for (int i = 0; i < n; ++i)
         {
-            float hi = 0.0f, lo = 0.0f;
+            const double smoothMs = juce::jmax (envelopeSmoothMs, envelopeSmoothFactor * holdSpread[(size_t) i]);
+            const double sigma = juce::jmax (0.5, smoothMs * 0.001 / secs);
+            const int radius = juce::jmin (96, (int) std::ceil (3.0 * sigma));
+            double hi = 0.0, lo = 0.0, sum = 0.0;
+
             for (int k = -radius; k <= radius; ++k)
             {
                 const auto j = (size_t) juce::jlimit (0, n - 1, i + k);
-                hi += kernel[(size_t) (k + radius)] * up[j];
-                lo += kernel[(size_t) (k + radius)] * down[j];
+                const double w = std::exp (-0.5 * (k / sigma) * (k / sigma));
+                hi += w * up[j];
+                lo += w * down[j];
+                sum += w;
             }
-            points.push_back ({ (float) (from + i) + 0.5f, hi, lo });
+
+            points.push_back ({ (float) (from + i) + 0.5f, (float) (hi / sum), (float) (lo / sum) });
         }
 
         // Puntas del tramo, para que cubra de borde a borde.
