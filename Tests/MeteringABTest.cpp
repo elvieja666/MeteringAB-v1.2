@@ -267,7 +267,13 @@ int main (int argc, char** argv)
         juce::MemoryBlock data;
         juce::File (argv[2]).loadFileAsData (data);
         const auto* samples = static_cast<const float*> (data.getData());
-        const int frames = (int) (data.getSize() / (2 * sizeof (float)));
+        int frames = (int) (data.getSize() / (2 * sizeof (float)));
+
+        // Opcional: <procesado.raw> = lo que sale de los FX (si no, el mismo audio).
+        juce::MemoryBlock processedData;
+        if (argc > 3) juce::File (argv[3]).loadFileAsData (processedData);
+        const auto* processed = argc > 3 ? static_cast<const float*> (processedData.getData()) : samples;
+        if (argc > 3) frames = juce::jmin (frames, (int) (processedData.getSize() / (2 * sizeof (float))));
 
         struct Head70 : juce::AudioPlayHead
         {
@@ -304,7 +310,13 @@ int main (int argc, char** argv)
                     b.setSample (1, i, samples[2 * (start + i) + 1]);
                 }
                 head.ppq = start * (70.0 / 60.0) / 48000.0;
-                send.processBlock (b, m); recv.processBlock (b, m);
+                send.processBlock (b, m);
+                for (int i = 0; i < 512; ++i)
+                {
+                    b.setSample (0, i, processed[2 * (start + i)]);
+                    b.setSample (1, i, processed[2 * (start + i) + 1]);
+                }
+                recv.processBlock (b, m);
             }
 
             std::unique_ptr<juce::AudioProcessorEditor> ed (recv.createEditor());
@@ -1116,6 +1128,18 @@ int main (int argc, char** argv)
             if (b < 600 || b >= 1000) notes[(size_t) b] = 0.5f;
         const auto gap = env (notes, zero, zero, zero);
         check (valueAt (gap, 800) < 0.01f && valueAt (gap, 500) > 0.48f, "Grave: no une notas separadas por silencio", valueAt (gap, 800));
+
+        // Audio limitado / clipeado: graves + agudos sumados no pasan el pico real.
+        {
+            V cmin ((size_t) bins, -0.5f), cmax ((size_t) bins, 0.5f);        // todo topea en 0.5
+            V cpos ((size_t) bins, 0.0f), cneg ((size_t) bins, 0.0f), chmin ((size_t) bins, -0.3f), chmax ((size_t) bins, 0.3f);
+            for (int b = 0; b < bins; b += 20) { cpos[(size_t) b] = 0.45f; if (b + 10 < bins) cneg[(size_t) (b + 10)] = -0.45f; }
+            const auto clipped = ScopeView::smoothEnvelope ({ cpos.data(), cneg.data(), chmin.data(), chmax.data(), cmin.data(), cmax.data() },
+                                                            0, bins, binSec);
+            float top = 0.0f, bottom = 0.0f;
+            for (int i = 100; i < 1900; ++i) { top = juce::jmax (top, clipped[(size_t) i].hi); bottom = juce::jmin (bottom, clipped[(size_t) i].lo); }
+            check (top <= 0.501f && bottom >= -0.501f && top > 0.49f, "Audio clipeado: el borde no pasa el pico real (queda plano)", top);
+        }
 
         // Grave + agudos: los agudos van encima del grave.
         const auto both = env (pos, neg, hmin, hmax);

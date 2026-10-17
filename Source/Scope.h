@@ -1,6 +1,7 @@
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <optional>
+#include <deque>
 #include "PluginProcessor.h"
 #include "Text.h"
 #include "Theme.h"
@@ -511,7 +512,11 @@ public:
     static constexpr double smoothMs    = 2.5;     // suavizado final
 
     // Lo que guarda el audio de cada onda, columna por columna.
-    struct EnvelopeData { const float* lowPos; const float* lowNeg; const float* hiMin; const float* hiMax; };
+    // mins / maxs: los picos reales de la onda entera; el borde nunca los pasa
+    // (nullptr = sin ese tope).
+    struct EnvelopeData { const float* lowPos; const float* lowNeg; const float* hiMin; const float* hiMax;
+                          const float* mins = nullptr; const float* maxs = nullptr; };
+    static constexpr double peakCeilingMs = 35.0;  // el tope: el pico real más alto a ±35 ms
 
     // Un punto por columna del osciloscopio (centro en bins) con su pico de arriba y de abajo.
     struct EnvelopePoint { float bin, hi, lo; };
@@ -663,6 +668,42 @@ public:
             down[(size_t) i] = -lowDown[(size_t) i] + lo;
         }
 
+        // --- Tope: graves + agudos sumados pueden pasar el pico real (sobre todo
+        //     con audio limitado o clipeado, que tiene muchos agudos). El borde
+        //     nunca pasa el pico real más alto de alrededor (±35 ms, más de medio
+        //     ciclo del grave, así el tope no dibuja los ciclos).
+        if (d.mins != nullptr && d.maxs != nullptr)
+        {
+            const int r = juce::jmax (1, toBins (peakCeilingMs));
+            auto slidingExtreme = [n, r] (const float* v, bool wantMax)
+            {
+                std::vector<float> out ((size_t) n);
+                std::deque<int> q;                        // índices con valores monótonos
+                auto better = [wantMax] (float a, float b) { return wantMax ? a >= b : a <= b; };
+                int next = 0;
+                for (int i = 0; i < n; ++i)
+                {
+                    for (; next < juce::jmin (n, i + r + 1); ++next)
+                    {
+                        while (! q.empty() && better (v[next], v[q.back()]))
+                            q.pop_back();
+                        q.push_back (next);
+                    }
+                    while (q.front() < i - r)
+                        q.pop_front();
+                    out[(size_t) i] = v[q.front()];
+                }
+                return out;
+            };
+            const auto ceilUp = slidingExtreme (d.maxs + from, true);
+            const auto ceilDown = slidingExtreme (d.mins + from, false);
+            for (int i = 0; i < n; ++i)
+            {
+                up[(size_t) i]   = juce::jmin (up[(size_t) i],   juce::jmax (0.0f, ceilUp[(size_t) i]));
+                down[(size_t) i] = juce::jmax (down[(size_t) i], juce::jmin (0.0f, ceilDown[(size_t) i]));
+            }
+        }
+
         // --- Suavizado final (gaussiano de 2,5 ms).
         points.reserve ((size_t) n + 2);
         points.push_back ({ (float) from, 0.0f, 0.0f });       // punta izquierda (se completa abajo)
@@ -722,7 +763,8 @@ private:
             while (end < bins && mask.includes (end))
                 ++end;
 
-            const auto points = smoothEnvelope ({ t.lowPos.data(), t.lowNeg.data(), t.hiMin.data(), t.hiMax.data() }, b, end, binSeconds);
+            const auto points = smoothEnvelope ({ t.lowPos.data(), t.lowNeg.data(), t.hiMin.data(), t.hiMax.data(), t.min.data(), t.max.data() },
+                                               b, end, binSeconds);
             juce::Path top, bottom;
 
             for (size_t i = 0; i < points.size(); ++i)
