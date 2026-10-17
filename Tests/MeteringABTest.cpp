@@ -331,12 +331,12 @@ int main (int argc, char** argv)
             auto& sc = panelOf (ed)->getScopeForTests();
             panelOf (ed)->getFreezeButtonForTests().onClick();
             const char* base[] = { "/audio-contorno", "/audio-lineas", "/audio-detallado" };
-            const double zooms[][2] = { { 0.36, 0.125 }, { 0.392, 0.025 } };
-            for (int z = 0; z < 2; ++z)
+            const double zooms[][2] = { { 0.36, 0.125 }, { 0.392, 0.025 }, { 0.3995, 0.0 } };   // x8, x40 y el máximo
+            for (int z = 0; z < 3; ++z)
             {
                 sc.setView (zooms[z][0], zooms[z][1]);
                 auto zimg = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
-                juce::File zf (juce::String (argv[1]) + base[style] + (z == 0 ? "-zoom8.png" : "-zoom40.png"));
+                juce::File zf (juce::String (argv[1]) + base[style] + (z == 0 ? "-zoom8.png" : z == 1 ? "-zoom40.png" : "-zoommax.png"));
                 zf.deleteFile(); juce::FileOutputStream zos (zf); juce::PNGImageFormat().writeImageToStream (zimg, zos);
             }
             if (style == 0)                             // la interfaz entera, con Freeze y zoom

@@ -164,7 +164,7 @@ public:
         // Con zoom: ¿cuánto detalle hay? (casilleros visibles por píxel)
         const double visibleSlots = viewSpan * rawSlots;
         const bool rawUseful = isZoomed() && rawLoaded && visibleSlots <= 256.0 * plot.getWidth();
-        const bool waveForEnvelope = rawUseful && viewSpan * MeteringABProcessor::scopeBins <= plot.getWidth() / 6.0f;
+        const bool fineEnvelope = rawUseful && viewSpan * MeteringABProcessor::scopeBins <= plot.getWidth() / 2.0f;
 
         for (int lane = 0; lane < lanes; ++lane)
         {
@@ -188,9 +188,15 @@ public:
                 const auto& t = traces[(size_t) index];
                 const auto& raw = rawCopy[(size_t) traceSource[(size_t) index]];
 
-                if (rawUseful && (style == Style::detailed || waveForEnvelope))
+                if (rawUseful && style == Style::detailed)
                 {
                     drawWave (g, area, raw, rawSlots, view, yFor, colour, mask);
+                    return;
+                }
+
+                if (fineEnvelope && style != Style::detailed)   // Contorno / Solo líneas con mucho zoom
+                {
+                    drawFineEnvelope (g, area, traceSource[(size_t) index], view, yFor, colour, style == Style::contour, mask);
                     return;
                 }
 
@@ -268,7 +274,7 @@ public:
                                          .withWidth (juce::jmax (4.0f, (float) viewSpan * track.getWidth())), 1.5f);
 
             const double factor = 1.0 / viewSpan;
-            const auto text = "Zoom x" + juce::String (factor, factor < 10.0 ? 1 : 0) + juce::String::fromUTF8 ("  \xc2\xb7  doble clic: ver todo");
+            const auto text = "Zoom x" + (factor < 10.0 ? juce::String (factor, 1) : juce::String (juce::roundToInt (factor))) + juce::String::fromUTF8 ("  \xc2\xb7  doble clic: ver todo");
             g.setColour (juce::Colour (0xffe8e6e3).withAlpha (0.75f));
             g.drawText (text, juce::Rectangle<float> (plot.getX() + 8.0f, plot.getBottom() - 22.0f, 260.0f, 14.0f).toNearestInt(),
                         juce::Justification::centredLeft);
@@ -332,8 +338,11 @@ private:
         const double visibleSlots = viewSpan * rawSlots;
         if (isZoomed() && visibleSlots <= 256.0 * juce::jmax (1.0f, plotArea().getWidth()))
         {
-            const int from = juce::jmax (0, (int) std::floor (viewStart * rawSlots) - 2);
-            const int to   = juce::jmin (rawSlots, (int) std::ceil ((viewStart + viewSpan) * rawSlots) + 2);
+            // Con margen: el borde fino necesita el contexto de alrededor.
+            const double loopSecs = juce::jmax (1.0e-3, binSeconds() * MeteringABProcessor::scopeBins);
+            const int margin = (int) std::ceil ((fineMarginMs + fineWarmupMs) * 0.001 / loopSecs * rawSlots) + 2;
+            const int from = juce::jmax (0, (int) std::floor (viewStart * rawSlots) - margin);
+            const int to   = juce::jmin (rawSlots, (int) std::ceil ((viewStart + viewSpan) * rawSlots) + margin);
             for (int t = 0; t < used; ++t)
                 copyRaw (sources[t], from, to);
             rawLoaded = true;
@@ -751,20 +760,30 @@ private:
                               juce::Colour colour, bool filled, Mask mask, double binSeconds)
     {
         const int bins = MeteringABProcessor::scopeBins;
+        drawEnvelopeOf (g, { t.lowPos.data(), t.lowNeg.data(), t.hiMin.data(), t.hiMax.data(), t.min.data(), t.max.data() }, bins,
+                        [&] (int b) { return mask.includes (b); },
+                        [&] (float b) { return view.x ((double) b / (double) bins); },
+                        yFor, colour, filled, binSeconds);
+    }
+
+    // Dibuja el borde a partir de cualquier grilla de columnas (la normal de 2048,
+    // o una más fina cuando hay mucho zoom). Cada tramo incluido se dibuja aparte.
+    template <typename IncludeFunc, typename XFunc, typename YFunc>
+    static void drawEnvelopeOf (juce::Graphics& g, EnvelopeData d, int bins, IncludeFunc include, XFunc xFor, YFunc yFor,
+                                juce::Colour colour, bool filled, double binSeconds)
+    {
         juce::Path fill, lines;
-        auto xFor = [&] (float b) { return view.x ((double) b / (double) bins); };
 
         int b = 0;
         while (b < bins)
         {
-            if (! mask.includes (b)) { ++b; continue; }
+            if (! include (b)) { ++b; continue; }
 
             int end = b;                                   // tramo [b, end)
-            while (end < bins && mask.includes (end))
+            while (end < bins && include (end))
                 ++end;
 
-            const auto points = smoothEnvelope ({ t.lowPos.data(), t.lowNeg.data(), t.hiMin.data(), t.hiMax.data(), t.min.data(), t.max.data() },
-                                               b, end, binSeconds);
+            const auto points = smoothEnvelope (d, b, end, binSeconds);
             juce::Path top, bottom;
 
             for (size_t i = 0; i < points.size(); ++i)
@@ -798,6 +817,85 @@ private:
 
         g.setColour (colour);
         g.strokePath (lines, juce::PathStrokeType (1.5f));
+    }
+
+    // Con mucho zoom: el mismo borde (Contorno / Solo líneas), recalculado desde
+    // la onda muestra a muestra con columnas más finas (hasta 0,25 ms), así el
+    // estilo elegido se mantiene en cualquier zoom sin verse escalonado.
+    static constexpr double fineMarginMs = 150.0;      // contexto a cada lado (picos del grave vecinos)
+    static constexpr double fineWarmupMs = 100.0;      // para que los filtros arranquen asentados
+    static constexpr double fineMinBinMs = 0.25;
+
+    template <typename YFunc>
+    void drawFineEnvelope (juce::Graphics& g, juce::Rectangle<float> plot, int source, View view, YFunc yFor,
+                           juce::Colour colour, bool filled, Mask mask) const
+    {
+        const auto& raw = rawCopy[(size_t) source];
+        if ((int) raw.size() < rawSlots)
+            return;
+
+        const double loopSecs = juce::jmax (1.0e-3, binSeconds() * MeteringABProcessor::scopeBins);
+        const double slotRate = rawSlots / loopSecs;
+        const double fineSec = std::max ({ view.span * loopSecs / juce::jmax (1.0, (double) plot.getWidth()), fineMinBinMs * 0.001, 1.0 / slotRate });
+        const double fStart = juce::jmax (0.0, view.start - fineMarginMs * 0.001 / loopSecs);
+        const double fEnd   = juce::jmin (1.0, view.start + view.span + fineMarginMs * 0.001 / loopSecs);
+        const int n = juce::jlimit (1, 16384, (int) std::ceil ((fEnd - fStart) * loopSecs / fineSec));
+
+        std::vector<float> lowPos ((size_t) n, 0.0f), lowNeg ((size_t) n, 0.0f), hiMin ((size_t) n, 0.0f), hiMax ((size_t) n, 0.0f),
+                           mins ((size_t) n, 0.0f), maxs ((size_t) n, 0.0f);
+        std::vector<std::uint8_t> touched ((size_t) n, 0);
+
+        auto fineOf = [&] (int slot) { return (int) std::floor ((((double) slot + 0.5) / rawSlots - fStart) * loopSecs / fineSec); };
+        auto putPeak = [&] (int fb, float peak)
+        {
+            if (fb < 0 || fb >= n) return;
+            if (peak > 0.0f) lowPos[(size_t) fb] = juce::jmax (lowPos[(size_t) fb], peak);
+            else if (peak < 0.0f) lowNeg[(size_t) fb] = juce::jmin (lowNeg[(size_t) fb], peak);
+        };
+
+        ScopeBands bands;
+        bands.prepare (slotRate);
+        const int first = juce::jmax (0, (int) std::floor ((fStart - fineWarmupMs * 0.001 / loopSecs) * rawSlots));
+        const int last  = juce::jmin (rawSlots, (int) std::ceil (fEnd * rawSlots));
+
+        for (int i = first; i < last; ++i)
+        {
+            const float lo = MeteringABProcessor::rawLo (raw[(size_t) i]), hi = MeteringABProcessor::rawHi (raw[(size_t) i]);
+            const float v = 0.5f * (lo + hi);
+            const int fb = fineOf (i);
+            const bool inside = fb >= 0 && fb < n;
+            const auto r = bands.process (v, inside ? fb : -1);
+
+            if (inside)
+            {
+                const auto k = (size_t) fb;
+                if (! touched[k])
+                {
+                    touched[k] = 1;
+                    mins[k] = lo; maxs[k] = hi; hiMin[k] = r.high; hiMax[k] = r.high;
+                }
+                else
+                {
+                    mins[k] = juce::jmin (mins[k], lo); maxs[k] = juce::jmax (maxs[k], hi);
+                    hiMin[k] = juce::jmin (hiMin[k], r.high); hiMax[k] = juce::jmax (hiMax[k], r.high);
+                }
+            }
+
+            if (r.peakDone)
+                putPeak (r.peakBin, r.peak);
+        }
+
+        putPeak (bands.pendingBin(), bands.pendingPeak());   // el medio ciclo que quedó abierto
+
+        const double startBinsFrac = fStart;
+        drawEnvelopeOf (g, { lowPos.data(), lowNeg.data(), hiMin.data(), hiMax.data(), mins.data(), maxs.data() }, n,
+                        [&] (int fb)
+                        {
+                            const double f = startBinsFrac + ((double) fb + 0.5) * fineSec / loopSecs;
+                            return mask.includes (juce::jlimit (0, MeteringABProcessor::scopeBins - 1, (int) (f * MeteringABProcessor::scopeBins)));
+                        },
+                        [&] (float fb) { return view.x (startBinsFrac + (double) fb * fineSec / loopSecs); },
+                        yFor, colour, filled, fineSec);
     }
 
     // Detallado: cada medio píxel muestra el pico real (sin suavizar, se ven
