@@ -50,7 +50,7 @@ public:
 };
 
 // Estilo de los controles. Cada botón dice qué tipo es con la propiedad "kind":
-//   raised  = en relieve sobre el gris (Medir, Ø, el botón grande)
+//   raised  = en relieve sobre el gris (Medir, el botón grande)
 //   segment = mitad de ms | Sync (la elegida queda en relieve)
 //   chip    = pastilla oscura del osciloscopio (color en "chipColour")
 //   plain   = solo texto (▸ Osciloscopio)
@@ -120,7 +120,6 @@ private:
     PreciseSlider linkSlider, windowSlider, windowSyncSlider;
     juce::Label linkLabel, windowLabel, latencyLabel;
     juce::TextButton abButton, measureButton;
-    juce::TextButton polarityButton { juce::String::fromUTF8 ("\xc3\x98") };   // "Ø": polaridad invertida
     juce::Label listenLabel, latencyInfoLabel, matchInfoLabel;
     juce::Label latencyMsLabel;                       // "= 1,33 ms" debajo del valor medido
     juce::TextButton syncButtons[2];                  // [0] = ms, [1] = Sync
@@ -161,7 +160,6 @@ private:
 
     std::unique_ptr<ComboAttachment>  modeAtt;
     std::unique_ptr<SliderAttachment> linkAtt, windowAtt, windowSyncAtt;
-    std::unique_ptr<ButtonAttachment> polarityAtt;
 
     float shownPre = -120.0f, shownPost = -120.0f, shownGain = 0.0f;
     bool gainShown = false;                           // false: ganancia "—" (todavía no se midió nada)

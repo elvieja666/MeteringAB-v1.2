@@ -15,7 +15,6 @@ namespace ParamIDs
     inline constexpr auto sync       = "sync";       // ventana: ms (off) / Sync (on)
     inline constexpr auto windowSync = "windowSync"; // ventana en compases
     inline constexpr auto latency  = "latency";   // compensación (muestras, con decimales)
-    inline constexpr auto polarity = "polarity";  // compensar polaridad invertida
     inline constexpr auto hold     = "hold";      // congelar el auto gain
 }
 
@@ -174,7 +173,6 @@ private:
     std::atomic<float>* pSync       = nullptr;
     std::atomic<float>* pWindowSync = nullptr;
     std::atomic<float>* pLatency = nullptr;
-    std::atomic<float>* pPolarity = nullptr;
 
     LoudnessMeter preMeter, postMeter;
     juce::AudioBuffer<float> dryBuffer;               // original alineado (muestras enteras, para PRE FX)

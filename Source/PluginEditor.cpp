@@ -431,12 +431,6 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     measureButton.onClick = [this] { processor.startLatencyMeasurement(); };
     addAndMakeVisible (measureButton);
 
-    // Ø: compensar un plugin que invierte la polaridad (lo pone solo "Medir").
-    polarityButton.setClickingTogglesState (true);
-    polarityButton.setTooltip ("Polaridad invertida");
-    polarityButton.setColour (juce::TextButton::buttonOnColourId, Colours::accent);
-    addAndMakeVisible (polarityButton);
-    polarityAtt = std::make_unique<ButtonAttachment> (apvts, ParamIDs::polarity, polarityButton);
 
     latencyInfoLabel.setJustificationType (juce::Justification::centred);
     latencyInfoLabel.setFont (Theme::font (11.0f, 400));
@@ -839,7 +833,7 @@ void MeteringABPanel::timerCallback()
         isSendMode = sendMode;
 
         for (juce::Component* c : std::initializer_list<juce::Component*> {
-                 &windowSlider, &windowLabel, &latencyLabel, &polarityButton, &latencyMsLabel,
+                 &windowSlider, &windowLabel, &latencyLabel, &latencyMsLabel,
                  &abButton, &listenLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel,
 
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
@@ -883,8 +877,6 @@ void MeteringABPanel::timerCallback()
         const bool whole = std::abs (latency - std::round (latency)) < 0.005;
         const auto samplesText = (whole ? juce::String (juce::roundToInt (latency)) : juce::String (latency, 2)).replaceCharacter ('.', ',');
         const auto msText = juce::String (latency * 1000.0 / juce::jmax (1.0, processor.getCurrentSampleRate()), 2).replaceCharacter ('.', ',') + " ms";
-        const bool inverted = processor.apvts.getRawParameterValue (ParamIDs::polarity)->load() > 0.5f;
-        const auto polarityText = inverted ? "  ·  "_u + juce::String::fromUTF8 ("\xc3\x98") + " invertida" : juce::String();
         juce::String text;
         juce::Colour colour = Colours::dim;
 
@@ -899,16 +891,14 @@ void MeteringABPanel::timerCallback()
                 colour = Colours::accent;
                 break;
             case State::done:
-                text = juce::String::fromUTF8 ("\xe2\x9c\x93") + " Medido" + polarityText;
+                text = juce::String::fromUTF8 ("\xe2\x9c\x93") + " Medido";
                 colour = Colours::good;
                 break;
             case State::noSignal: text = "No llega audio: dale play";          colour = Colours::bad; break;
             case State::unclear:  text = "Sin coincidencia clara";              colour = Colours::bad; break;
             case State::noSend:   text = "No hay Send conectado";               colour = Colours::bad; break;
             case State::idle:
-                if (inverted)
-                    text = juce::String::fromUTF8 ("\xc3\x98") + " invertida";
-                else if (latency < 0.005)
+                if (latency < 0.005)
                     text = "Dale play y tocá Medir"_u;
                 break;
         }
@@ -1139,17 +1129,14 @@ void MeteringABPanel::resized()
         windowSyncSlider.setBounds (k.withSizeKeepingCentre (200, k.getHeight()));
     }
 
-    // Latencia: título, valor medido, Medir + Ø y estado.
+    // Latencia: título, valor medido, Medir y estado.
     {
         auto k = right;
         latencyLabel.setBounds (k.removeFromTop (22));
         latencyNumberArea = k.removeFromTop (30);
         latencyMsLabel.setBounds (k.removeFromTop (16));
         k.removeFromTop (6);
-        auto buttons = k.removeFromTop (40).withSizeKeepingCentre (186, 40);
-        measureButton.setBounds (buttons.removeFromLeft (136));
-        buttons.removeFromLeft (4);
-        polarityButton.setBounds (buttons);
+        measureButton.setBounds (k.removeFromTop (40).withSizeKeepingCentre (160, 40));
         k.removeFromTop (2);
         latencyInfoLabel.setBounds (k.removeFromTop (16));
     }

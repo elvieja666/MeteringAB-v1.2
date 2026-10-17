@@ -63,7 +63,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout MeteringABProcessor::createL
                                                                return t.retainCharacters (".,0123456789").replaceCharacter (',', '.').getFloatValue();
                                                            })));
 
-    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::polarity, 1 }, "Polaridad invertida", false));
 
 
     return layout;
@@ -82,7 +81,6 @@ MeteringABProcessor::MeteringABProcessor()
     pSync       = apvts.getRawParameterValue (ParamIDs::sync);
     pWindowSync = apvts.getRawParameterValue (ParamIDs::windowSync);
     pLatency = apvts.getRawParameterValue (ParamIDs::latency);
-    pPolarity = apvts.getRawParameterValue (ParamIDs::polarity);
 
     syncStateHandled = pSync->load() > 0.5f;
     apvts.addParameterListener (ParamIDs::sync, this);
@@ -224,7 +222,6 @@ void MeteringABProcessor::handleAsyncUpdate()
             };
 
             setPlainNow (ParamIDs::latency, (float) latencyMeasurer.getResult());
-            setPlainNow (ParamIDs::polarity, latencyMeasurer.isInverted() ? 1.0f : 0.0f);
         }
     }
 

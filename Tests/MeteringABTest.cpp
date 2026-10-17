@@ -252,7 +252,7 @@ static Result runMeasureCase (int link, std::unique_ptr<Fx> fx)
     for (int b = 0; b < 300; ++b) block();
     recv.processPendingConversion();
     const double measured = recv.apvts.getRawParameterValue (ParamIDs::latency)->load();
-    const bool inv = recv.apvts.getRawParameterValue (ParamIDs::polarity)->load() > 0.5f;
+    const bool inv = recv.latencyMeasurer.isInverted();
     return { measured, inv };
 }
 
@@ -362,7 +362,6 @@ int main (int argc, char** argv)
                 chain->recv.apvts.state.setProperty ("scopeOpen", shot != 3, nullptr);   // capturas con el osciloscopio abierto (salvo la 3)   // FX con 64 muestras de latencia
                 setParam (chain->recv, ParamIDs::latency, 64.0f);
                 chain->recv.latencyMeasurer.setState (LatencyMeasurer::State::done);
-                if (shot == 1) setParam (chain->recv, ParamIDs::polarity, 1);   // para ver "Ø invertida" en la captura
                 chain->saturate = true; chain->pulsing = true;
                 a = &chain->recv;
                 a->apvts.state.setProperty ("scopeLength", shot == 2 ? 3 : 2, nullptr);   // 1 bar / 2 bars
@@ -502,7 +501,8 @@ int main (int argc, char** argv)
         Chain c (2, 4.5f, 0);
         c.run (12.0);
         check (std::abs (c.recv.displayGain.load() + 4.5f) < 0.1f, "Auto (LUFS): FX +4.5 dB -> ganancia ~ -4.5 dB", c.recv.displayGain.load());
-        check (c.recv.apvts.getParameter ("measure") == nullptr && c.recv.apvts.getParameter ("hold") == nullptr,
+        check (c.recv.apvts.getParameter ("measure") == nullptr && c.recv.apvts.getParameter ("hold") == nullptr
+               && c.recv.apvts.getParameter ("polarity") == nullptr,
                "Sin selector RMS/LUFS ni Congelar (siempre LUFS)", 1);
     }
     {
@@ -664,12 +664,11 @@ int main (int argc, char** argv)
     {
         // Guardar/recuperar estado (como cuando abrís el proyecto de Logic).
         MeteringABProcessor a, b2;
-        setParam (a, ParamIDs::latency, 128.37f); setParam (a, ParamIDs::polarity, 1);
+        setParam (a, ParamIDs::latency, 128.37f);
         juce::MemoryBlock mb; a.getStateInformation (mb);
         b2.setStateInformation (mb.getData(), (int) mb.getSize());
-        check (std::abs (b2.apvts.getRawParameterValue (ParamIDs::latency)->load() - 128.37f) < 0.006f
-                   && b2.apvts.getRawParameterValue (ParamIDs::polarity)->load() > 0.5f,
-               "Estado guardado y recuperado (latencia 128.37 y polaridad)", b2.apvts.getRawParameterValue (ParamIDs::latency)->load());
+        check (std::abs (b2.apvts.getRawParameterValue (ParamIDs::latency)->load() - 128.37f) < 0.006f,
+               "Estado guardado y recuperado (latencia 128.37)", b2.apvts.getRawParameterValue (ParamIDs::latency)->load());
     }
     {
         // El editor se puede crear y destruir sin problemas (Receive, osciloscopio abierto).
