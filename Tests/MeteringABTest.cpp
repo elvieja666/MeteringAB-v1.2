@@ -615,14 +615,14 @@ int main (int argc, char** argv)
         const bool onlyPost = ! (bool) a.apvts.state.getProperty ("scopeShowPre", true) && (bool) a.apvts.state.getProperty ("scopeShowPost", false);
         check (bothAtStart && onlyPre && onlyPost, "LINK prendido: el osciloscopio sigue a la escucha", 1);
 
-        // LINK apagado: alternar la escucha no cambia lo que se ve.
+        // Sin botón LINK: aunque un proyecto viejo lo tenga apagado, siempre sigue a la escucha.
         MeteringABProcessor c; setParam (c, ParamIDs::mode, 1); setParam (c, ParamIDs::pre, 0);
         c.apvts.state.setProperty ("scopeLink", false, nullptr);
         std::unique_ptr<juce::AudioProcessorEditor> ed2 (c.createEditor());
         auto* e2 = panelOf (ed2);
-        e2->refreshNow(); setParam (c, ParamIDs::pre, 1); e2->refreshNow(); setParam (c, ParamIDs::pre, 0); e2->refreshNow();
-        const bool unchanged = (bool) c.apvts.state.getProperty ("scopeShowPre", true) && (bool) c.apvts.state.getProperty ("scopeShowPost", true);
-        check (unchanged, "LINK apagado: alternar la escucha no cambia el osciloscopio", 1);
+        e2->refreshNow(); setParam (c, ParamIDs::pre, 1); e2->refreshNow();
+        const bool followsPre = (bool) c.apvts.state.getProperty ("scopeShowPre", false) && ! (bool) c.apvts.state.getProperty ("scopeShowPost", true);
+        check (e2->isScopeLinkedForTests() && followsPre, "Siempre sigue a la escucha (aunque el proyecto tuviera LINK apagado)", 1);
     }
     {
         // Forma separada para PRE y POST; un proyecto viejo con una sola forma la usa para las dos.
@@ -635,7 +635,7 @@ int main (int argc, char** argv)
                "Forma separada: PRE Detallado (de antes) y POST Solo líneas", 1);
     }
     {
-        // Forma con LINK: por defecto igual que PRE / POST; se puede elegir aparte y se guarda.
+        // Ya no hay forma aparte para LINK: cada onda usa la suya.
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         a.apvts.state.setProperty ("scopeStylePre", 0, nullptr);
         a.apvts.state.setProperty ("scopeStylePost", 0, nullptr);
@@ -643,11 +643,11 @@ int main (int argc, char** argv)
             std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
             check (! panelOf (ed)->getScopeForTests().getLinkStyle().has_value(), "Forma con LINK: por defecto igual que PRE / POST", 1);
         }
-        a.apvts.state.setProperty ("scopeStyleLink", 2, nullptr);
+        a.apvts.state.setProperty ("scopeStyleLink", 2, nullptr);   // de un proyecto viejo: ya no se usa
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
         const auto& sc = panelOf (ed)->getScopeForTests();
-        check (sc.getLinkStyle() == ScopeView::Style::lines && sc.getStylePre() == ScopeView::Style::contour,
-               "Forma con LINK aparte (Solo líneas) sin tocar PRE / POST (Contorno)", 1);
+        check (! sc.getLinkStyle().has_value() && sc.getStylePre() == ScopeView::Style::contour,
+               "Siguiendo la escucha, cada onda usa su propia forma", 1);
     }
     {
         MeteringABProcessor fresh;
@@ -1278,9 +1278,7 @@ int main (int argc, char** argv)
         preBtn.mouseUp (rightClick (preBtn));
         check (panel->getStyleMenuOpenedForTests() == 1 && sc.getShowPre() == wasShown,
                "Clic derecho en PRE FX: abre el menú de estilo (y no oculta la onda)", panel->getStyleMenuOpenedForTests());
-        auto& linkBtn = panel->getLinkButtonForTests();
-        linkBtn.mouseDown (rightClick (linkBtn));
-        check (panel->getStyleMenuOpenedForTests() == 2, "Clic derecho en LINK: también abre el menú", panel->getStyleMenuOpenedForTests());
+        check (panel->findChildWithID ("link") == nullptr, "Ya no hay botón LINK", 1);
         bool noStyleButton = true;
         for (auto* child : panel->getChildren())
             if (auto* b = dynamic_cast<juce::Button*> (child))
@@ -1305,13 +1303,11 @@ int main (int argc, char** argv)
         };
         auto any = [] (const std::set<int>& v, int lo, int hi) { for (int i : v) if (i >= lo && i < hi) return true; return false; };
         const auto mPre = ids (MeteringABPanel::StyleMenuFor::pre), mPost = ids (MeteringABPanel::StyleMenuFor::post),
-                   mLink = ids (MeteringABPanel::StyleMenuFor::link);
+                   mLink = std::set<int> { 400, 500 };
         check (any (mPre, 100, 150) && any (mPre, 700, 750) && ! any (mPre, 150, 200) && ! any (mPre, 600, 700) && ! any (mPre, 750, 800),
                "Menú de PRE FX: solo forma y color de PRE", (double) mPre.size());
         check (any (mPost, 150, 200) && any (mPost, 750, 800) && ! any (mPost, 100, 150) && ! any (mPost, 600, 700) && ! any (mPost, 700, 750),
                "Menú de POST FX: solo forma y color de POST", (double) mPost.size());
-        check (any (mLink, 600, 700) && ! any (mLink, 100, 200) && ! any (mLink, 700, 800),
-               "Menú de LINK: solo la forma con LINK", (double) mLink.size());
         check (mPre.count (400) && mPost.count (400) && mLink.count (400) && mLink.count (500), "Canales y grilla en los tres menús", 1);
 
         // Elegir un color de PRE no cambia el de POST.
@@ -1322,15 +1318,12 @@ int main (int argc, char** argv)
         panel->applyStyleMenuResult (152);                 // Solo líneas para POST
         check (sc.getStylePost() == ScopeView::Style::lines, "Forma de POST desde su menú", 1);
 
-        // LINK prendido: solo LINK encendido; PRE FX / POST FX apagados aunque se vea una onda.
-        if (linkBtn.getToggleState())
-            linkBtn.onClick();                             // apagar y volver a prender: sigue a la escucha
-        linkBtn.onClick();
-        check (linkBtn.getToggleState() && ! preBtn.getToggleState() && (sc.getShowPre() != sc.getShowPost()),
-               "LINK prendido: solo LINK encendido (PRE/POST FX apagados)", linkBtn.getToggleState() * 100 + preBtn.getToggleState() * 10 + (sc.getShowPre() != sc.getShowPost()));
-        preBtn.onClick();                                  // tocar PRE FX: apaga LINK y deja solo PRE
-        check (! linkBtn.getToggleState() && preBtn.getToggleState() && sc.getShowPre() && ! sc.getShowPost(),
-               "Con LINK, tocar PRE FX apaga LINK y muestra solo PRE", linkBtn.getToggleState());
+        // Siguiendo la escucha se enciende el botón de la onda que se ve; tocar PRE FX
+        // la elige a mano hasta el próximo cambio de escucha.
+        preBtn.lastClickMods = {};
+        preBtn.onClick();
+        check (! panel->isScopeLinkedForTests() && preBtn.getToggleState() && sc.getShowPre() && ! sc.getShowPost(),
+               "Tocar PRE FX: solo PRE (elegido a mano)", 1);
 
         // Clic = solo esa onda; Cmd + clic = sumarla / sacarla.
         auto& postBtn = panel->getShowPostButtonForTests();

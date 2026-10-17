@@ -60,7 +60,6 @@ public:
 //   raised  = en relieve sobre el gris (Medir, el botón grande)
 //   segment = mitad de ms | Sync (la elegida queda en relieve)
 //   chip    = pastilla oscura del osciloscopio (color en "chipColour")
-//   lightchip = pastilla sobre el gris (Oscilloscope Link; color en "chipColour")
 //   plain   = solo texto (▸ Osciloscopio)
 class MeteringABLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -108,7 +107,7 @@ public:
     juce::TextButton& getFreezeButtonForTests() { return freezeButton; }
     ChipButton& getShowPreButtonForTests()      { return showPreButton; }
     ChipButton& getShowPostButtonForTests()     { return showPostButton; }
-    ChipButton& getLinkButtonForTests()         { return linkButton; }
+    bool isScopeLinkedForTests() const          { return scopeLinked; }
     int getStyleMenuOpenedForTests() const      { return styleMenuOpenedForTests; }
     float getShownPreForTests() const             { return shownPre; }
     float getShownPostForTests() const            { return shownPost; }
@@ -148,14 +147,14 @@ private:
     juce::Label scopeLabel;
     juce::ComboBox zoomBox;
     ChipButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };   // clic derecho: menú de estilo
-    ChipButton linkButton { "Oscilloscope Link" };    // debajo de Escuchar: el osciloscopio sigue a la escucha
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
-    bool scopeLinked = true;
+    bool scopeLinked = true;                          // el osciloscopio sigue a la escucha (siempre, salvo
+                                                      // que elijas una onda a mano hasta el próximo cambio)
     void setScopeLinked (bool linked);
     void syncWavesToListen();
-    void showStyleMenu (juce::Component& anchor);     // menú de opciones gráficas (clic derecho en LINK / PRE / POST)
+    void showStyleMenu (juce::Component& anchor);     // menú de opciones gráficas (clic derecho en PRE / POST)
 public:
-    enum class StyleMenuFor { pre, post, link };
+    enum class StyleMenuFor { pre, post };
     juce::PopupMenu buildStyleMenu (StyleMenuFor which) const;   // cada botón, solo lo suyo
     void applyStyleMenuResult (int result);
 private:

@@ -126,24 +126,6 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
         return;
     }
 
-    if (kind == "lightchip")                         // pastilla sobre el gris (Oscilloscope Link)
-    {
-        r = r.reduced (0.5f);
-        const float radius = r.getHeight() * 0.5f;
-        const bool on = button.getToggleState();
-        const auto colour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::accent.getARGB()));
-        g.setColour (on ? Theme::raisedTop : Theme::pill.brighter (over ? 0.03f : 0.0f));
-        g.fillRoundedRectangle (r, radius);
-        if (on)                                      // prendido: borde y puntito del color de lo que escuchás
-        {
-            g.setColour (colour.withAlpha (0.6f));
-            g.drawRoundedRectangle (r, radius, 1.2f);
-            g.setColour (colour);
-            g.fillEllipse (juce::Rectangle<float> (7.0f, 7.0f).withCentre ({ r.getX() + 16.0f, r.getCentreY() }));
-        }
-        return;
-    }
-
     if (kind == "segment")                           // ms | Sync: la elegida en relieve
     {
         if (button.getToggleState())
@@ -166,11 +148,6 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
     {
         const auto chipColour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::accentBright.getARGB()));
         colour = button.getToggleState() ? chipColour.brighter (0.25f) : Theme::chipText;
-    }
-    else if (kind == "lightchip")
-    {
-        const auto chipColour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::accent.getARGB()));
-        colour = button.getToggleState() ? chipColour : Theme::inkDim;
     }
     else if (kind == "segment")
     {
@@ -486,7 +463,6 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     for (juce::TextButton* b : { (juce::TextButton*) &showPreButton, (juce::TextButton*) &showPostButton, &freezeButton })
         b->getProperties().set ("kind", "chip");
-    linkButton.getProperties().set ("kind", "lightchip");
 
     // Freeze: congela lo que se ve (para mirarlo y hacerle zoom tranquilo).
     freezeButton.setClickingTogglesState (false);
@@ -507,8 +483,8 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     }
 
     // Clic: ver solo esa onda (si estaba la otra, pasa a esta). Cmd + clic: sumarla
-    // o sacarla sin tocar la otra (para ver las dos juntas). Con LINK prendido,
-    // tocar PRE FX o POST FX apaga LINK.
+    // o sacarla sin tocar la otra (para ver las dos juntas). Lo elegido a mano
+    // queda hasta el próximo cambio de escucha; ahí el osciloscopio vuelve a seguirla.
     auto waveClick = [this] (bool isPre, const juce::ModifierKeys& mods)
     {
         if (scopeLinked)
@@ -527,11 +503,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     // grande (alterna lo que suena) y el osciloscopio lo sigue.
     // LINK: prendido, el osciloscopio sigue a la escucha (muestra solo la onda
     // que suena); apagado, muestra lo que dejes con PRE FX / POST FX.
-    linkButton.setClickingTogglesState (false);
-    linkButton.setTooltip ("Prendido: el osciloscopio sigue a la escucha PRE/POST FX");
-    linkButton.onClick = [this] { setScopeLinked (! scopeLinked); };
-    addAndMakeVisible (linkButton);
-    scopeLinked = (bool) apvts.state.getProperty ("scopeLink", true);
+    scopeLinked = true;                               // siempre sigue a la escucha
     scope.setLinked (scopeLinked);
 
     updateWaveButtons();
@@ -545,12 +517,8 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     // Estilo: forma de dibujar, colores y grilla (se guardan con el proyecto).
     // Se abre con clic derecho sobre LINK, PRE FX o POST FX.
-    for (auto* b : { &showPreButton, &showPostButton, &linkButton })
-    {
+    for (auto* b : { &showPreButton, &showPostButton })
         b->onRightClick = [this, b] { showStyleMenu (*b); };
-        if (b == &linkButton)                       // en el osciloscopio no hay cartelitos
-            b->setTooltip (b->getTooltip() + "  ·  Clic derecho: forma con LINK"_u);
-    }
     applyScopeLook();
 
     statusLabel.setFont (Theme::font (12.5f, 400));
@@ -589,9 +557,8 @@ void MeteringABPanel::applyScopeLook()
     const int legacyStyle = (int) state.getProperty ("scopeStyle", 0);
     scope.setStyles ((ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStylePre",  legacyStyle)),
                      (ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStylePost", legacyStyle)));
-    // Forma con LINK prendido (-1 = la misma que PRE / POST).
-    const int linkStyle = juce::jlimit (-1, 2, (int) state.getProperty ("scopeStyleLink", -1));
-    scope.setLinkStyle (linkStyle < 0 ? std::optional<ScopeView::Style>() : std::optional<ScopeView::Style> ((ScopeView::Style) linkStyle));
+    // Siguiendo la escucha, cada onda usa su propia forma (PRE o POST).
+    scope.setLinkStyle (std::nullopt);
     scope.setShowGrid ((bool) state.getProperty ("scopeGrid", true));
     scope.setChannels ((ScopeView::Channels) juce::jlimit (0, 3, (int) state.getProperty ("scopeChannels", 0)));
 
@@ -621,15 +588,6 @@ juce::PopupMenu MeteringABPanel::buildStyleMenu (StyleMenuFor which) const
     auto& state = processor.apvts.state;
     juce::PopupMenu menu;
 
-    if (which == StyleMenuFor::link)
-    {
-        menu.addSectionHeader ("Forma con LINK");
-        const int linkStyle = (int) state.getProperty ("scopeStyleLink", -1);
-        menu.addItem (600, "Igual que PRE / POST", true, linkStyle < 0);
-        for (int i = 0; i < ScopeView::styleNames.size(); ++i)
-            menu.addItem (601 + i, ScopeView::styleNames[i], true, linkStyle == i);
-    }
-    else
     {
         const bool pre = which == StyleMenuFor::pre;
         const int style = (int) (pre ? scope.getStylePre() : scope.getStylePost());
@@ -698,8 +656,7 @@ void MeteringABPanel::showStyleMenu (juce::Component& anchor)
     if (! anchor.isShowing())                      // fuera de pantalla (tests): no hay dónde mostrarlo
         return;
 
-    const auto which = &anchor == &showPreButton  ? StyleMenuFor::pre
-                     : &anchor == &showPostButton ? StyleMenuFor::post : StyleMenuFor::link;
+    const auto which = &anchor == &showPreButton ? StyleMenuFor::pre : StyleMenuFor::post;
 
     buildStyleMenu (which).showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&anchor),
                                           [safe = juce::Component::SafePointer<MeteringABPanel> (this)] (int result)
@@ -784,12 +741,9 @@ void MeteringABPanel::updateWaveButtons()
     };
 
     // Con LINK prendido solo se enciende LINK (PRE FX / POST FX quedan apagados).
-    style (showPreButton,  ! scopeLinked && scope.getShowPre(),  scope.getPreColour());
-    style (showPostButton, ! scopeLinked && scope.getShowPost(), scope.getPostColour());
+    style (showPreButton,  scope.getShowPre(),  scope.getPreColour());
+    style (showPostButton, scope.getShowPost(), scope.getPostColour());
 
-    // LINK: prendido toma el color de la onda que estás escuchando.
-    const bool listeningPre = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f;
-    style (linkButton, scopeLinked, listeningPre ? Theme::preInk : Theme::accent);   // como el botón grande
 }
 
 void MeteringABPanel::setScopeLinked (bool linked)
@@ -896,7 +850,7 @@ void MeteringABPanel::timerCallback()
             if (scopeLinked)
                 setWaves (listenPre == 1, listenPre == 0);
             else
-                updateWaveButtons();      // solo el color del botón LINK
+                setScopeLinked (true);    // vuelve a seguir la escucha (y muestra la que suena)
         }
 
         lastListenPre = listenPre;
@@ -910,7 +864,7 @@ void MeteringABPanel::timerCallback()
 
         for (juce::Component* c : std::initializer_list<juce::Component*> {
                  &windowSlider, &windowLabel, &latencyLabel, &latencyMsLabel,
-                 &abButton, &listenLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel, &linkButton,
+                 &abButton, &listenLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel,
 
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
             c->setVisible (! isSendMode);
@@ -1229,14 +1183,12 @@ void MeteringABPanel::resized()
     }
     k.removeFromTop (22);
 
-    // Escuchar: el botón grande PRE FX / POST FX, Oscilloscope Link y cómo se nivela.
+    // Escuchar: el botón grande PRE FX / POST FX y cómo se nivela.
     {
         listenLabel.setBounds (k.removeFromTop (20));
         k.removeFromTop (6);
-        abButton.setBounds (k.removeFromTop (70).expanded (4, 0));
-        k.removeFromTop (6);
-        linkButton.setBounds (k.removeFromTop (26).withSizeKeepingCentre (170, 26));   // Oscilloscope Link
-        k.removeFromTop (6);
+        abButton.setBounds (k.removeFromTop (84).expanded (4, 0));
+        k.removeFromTop (10);
         matchInfoLabel.setBounds (k.removeFromTop (14));
     }
 
