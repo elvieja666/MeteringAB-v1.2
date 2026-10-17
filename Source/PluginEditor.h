@@ -177,7 +177,7 @@ private:
     float shownPre = -120.0f, shownPost = -120.0f, shownGain = 0.0f;
     bool gainShown = false;                           // false: ganancia "—" (todavía no se midió nada)
     static constexpr int   timerHz = 30;
-    static constexpr float fallDbPerSecond = 40.0f;   // en pausa, Original y Procesado caen a este ritmo...
+    static constexpr float fallDbPerSecond = 65.0f;   // en pausa, Original y Procesado caen a este ritmo...
     static constexpr float fallFloorDb = -70.0f;      // ...y por debajo de esto pasan a -∞
     float fallStepPre = 0.0f, fallStepPost = 0.0f;    // al parar: cuánto baja cada uno por cuadro (llegan juntos)
     bool metersFalling = false;

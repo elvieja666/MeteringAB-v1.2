@@ -857,7 +857,7 @@ void MeteringABPanel::timerCallback()
     if (stopped && ! metersFalling)
     {
         // Al parar, Original y Procesado bajan juntos: cada uno a su ritmo para
-        // llegar a -∞ al mismo tiempo (el más alto baja a 40 dB/s, el otro más lento).
+        // llegar a -∞ al mismo tiempo (el más alto baja a 65 dB/s, el otro más lento).
         const float top = juce::jmax (shownPre, shownPost);
         const float frames = juce::jmax (1.0f, (top - fallFloorDb) / fallDbPerSecond * (float) timerHz);
         fallStepPre  = shownPre  > fallFloorDb ? (shownPre  - fallFloorDb) / frames : 0.0f;
