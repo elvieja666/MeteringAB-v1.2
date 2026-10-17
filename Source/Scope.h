@@ -25,16 +25,16 @@ class ScopeView : public juce::Component, public juce::SettableTooltipClient
 public:
     // Formas de dibujar la onda.
     enum class Style { contour = 0, detailed = 1, lines = 2 };
-    static inline const juce::StringArray styleNames { "Contorno", "Detallado (picos)", juce::String::fromUTF8 ("Solo l\xc3\xadneas") };
+    static inline const juce::StringArray styleNames { "Outline", "Detailed (peaks)", "Lines only" };
 
     // Paletas de colores: { nombre, PRE, POST }.
     struct Palette { const char* name; juce::uint32 pre, post; };
     static constexpr std::array<Palette, 5> palettes {{
-        { "Gris / Azul",         0xffa9aeb6, 0xff5aa9ff },
-        { "Grises (clasico)",    0xff6c7077, 0xffb8bbc1 },
-        { "Azul / Rosa",         0xff5aa9ff, 0xffff6fa8 },
-        { "Blanco / Rojo",       0xffd9d7d3, 0xffeb5757 },
-        { "Violeta / Lima",      0xff9b8cff, 0xffb5e655 },
+        { "Grey / Blue",         0xffa9aeb6, 0xff5aa9ff },
+        { "Greys (classic)",     0xff6c7077, 0xffb8bbc1 },
+        { "Blue / Pink",         0xff5aa9ff, 0xffff6fa8 },
+        { "White / Red",         0xffd9d7d3, 0xffeb5757 },
+        { "Violet / Lime",       0xff9b8cff, 0xffb5e655 },
     }};
     static constexpr int customPalette = (int) palettes.size();   // "Personalizado"
 
@@ -52,7 +52,7 @@ public:
     juce::Colour getPostColour() const         { return postColour; }
     // Canales a mostrar.
     enum class Channels { sum = 0, left = 1, right = 2, split = 3 };
-    static inline const juce::StringArray channelNames { "L + R (suma)", "Solo L", "Solo R", "L y R separados" };
+    static inline const juce::StringArray channelNames { "L + R (sum)", "L only", "R only", "L and R split" };
     void setChannels (Channels c)              { channels = c; repaint(); }
     Channels getChannels() const               { return channels; }
 
@@ -260,7 +260,7 @@ public:
         if (! showPre && ! showPost)
         {
             g.setColour (juce::Colour (0xff8a8f98));
-            g.drawText ("Ambas ondas ocultas", plot.toNearestInt(), juce::Justification::centred);
+            g.drawText ("Both waves hidden", plot.toNearestInt(), juce::Justification::centred);
         }
 
         // Con zoom: qué parte del loop se ve (barrita abajo) y cuánto zoom hay.
@@ -274,7 +274,7 @@ public:
                                          .withWidth (juce::jmax (4.0f, (float) viewSpan * track.getWidth())), 1.5f);
 
             const double factor = 1.0 / viewSpan;
-            const auto text = "Zoom x" + (factor < 10.0 ? juce::String (factor, 1) : juce::String (juce::roundToInt (factor))) + juce::String::fromUTF8 ("  \xc2\xb7  doble clic: ver todo");
+            const auto text = "Zoom x" + (factor < 10.0 ? juce::String (factor, 1) : juce::String (juce::roundToInt (factor))) + juce::String::fromUTF8 ("  \xc2\xb7  double-click: show all");
             g.setColour (juce::Colour (0xffe8e6e3).withAlpha (0.75f));
             g.drawText (text, juce::Rectangle<float> (plot.getX() + 8.0f, plot.getBottom() - 22.0f, 260.0f, 14.0f).toNearestInt(),
                         juce::Justification::centredLeft);
@@ -283,7 +283,7 @@ public:
         if (frozen)
         {
             g.setColour (juce::Colour (0xffe8e6e3));
-            g.drawText ("CONGELADO", juce::Rectangle<float> (plot.getRight() - 110.0f, plot.getY() + 6.0f, 104.0f, 14.0f).toNearestInt(),
+            g.drawText ("FROZEN", juce::Rectangle<float> (plot.getRight() - 110.0f, plot.getY() + 6.0f, 104.0f, 14.0f).toNearestInt(),
                         juce::Justification::centredRight);
         }
     }

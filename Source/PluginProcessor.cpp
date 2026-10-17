@@ -10,8 +10,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout MeteringABProcessor::createL
     using namespace juce;
     AudioProcessorValueTreeState::ParameterLayout layout;
 
-    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::mode, 1 }, "Modo",
-                                                        StringArray { "Send (antes de FX)"_u, "Receive (después de FX)"_u }, 0));
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::mode, 1 }, "Mode",
+                                                        StringArray { "Send (before FX)"_u, "Receive (after FX)"_u }, 0));
 
     layout.add (std::make_unique<AudioParameterInt> (ParameterID { ParamIDs::link, 1 }, "Link ID", 1, SharedBus::numLinks, 1));
 
@@ -25,7 +25,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MeteringABProcessor::createL
     NormalisableRange<float> windowRange (minWindowMs, maxWindowMs, 1.0f);
     windowRange.setSkewForCentre (3000.0f);
 
-    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::windowMs, 1 }, "Ventana (ms)",
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::windowMs, 1 }, "Window (ms)",
                                                        windowRange, 3000.0f,
                                                        AudioParameterFloatAttributes()
                                                            .withLabel ("ms")
@@ -38,11 +38,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout MeteringABProcessor::createL
                                                                return seconds ? number * 1000.0f : number;
                                                            })));
 
-    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::sync, 1 }, "Ventana Sync", false,
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::sync, 1 }, "Window Sync", false,
                                                       AudioParameterBoolAttributes()
                                                           .withStringFromValueFunction ([] (bool on, int) { return on ? String ("Sync") : String ("ms"); })));
 
-    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::windowSync, 1 }, "Ventana (compases)",
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::windowSync, 1 }, "Window (bars)",
                                                         SyncDivisions::names, SyncDivisions::defaultIndex));
 
     // Latencia con decimales: muchos plugins (oversampling, fase lineal)
@@ -50,13 +50,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout MeteringABProcessor::createL
     NormalisableRange<float> latencyRange (0.0f, (float) maxLatencySamples, 0.01f);
     latencyRange.setSkewForCentre (2000.0f);
 
-    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::latency, 1 }, "Latencia", latencyRange, 0.0f,
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::latency, 1 }, "Latency", latencyRange, 0.0f,
                                                        AudioParameterFloatAttributes()
-                                                           .withLabel ("muestras")
+                                                           .withLabel ("samples")
                                                            .withStringFromValueFunction ([] (float v, int)
                                                            {
                                                                const bool whole = std::abs (v - std::round (v)) < 0.005f;
-                                                               return (whole ? String (juce::roundToInt (v)) : String (v, 2)) + " muestras";
+                                                               return (whole ? String (juce::roundToInt (v)) : String (v, 2)) + " samples";
                                                            })
                                                            .withValueFromStringFunction ([] (const String& t)
                                                            {

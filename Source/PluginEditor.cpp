@@ -357,9 +357,9 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     };
     addAndMakeVisible (linkValueLabel);
 
-    setupKnob (windowSlider,  windowLabel,  "Ventana");
+    setupKnob (windowSlider,  windowLabel,  "Window");
     // Latencia: sin perilla, solo el botón Medir y el valor medido.
-    latencyLabel.setText ("Latencia", juce::dontSendNotification);
+    latencyLabel.setText ("Latency", juce::dontSendNotification);
     latencyLabel.setJustificationType (juce::Justification::centred);
     latencyLabel.setColour (juce::Label::textColourId, Colours::dim);
     latencyLabel.setFont (Theme::font (12.5f, 300));
@@ -416,19 +416,19 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     abButton.onClick = [this] { toggleAB(); };
     addAndMakeVisible (abButton);
 
-    matchInfoLabel.setText ("Nivelado en LUFS (filtro K)"_u, juce::dontSendNotification);
+    matchInfoLabel.setText ("Level-matched in LUFS (K-weighted)"_u, juce::dontSendNotification);
     matchInfoLabel.setJustificationType (juce::Justification::centred);
     matchInfoLabel.setColour (juce::Label::textColourId, Colours::dim);
     matchInfoLabel.setFont (Theme::font (11.0f, 300));
     addAndMakeVisible (matchInfoLabel);
 
-    listenLabel.setText ("Escuchar  ·  clic para alternar"_u, juce::dontSendNotification);
+    listenLabel.setText ("Listen  ·  click to switch"_u, juce::dontSendNotification);
     listenLabel.setColour (juce::Label::textColourId, Colours::dim);
     listenLabel.setFont (Theme::font (12.5f, 300));
     addAndMakeVisible (listenLabel);
 
     // Medir latencia
-    measureButton.setButtonText ("Medir");
+    measureButton.setButtonText ("Measure");
     measureButton.onClick = [this] { processor.startLatencyMeasurement(); };
     addAndMakeVisible (measureButton);
 
@@ -440,7 +440,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     // Osciloscopio sincronizado + largo en compases (se guarda con el proyecto).
     addAndMakeVisible (scope);
-    scopeLabel.setText ("Osciloscopio", juce::dontSendNotification);
+    scopeLabel.setText ("Oscilloscope", juce::dontSendNotification);
     scopeLabel.setColour (juce::Label::textColourId, Theme::darkText);
     scopeLabel.setFont (Theme::font (15.0f, 300));
     addAndMakeVisible (scopeLabel);
@@ -585,9 +585,9 @@ void MeteringABPanel::applyScopeLook()
 
 // Colores para elegir por onda (los de las paletas, sin repetir).
 static const std::array<std::pair<const char*, juce::uint32>, 9> waveColours {{
-    { "Gris",        0xffa9aeb6 }, { "Gris oscuro", 0xff6c7077 }, { "Gris claro", 0xffb8bbc1 },
-    { "Blanco",      0xffd9d7d3 }, { "Azul",        0xff5aa9ff }, { "Rosa",       0xffff6fa8 },
-    { "Rojo",        0xffeb5757 }, { "Violeta",     0xff9b8cff }, { "Lima",       0xffb5e655 },
+    { "Grey",        0xffa9aeb6 }, { "Dark grey",   0xff6c7077 }, { "Light grey", 0xffb8bbc1 },
+    { "White",       0xffd9d7d3 }, { "Blue",        0xff5aa9ff }, { "Pink",       0xffff6fa8 },
+    { "Red",         0xffeb5757 }, { "Violet",      0xff9b8cff }, { "Lime",       0xffb5e655 },
 }};
 
 // Menú de estilo de cada botón: PRE FX y POST FX muestran solo lo de su onda
@@ -603,11 +603,11 @@ juce::PopupMenu MeteringABPanel::buildStyleMenu (StyleMenuFor which) const
         const int formBase = pre ? 100 : 150, colourBase = pre ? 700 : 750;
         const auto current = pre ? scope.getPreColour() : scope.getPostColour();
 
-        menu.addSectionHeader (pre ? "Forma PRE FX" : "Forma POST FX");
+        menu.addSectionHeader (pre ? "PRE FX shape" : "POST FX shape");
         for (int i = 0; i < ScopeView::styleNames.size(); ++i)
             menu.addItem (formBase + i, ScopeView::styleNames[i], true, style == i);
 
-        menu.addSectionHeader (pre ? "Color PRE FX" : "Color POST FX");
+        menu.addSectionHeader (pre ? "PRE FX colour" : "POST FX colour");
         bool known = false;
         for (int i = 0; i < (int) waveColours.size(); ++i)
         {
@@ -615,16 +615,16 @@ juce::PopupMenu MeteringABPanel::buildStyleMenu (StyleMenuFor which) const
             known = known || on;
             menu.addColouredItem (colourBase + i, waveColours[(size_t) i].first, juce::Colour (waveColours[(size_t) i].second), true, on);
         }
-        menu.addItem (pre ? 300 : 301, juce::String::fromUTF8 ("Elegir otro color\xe2\x80\xa6"), true, ! known);
+        menu.addItem (pre ? 300 : 301, juce::String::fromUTF8 ("Other colour\xe2\x80\xa6"), true, ! known);
     }
 
-    menu.addSectionHeader ("Osciloscopio");
+    menu.addSectionHeader ("Oscilloscope");
     juce::PopupMenu channelsMenu;
     const int channels = (int) state.getProperty ("scopeChannels", 0);
     for (int i = 0; i < ScopeView::channelNames.size(); ++i)
         channelsMenu.addItem (500 + i, ScopeView::channelNames[i], true, channels == i);
-    menu.addSubMenu ("Canales: " + ScopeView::channelNames[juce::jlimit (0, ScopeView::channelNames.size() - 1, channels)], channelsMenu);
-    menu.addItem (400, "Mostrar grilla", true, scope.getShowGrid());
+    menu.addSubMenu ("Channels: " + ScopeView::channelNames[juce::jlimit (0, ScopeView::channelNames.size() - 1, channels)], channelsMenu);
+    menu.addItem (400, "Show grid", true, scope.getShowGrid());
     return menu;
 }
 
@@ -922,31 +922,31 @@ void MeteringABPanel::timerCallback()
         const auto& m = processor.latencyMeasurer;
         const double latency = processor.apvts.getRawParameterValue (ParamIDs::latency)->load();
         const bool whole = std::abs (latency - std::round (latency)) < 0.005;
-        const auto samplesText = (whole ? juce::String (juce::roundToInt (latency)) : juce::String (latency, 2)).replaceCharacter ('.', ',');
-        const auto msText = juce::String (latency * 1000.0 / juce::jmax (1.0, processor.getCurrentSampleRate()), 2).replaceCharacter ('.', ',') + " ms";
+        const auto samplesText = (whole ? juce::String (juce::roundToInt (latency)) : juce::String (latency, 2));
+        const auto msText = juce::String (latency * 1000.0 / juce::jmax (1.0, processor.getCurrentSampleRate()), 2)+ " ms";
         juce::String text;
         juce::Colour colour = Colours::dim;
 
         switch (m.getState())
         {
             case State::measuring:
-                text = "Midiendo... " + juce::String (juce::roundToInt (m.getProgress() * 100.0f)) + "% (con play)";
+                text = "Measuring... " + juce::String (juce::roundToInt (m.getProgress() * 100.0f)) + "% (while playing)";
                 colour = Colours::accent;
                 break;
             case State::analysing:
-                text = "Calculando...";
+                text = "Calculating...";
                 colour = Colours::accent;
                 break;
             case State::done:
-                text = juce::String::fromUTF8 ("\xe2\x9c\x93") + " Medido";
+                text = juce::String::fromUTF8 ("\xe2\x9c\x93") + " Measured";
                 colour = Colours::good;
                 break;
-            case State::noSignal: text = "No llega audio: dale play";          colour = Colours::bad; break;
-            case State::unclear:  text = "Sin coincidencia clara";              colour = Colours::bad; break;
-            case State::noSend:   text = "No hay Send conectado";               colour = Colours::bad; break;
+            case State::noSignal: text = "No audio: press play";          colour = Colours::bad; break;
+            case State::unclear:  text = "No clear match";              colour = Colours::bad; break;
+            case State::noSend:   text = "No Send connected";               colour = Colours::bad; break;
             case State::idle:
                 if (latency < 0.005)
-                    text = "Dale play y tocá Medir"_u;
+                    text = "Press play and click Measure"_u;
                 break;
         }
 
@@ -961,7 +961,7 @@ void MeteringABPanel::timerCallback()
         latencyMsLabel.setText ("= " + msText, juce::dontSendNotification);
 
         const bool busy = m.getState() == State::measuring || m.getState() == State::analysing;
-        measureButton.setButtonText (busy ? "..." : "Medir");
+        measureButton.setButtonText (busy ? "..." : "Measure");
         measureButton.setEnabled (! busy);
     }
 
@@ -973,22 +973,22 @@ void MeteringABPanel::timerCallback()
 
     if (processor.duplicateSend.load())
     {
-        statusLabel.setText ("Hay más de un Send con el Link ID "_u + juce::String (link) + ": cambiá uno."_u, juce::dontSendNotification);
+        statusLabel.setText ("More than one Send on Link ID "_u + juce::String (link) + ": change one."_u, juce::dontSendNotification);
         statusLabel.setColour (juce::Label::textColourId, Colours::bad);
     }
     else if (isSendMode)
     {
-        statusLabel.setText ("Send activo en Link ID " + juce::String (link) + ". Poné un Metering A/B en Receive al final de la cadena."_u, juce::dontSendNotification);
+        statusLabel.setText ("Send active on Link ID " + juce::String (link) + ". Put a Metering A/B in Receive at the end of the chain."_u, juce::dontSendNotification);
         statusLabel.setColour (juce::Label::textColourId, Colours::good);
     }
     else if (processor.sendConnected.load())
     {
-        statusLabel.setText ("Conectado al Send del Link ID " + juce::String (link) + ".", juce::dontSendNotification);
+        statusLabel.setText ("Connected to the Send on Link ID " + juce::String (link) + ".", juce::dontSendNotification);
         statusLabel.setColour (juce::Label::textColourId, Colours::good);
     }
     else
     {
-        statusLabel.setText ("No hay ningún Send sonando en el Link ID "_u + juce::String (link) + " (dale play).", juce::dontSendNotification);
+        statusLabel.setText ("No Send playing on Link ID "_u + juce::String (link) + " (press play).", juce::dontSendNotification);
         statusLabel.setColour (juce::Label::textColourId, Colours::bad);
     }
 
@@ -1073,9 +1073,9 @@ void MeteringABPanel::paint (juce::Graphics& g)
     struct Readout { juce::String title, number, unit; juce::Colour colour; };
     const Readout readouts[] = {
         { "Original (Send)",   level (shownPre),  "LUFS", Theme::inkStrong },
-        { "Ganancia aplicada", gainShown ? (shownGain >= 0 ? "+" : "") + juce::String (shownGain, 2) : juce::String ("—"_u),
+        { "Applied gain", gainShown ? (shownGain >= 0 ? "+" : "") + juce::String (shownGain, 2) : juce::String ("—"_u),
                                gainShown ? "dB" : "", Theme::accent },
-        { "Procesado",         level (shownPost), "LUFS", Theme::inkStrong },
+        { "Processed",         level (shownPost), "LUFS", Theme::inkStrong },
     };
 
     auto rows = meters.reduced (16, 4);
@@ -1103,7 +1103,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
     }
 
     // Latencia medida: número grande + "muestras"
-    drawNumberWithUnit (g, latencyNumberText, "muestras", latencyNumberArea, 28.0f, Theme::inkStrong, -1);
+    drawNumberWithUnit (g, latencyNumberText, "samples", latencyNumberArea, 28.0f, Theme::inkStrong, -1);
 
     // Líneas finas entre Ventana | Latencia | Escuchar
     g.setColour (juce::Colours::black.withAlpha (0.07f));

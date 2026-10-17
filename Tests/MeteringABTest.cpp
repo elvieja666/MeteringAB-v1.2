@@ -670,9 +670,9 @@ int main (int argc, char** argv)
         const auto r = p->getNormalisableRange();
         check (std::abs (r.convertFrom0to1 (p->getValueForText ("64,25")) - 64.25f) < 0.006f, "Escribir '64,25' en Latencia = 64.25 muestras", r.convertFrom0to1 (p->getValueForText ("64,25")));
         setParam (q, ParamIDs::latency, 64.5f);
-        check (p->getCurrentValueAsText() == "64.50 muestras", "Latencia se muestra con decimales ('64.50 muestras')", 1);
+        check (p->getCurrentValueAsText() == "64.50 samples", "Latencia se muestra con decimales ('64.50 muestras')", 1);
         setParam (q, ParamIDs::latency, 128.0f);
-        check (p->getCurrentValueAsText() == "128 muestras", "Latencia entera se muestra sin decimales", 1);
+        check (p->getCurrentValueAsText() == "128 samples", "Latencia entera se muestra sin decimales", 1);
     }
     {
         // El matcheo es siempre automático, con un tope fijo de 24 dB.

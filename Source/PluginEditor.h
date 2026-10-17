@@ -158,7 +158,7 @@ private:
     juce::ComboBox zoomBox;
     ChipButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };   // clic derecho: menú de estilo
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
-    juce::TextButton resetSizeButton { juce::String::fromUTF8 ("Tama\xc3\xb1o original") };   // vuelve al tamaño por defecto
+    juce::TextButton resetSizeButton { juce::String ("Reset size") };   // vuelve al tamaño por defecto
     bool resetSizeWanted = false;
     bool scopeLinked = true;                          // el osciloscopio sigue a la escucha (siempre, salvo
                                                       // que elijas una onda a mano hasta el próximo cambio)
