@@ -112,6 +112,7 @@ public:
     ChipButton& getShowPreButtonForTests()      { return showPreButton; }
     ChipButton& getShowPostButtonForTests()     { return showPostButton; }
     bool isScopeLinkedForTests() const          { return scopeLinked; }
+    bool isSendLayout() const                   { return isSendMode; }
     int getStyleMenuOpenedForTests() const      { return styleMenuOpenedForTests; }
     float getShownPreForTests() const             { return shownPre; }
     float getShownPostForTests() const            { return shownPost; }
@@ -224,7 +225,9 @@ private:
     MeteringABProcessor& processor;
     MeteringABPanel panel;
     juce::ComponentBoundsConstrainer constrainer;
-    float scale = 1.0f;
+    float scale = 1.0f;                               // escala del Receive (la que elegís con la esquina)
+    float shownScale = 1.0f;                          // la que se usa ahora (Send: fija al 100%)
+    static constexpr float sendScale = 1.0f;          // Send: tamaño fijo, sin esquina para escalar
     bool fitting = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MeteringABEditor)

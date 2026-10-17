@@ -1229,25 +1229,35 @@ void MeteringABEditor::fitToPanel()
 {
     const juce::ScopedValueSetter<bool> busy (fitting, true);
     const int w = juce::jmax (1, panel.getWidth()), h = juce::jmax (1, panel.getHeight());
+    const bool send = panel.isSendLayout();
+
+    // Send: tamaño fijo (no hace falta escalarlo). Receive: con la esquina.
+    setResizable (! send, ! send);
+    shownScale = send ? sendScale : scale;
 
     constrainer.setFixedAspectRatio ((double) w / (double) h);
     constrainer.setSizeLimits (juce::roundToInt (w * minScale), juce::roundToInt (h * minScale),
                                juce::roundToInt (w * maxScale), juce::roundToInt (h * maxScale));
 
-    setSize (juce::roundToInt (w * scale), juce::roundToInt (h * scale));
+    if (send)
+        constrainer.setSizeLimits (juce::roundToInt (w * sendScale), juce::roundToInt (h * sendScale),
+                                   juce::roundToInt (w * sendScale), juce::roundToInt (h * sendScale));
+
+    setSize (juce::roundToInt (w * shownScale), juce::roundToInt (h * shownScale));
     resized();
 }
 
 void MeteringABEditor::resized()
 {
-    if (! fitting)
+    if (! fitting && ! panel.isSendLayout())
     {
         // El usuario arrastró la esquina: la escala sale del ancho.
         scale = juce::jlimit (minScale, maxScale, (float) getWidth() / (float) juce::jmax (1, panel.getWidth()));
+        shownScale = scale;
         processor.apvts.state.setProperty ("uiScaleV2", scale, nullptr);
     }
 
-    panel.setTransform (juce::AffineTransform::scale (scale));
+    panel.setTransform (juce::AffineTransform::scale (shownScale));
 }
 
 void MeteringABEditor::setUiScale (float newScale)

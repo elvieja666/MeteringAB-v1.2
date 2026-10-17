@@ -580,9 +580,11 @@ int main (int argc, char** argv)
                "Escalable: al 150% todo crece en proporción (alto px)", ed->getHeight());
         check (std::abs (outer->getPanel().getTransform().mat00 - 1.5f) < 1.0e-4f, "Escalable: el contenido se dibuja al 150%", outer->getPanel().getTransform().mat00);
         setParam (a, ParamIDs::mode, 0); panelOf (ed)->refreshNow();
-        check (ed->getWidth() == juce::roundToInt (MeteringABPanel::sendWidth * 1.5) && ed->getHeight() == juce::roundToInt (MeteringABEditor::sendHeight * 1.5),
-               "Escalable: pasar a Send mantiene la escala (alto px)", ed->getHeight());
+        check (ed->getWidth() == MeteringABPanel::sendWidth && ed->getHeight() == MeteringABEditor::sendHeight && ! ed->isResizable(),
+               "Send: tamaño fijo al 100%, sin escalar (alto px)", ed->getHeight());
         setParam (a, ParamIDs::mode, 1); panelOf (ed)->refreshNow();
+        check (ed->isResizable() && ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * 1.5),
+               "Volver a Receive: recupera su escala y la esquina", ed->getWidth());
         ed->setSize (MeteringABPanel::receiveWidth, MeteringABPanel::receiveHeight);   // como arrastrar la esquina
         check (std::abs (outer->getUiScale() - 1.0f) < 1.0e-3f, "Escalable: arrastrar la esquina cambia la escala", outer->getUiScale());
         outer->setUiScale (5.0f);
