@@ -1184,7 +1184,7 @@ int main (int argc, char** argv)
     }
 
     {
-        // Outline / Lines only: pico sostenido "ajustado" (sostener y recortar).
+        // Outline / Lines only: Detallado pintado por adentro (contorno de afuera, punta a punta).
         using V = std::vector<float>;
         using H = std::vector<std::uint8_t>;
         // Bajo: picos arriba cada 6 columnas (los ciclos) entre las columnas 100 y 200.
@@ -1201,8 +1201,22 @@ int main (int argc, char** argv)
         V h2 (300, 0.2f), l2 (300, -0.2f);
         for (int c = 140; c < 160; ++c) h2[(size_t) c] = 0.8f;
         const auto [up2, down2] = ScopeView::holdEdges (h2, l2, H (300, 1), 4);
-        check (std::abs (up2[150] - 0.8f) < 1.0e-5f && std::abs (up2[135] - 0.2f) < 1.0e-5f && std::abs (up2[165] - 0.2f) < 1.0e-5f,
-               "Outline: un golpe se ve como un escalón de su mismo ancho", up2[135]);
+        check (std::abs (up2[150] - 0.8f) < 1.0e-5f && std::abs (up2[125] - 0.2f) < 1.0e-5f && std::abs (up2[175] - 0.2f) < 1.0e-5f,
+               "Outline: un golpe se ve en su lugar (y al lado vuelve al nivel de antes)", up2[125]);
+
+        // Puntas que bajan de a poco (una caída): el borde va de punta a punta, en rampa (no en escalones).
+        V h3 (300, 0.0f), l3 (300, 0.0f);
+        for (int c = 100; c < 200; c += 6) h3[(size_t) c] = 0.9f - 0.006f * (float) (c - 100);
+        const auto [up3, down3] = ScopeView::holdEdges (h3, l3, H (300, 1), 4);
+        const float mid3 = up3[103], expect3 = 0.5f * (h3[100] + h3[106]);
+        check (std::abs (mid3 - expect3) < 1.0e-4f, "Outline: entre dos puntas, línea recta de una a otra (sin escalón)", mid3);
+
+        // Dos notas con silencio digital en el medio: no se unen.
+        V h4 (400, 0.0f), l4 (400, 0.0f);
+        for (int c = 20; c < 100; c += 6) h4[(size_t) c] = 0.5f;
+        for (int c = 300; c < 380; c += 6) h4[(size_t) c] = 0.5f;
+        const auto [up4, down4] = ScopeView::holdEdges (h4, l4, H (400, 1), 4);
+        check (up4[200] < 1.0e-5f, "Outline: no une notas separadas por silencio", up4[200]);
     }
     {
         // Zoom: el audio guarda la onda muestra a muestra (120 BPM, 1 compás = 2 s = 96000 muestras).

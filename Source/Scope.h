@@ -810,13 +810,14 @@ private:
         return lengthBars * quartersPerBar * 60.0 / bpm / MeteringABProcessor::scopeBins;
     }
 
-    // Outline / Lines only: "pico sostenido ajustado". Parte de lo mismo que
-    // Detallado (cada medio píxel con su pico de arriba y de abajo) y:
-    //  1) sostiene cada pico ±12,5 ms (tapa los huecos entre ciclos del bajo),
-    //  2) vuelve a recortar ±12,5 ms (los bordes quedan justo donde cambia el nivel,
-    //     sin ensancharse).
-    // Así queda prolijo, con escalones nítidos en golpes y caídas. El tiempo es fijo
-    // (no en píxeles), así se ve igual en cualquier largo y zoom.
+    // Outline / Lines only: el Detallado "pintado por adentro". Parte de lo mismo que
+    // Detallado (cada medio píxel con su pico de arriba y de abajo):
+    //  1) el contorno de afuera: sostener cada pico ±12,5 ms y volver a recortar
+    //     (tapa los huecos entre ciclos del bajo sin ensanchar los bordes);
+    //  2) las puntas de la onda que tocan ese contorno se unen con rectas, así el
+    //     borde va de punta a punta como lo ve el ojo, sin mesetas ni escalones;
+    //  3) todo lo de adentro se pinta.
+    // El tiempo es fijo (no en píxeles), así se ve igual en cualquier largo y zoom.
 public:
     static constexpr double holdMs = 12.5;
 
@@ -863,8 +864,32 @@ public:
                 if (radius > 0)
                 {
                     const auto held = sliding (e, radius, true, c, end);
-                    const auto tight = sliding (held, radius, false, c, end);
-                    std::copy (tight.begin() + c, tight.begin() + end, e.begin() + c);
+                    const auto tight = sliding (held, radius, false, c, end);   // contorno de afuera
+
+                    // Puntas de la onda que tocan ese contorno (las que ve el ojo), unidas
+                    // con rectas: sin mesetas ni escalones. Lejos de toda punta (silencio)
+                    // queda el contorno.
+                    std::vector<int> tips;
+                    for (int i = c; i < end; ++i)
+                    {
+                        const float v = e[(size_t) i];
+                        const bool peak = (i == c || v >= e[(size_t) i - 1]) && (i == end - 1 || v >= e[(size_t) i + 1]);
+                        if (v > 0.0f && peak && v >= tight[(size_t) i] - 1.0e-6f)
+                            tips.push_back (i);
+                    }
+
+                    std::vector<float> out (tight.begin() + c, tight.begin() + end);
+                    const int maxJoin = 4 * radius;
+                    for (size_t k = 0; k + 1 < tips.size(); ++k)
+                    {
+                        const int a = tips[k], b = tips[k + 1];
+                        if (b - a > maxJoin)
+                            continue;
+                        for (int i = a; i <= b; ++i)
+                            out[(size_t) (i - c)] = e[(size_t) a] + (e[(size_t) b] - e[(size_t) a]) * (float) (i - a) / (float) juce::jmax (1, b - a);
+                    }
+                    for (int i = c; i < end; ++i)               // nunca por debajo de la onda
+                        e[(size_t) i] = juce::jmax (out[(size_t) (i - c)], e[(size_t) i]);
                 }
                 c = end;
             }
