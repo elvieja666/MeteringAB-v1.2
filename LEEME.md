@@ -68,7 +68,7 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 ### Tamaño de la ventana
 
-Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achicarlo: todo crece en proporción, de 40% a 150%. Por defecto el plugin mide 1137 × 497: la columna gris más grande y el osciloscopio con proporción 1,85 : 1 (825 × 446). **Clic derecho en esa esquina** (o Ctrl + clic) abre un menú con **Reset size**, para volver al tamaño por defecto. El tamaño queda guardado con el proyecto. En Send el plugin es la parte de arriba de la columna gris (hasta antes de los números), al mismo tamaño que en el Receive, y no tiene esquina para escalar.
+Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achicarlo: todo crece en proporción, de 40% a 150%. Por defecto el plugin mide 1194 × 522: la columna gris más grande y el osciloscopio con proporción 1,85 : 1 (866 × 468). **Clic derecho en esa esquina** (o Ctrl + clic) abre un menú con **Reset size**, para volver al tamaño por defecto. El tamaño queda guardado con el proyecto. En Send el plugin es la parte de arriba de la columna gris (hasta antes de los números), al mismo tamaño que en el Receive, y no tiene esquina para escalar.
 
 ### Osciloscopio
 

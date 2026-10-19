@@ -587,8 +587,8 @@ int main (int argc, char** argv)
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
         auto* outer = dynamic_cast<MeteringABEditor*> (ed.get());
-        check (ed->isResizable() && std::abs (panelOf (ed)->getScopeForTests().getHeight() * outer->getUiScale() - 446.0f) < 1.0f,
-               "Escalable: por defecto el osciloscopio mide 446 px de alto (plugin de 497)", panelOf (ed)->getScopeForTests().getWidth() * outer->getUiScale());
+        check (ed->isResizable() && std::abs (panelOf (ed)->getScopeForTests().getHeight() * outer->getUiScale() - 468.3f) < 1.0f,
+               "Escalable: por defecto el osciloscopio mide 468 px de alto (plugin de 522)", panelOf (ed)->getScopeForTests().getWidth() * outer->getUiScale());
         outer->setUiScale (1.5f);
         check (ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * 1.5) && ed->getHeight() == juce::roundToInt (MeteringABPanel::receiveHeight * 1.5),
                "Escalable: al 150% todo crece en proporción (alto px)", ed->getHeight());
