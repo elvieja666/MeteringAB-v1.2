@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_dsp/juce_dsp.h>
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <complex>
@@ -106,12 +107,23 @@ public:
         // "PHAT": iguala todas las frecuencias, así el pico queda bien marcado
         // aunque la música tenga notas que se repiten o tus efectos ecualicen.
         // (Se guarda también el espectro cruzado original para el ajuste fino.)
+        // Las frecuencias donde casi no hay nada (por ejemplo, lo que un EQ cortó del
+        // todo) no se usan: su fase es ruido y podía hacer que el pico apareciera en
+        // cualquier lado.
+        float maxMagnitude = 0.0f;
         for (int i = 0; i < fftSize; ++i)
         {
             auto cross = spectrumA[(size_t) i] * std::conj (spectrumB[(size_t) i]);
             spectrumB[(size_t) i] = cross;
+            maxMagnitude = std::max (maxMagnitude, std::abs (cross));
+        }
+
+        const float floorMagnitude = std::max (1.0e-12f, maxMagnitude * 1.0e-8f);   // -80 dB
+        for (int i = 0; i < fftSize; ++i)
+        {
+            const auto cross = spectrumB[(size_t) i];
             const float magnitude = std::abs (cross);
-            spectrumA[(size_t) i] = magnitude > 1.0e-12f ? cross / magnitude : std::complex<float> {};
+            spectrumA[(size_t) i] = magnitude > floorMagnitude ? cross / magnitude : std::complex<float> {};
         }
 
         fft.perform (spectrumA.data(), a.data(), true);
@@ -128,6 +140,16 @@ public:
                 bestValue = v;
                 bestLag = lag;
             }
+        }
+
+        // ¿Qué tan claro es el pico? (cuántas veces más alto que lo típico de la curva)
+        {
+            std::vector<float> values ((size_t) maxLag + 1);
+            for (int lag = 0; lag <= maxLag; ++lag)
+                values[(size_t) lag] = std::abs (a[(size_t) lag].real());
+            auto middle = values.begin() + (std::ptrdiff_t) (values.size() / 2);
+            std::nth_element (values.begin(), middle, values.end());
+            lastProminence = *middle > 0.0f ? (double) bestValue / (double) *middle : 0.0;
         }
 
         // Afinar con decimales: se reconstruye la curva entre muestras
@@ -228,7 +250,10 @@ public:
         const double similarity = (e1 > 0.0 && e2 > 0.0) ? std::abs (cross) / std::sqrt (e1 * e2) : 0.0;
         lastSimilarity = similarity;
 
-        if (similarity < minSimilarity)
+        // Hace falta que se parezcan las ondas O que el pico sea muy claro. Lo segundo
+        // cubre efectos que cambian mucho la onda pero no el tiempo (un EQ que deja
+        // solo los agudos, saturación fuerte), que antes daban "No clear match".
+        if (similarity < minSimilarity && lastProminence < minProminence)
             return finish (State::unclear, 0.0, false);
 
         // Si es casi entero, se redondea (evita "64,0003").
@@ -237,8 +262,10 @@ public:
     }
 
     double getLastSimilarity() const { return lastSimilarity; }
+    double getLastProminence() const { return lastProminence; }
 
     static constexpr double minSimilarity = 0.25;
+    static constexpr double minProminence = 20.0;
 
 private:
     State finish (State s, double lag, bool isPolarityInverted)
@@ -255,5 +282,5 @@ private:
     std::atomic<double> result { 0.0 };
     std::atomic<bool> inverted { false };
     std::atomic<float> progress { 0.0f };
-    double lastSimilarity = 0.0;
+    double lastSimilarity = 0.0, lastProminence = 0.0;
 };

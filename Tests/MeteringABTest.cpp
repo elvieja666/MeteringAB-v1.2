@@ -75,6 +75,8 @@ struct Chain
     double phase = 0;
     juce::Random rng { 42 }, otherRng { 7 };
     bool lowpass = false, unrelated = false, silent = false;   // tipos de "efecto"
+    bool highpass = false;                                     // EQ que deja solo agudos
+    float hpState[2][2] = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
     bool saturate = false, pulsing = false;                    // para las capturas del osciloscopio
     long long sampleCount = 0;
     float lpState[2] = { 0.0f, 0.0f };
@@ -123,6 +125,8 @@ struct Chain
                     d[idx] = in;
                     float y = fxLatency == 0 ? in * fxGain : out * fxGain;
                     if (lowpass) { lpState[ch] += 0.15f * (y - lpState[ch]); y = lpState[ch]; }   // "EQ" que quita agudos
+                    if (highpass)                                                               // EQ que saca el grave (queda casi solo el "aire")
+                        for (int k = 0; k < 2; ++k) { hpState[ch][k] += 0.3f * (y - hpState[ch][k]); y -= hpState[ch][k]; }
                     if (unrelated) y = 0.2f * (otherRng.nextFloat() * 2 - 1);                   // sonido sin relación
                     if (saturate) y = std::tanh (3.0f * y) / 3.0f * 2.0f;                      // saturador que aplasta picos
                     buf.setSample (ch, i, y);
@@ -912,6 +916,13 @@ int main (int argc, char** argv)
         check (r.first == State::done && r.second == 0, "Medir: FX sin latencia -> 0", r.second);
         r = measure (16, 1234, true, false, false, sim);
         check (r.first == State::done && r.second == 1234, "Medir: EQ que quita agudos + 1234 muestras -> 1234", r.second);
+        {
+            Chain h (17, -3.0f, 900);
+            h.highpass = true;
+            h.run (0.3); h.recv.startLatencyMeasurement(); h.run (3.5); h.recv.processPendingConversion();
+            check (h.recv.latencyMeasurer.getState() == State::done && std::abs (plain (h.recv, ParamIDs::latency) - 900.0f) < 1.0f,
+                   "Medir: EQ que deja solo agudos + 900 muestras -> 900 (antes: No clear match)", plain (h.recv, ParamIDs::latency));
+        }
         r = measure (16, 20000, false, false, false, sim);
         check (r.first == State::done && r.second == 20000, "Medir: latencia grande 20000 -> 20000", r.second);
         r = measure (14, 300, false, true, false, sim);
