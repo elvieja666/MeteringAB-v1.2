@@ -802,56 +802,67 @@ private:
         return lengthBars * quartersPerBar * 60.0 / bpm / MeteringABProcessor::scopeBins;
     }
 
-    // Outline / Lines only: la misma definición que Detallado (cada medio píxel con
-    // su pico de arriba y de abajo), pero en vez de barras sueltas se unen las
-    // puntas: arriba, cada punta de la onda (máximo local) con la siguiente; abajo,
-    // igual con las puntas negativas. Así se "llena" el dibujo de Detallado sin
-    // perder ningún detalle. Puntas separadas por más de 120 ms (silencio) no se
-    // unen: ahí el borde sigue a la onda.
+    // Outline / Lines only: "pico sostenido ajustado". Parte de lo mismo que
+    // Detallado (cada medio píxel con su pico de arriba y de abajo) y:
+    //  1) sostiene cada pico ±12,5 ms (tapa los huecos entre ciclos del bajo),
+    //  2) vuelve a recortar ±12,5 ms (los bordes quedan justo donde cambia el nivel,
+    //     sin ensancharse).
+    // Así queda prolijo, con escalones nítidos en golpes y caídas. El tiempo es fijo
+    // (no en píxeles), así se ve igual en cualquier largo y zoom.
 public:
-    static constexpr double tipGapMs = 120.0;
+    static constexpr double holdMs = 12.5;
 
-    // hi / lo: el pico de cada columna; has: si la columna tiene onda.
-    // Devuelve el borde de arriba y de abajo de cada columna.
-    static std::pair<std::vector<float>, std::vector<float>> tipEdges (const std::vector<float>& hi, const std::vector<float>& lo,
-                                                                      const std::vector<std::uint8_t>& has, int maxGap)
+    // hi / lo: el pico de cada columna; has: si la columna tiene onda; radius: el
+    // sostén en columnas. Devuelve el borde de arriba y de abajo de cada columna.
+    static std::pair<std::vector<float>, std::vector<float>> holdEdges (const std::vector<float>& hi, const std::vector<float>& lo,
+                                                                       const std::vector<std::uint8_t>& has, int radius)
     {
         const int n = (int) hi.size();
+
+        // Máximo o mínimo en una ventana de ±r (deque monótono: rápido con cualquier r).
+        auto sliding = [n] (const std::vector<float>& v, int r, bool wantMax, int from, int to)
+        {
+            std::vector<float> out (v);
+            std::deque<int> q;
+            int next = from;
+            auto better = [wantMax] (float x, float y) { return wantMax ? x >= y : x <= y; };
+            for (int i = from; i < to; ++i)
+            {
+                for (; next < juce::jmin (to, i + r + 1); ++next)
+                {
+                    while (! q.empty() && better (v[(size_t) next], v[(size_t) q.back()])) q.pop_back();
+                    q.push_back (next);
+                }
+                while (q.front() < i - r) q.pop_front();
+                out[(size_t) i] = v[(size_t) q.front()];
+            }
+            juce::ignoreUnused (n);
+            return out;
+        };
+
         auto edgeOf = [&] (const std::vector<float>& v, float sign)
         {
             std::vector<float> e ((size_t) n, 0.0f);
             for (int c = 0; c < n; ++c)
                 e[(size_t) c] = juce::jmax (0.0f, v[(size_t) c] * sign);
 
-            // Puntas: máximos locales (en una meseta, la primera columna).
-            std::vector<int> tips;
-            for (int c = 0; c < n; ++c)
+            // Cada tramo con onda por separado (los huecos no se rellenan).
+            for (int c = 0; c < n;)
             {
-                if (! has[(size_t) c] || e[(size_t) c] <= 0.0f) continue;
-                int r = c;
-                while (r + 1 < n && has[(size_t) r + 1] && juce::exactlyEqual (e[(size_t) r + 1], e[(size_t) c])) ++r;
-                const bool leftOk  = c == 0 || ! has[(size_t) c - 1] || e[(size_t) c - 1] < e[(size_t) c];
-                const bool rightOk = r == n - 1 || ! has[(size_t) r + 1] || e[(size_t) r + 1] < e[(size_t) c];
-                if (leftOk && rightOk)
+                if (! has[(size_t) c]) { ++c; continue; }
+                int end = c;
+                while (end < n && has[(size_t) end]) ++end;
+                if (radius > 0)
                 {
-                    tips.push_back (c);
-                    if (r > c) tips.push_back (r);
+                    const auto held = sliding (e, radius, true, c, end);
+                    const auto tight = sliding (held, radius, false, c, end);
+                    std::copy (tight.begin() + c, tight.begin() + end, e.begin() + c);
                 }
-                c = r;
-            }
-
-            for (size_t i = 0; i + 1 < tips.size(); ++i)
-            {
-                const int a = tips[i], b = tips[i + 1];
-                if (b - a > maxGap) continue;
-                bool gapInside = false;
-                for (int c = a + 1; c < b && ! gapInside; ++c) gapInside = ! has[(size_t) c];
-                if (gapInside) continue;
-                for (int c = a + 1; c < b; ++c)
-                    e[(size_t) c] = juce::jmax (e[(size_t) c], e[(size_t) a] + (e[(size_t) b] - e[(size_t) a]) * (float) (c - a) / (float) (b - a));
+                c = end;
             }
             return e;
         };
+
         auto up = edgeOf (hi, 1.0f);
         auto down = edgeOf (lo, -1.0f);
         for (auto& d : down) d = -d;
@@ -898,8 +909,8 @@ private:
         }
 
         const double columnSecs = juce::jmax (1.0e-9, view.span * binSeconds * bins / columns);
-        const int maxGap = juce::jmax (2, (int) std::lround (tipGapMs * 0.001 / columnSecs));
-        const auto [up, down] = tipEdges (hi, lo, has, maxGap);
+        const int radius = juce::jmax (0, (int) std::lround (holdMs * 0.001 / columnSecs));
+        const auto [up, down] = holdEdges (hi, lo, has, radius);
         juce::Path fill, lines;
         for (int c = 0; c < columns;)
         {

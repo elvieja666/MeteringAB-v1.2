@@ -1184,26 +1184,25 @@ int main (int argc, char** argv)
     }
 
     {
-        // Outline / Lines only: Detallado unido punta a punta.
+        // Outline / Lines only: pico sostenido "ajustado" (sostener y recortar).
         using V = std::vector<float>;
         using H = std::vector<std::uint8_t>;
-        //          columnas: 0     1     2      3     4      5     6     7
-        const V hi { 0.1f, 0.5f, -0.2f, 0.4f, 0.05f, 0.6f, 0.3f, 0.2f };
-        const V lo { -0.1f, 0.1f, -0.5f, -0.3f, -0.6f, -0.1f, -0.4f, -0.2f };
-        const auto [up, down] = ScopeView::tipEdges (hi, lo, H (8, 1), 100);
-        check (std::abs (up[1] - 0.5f) < 1.0e-5f && std::abs (up[3] - 0.4f) < 1.0e-5f && std::abs (up[5] - 0.6f) < 1.0e-5f,
-               "Outline: las puntas de arriba quedan donde están (todo el detalle)", up[3]);
-        check (std::abs (up[2] - 0.45f) < 1.0e-5f && std::abs (up[4] - 0.5f) < 1.0e-5f,
-               "Outline: entre punta y punta, línea recta (se llena el Detallado)", up[4]);
-        check (std::abs (down[3] + 0.55f) < 1.0e-5f && std::abs (down[5] + 0.5f) < 1.0e-5f,
-               "Outline: abajo, igual con las puntas negativas", down[3]);
-        check (up[7] >= 0.0f && down[0] <= 0.0f, "Outline: arriba nunca baja del centro ni abajo lo pasa", up[7]);
+        // Bajo: picos arriba cada 6 columnas (los ciclos) entre las columnas 100 y 200.
+        V hi (300, 0.0f), lo (300, 0.0f);
+        for (int c = 100; c < 200; ++c) { hi[(size_t) c] = (c % 6 == 0) ? 0.5f : -0.3f; lo[(size_t) c] = -0.5f; }
+        const auto [up, down] = ScopeView::holdEdges (hi, lo, H (300, 1), 4);
+        float mn = 1.0f, mx = 0.0f;
+        for (int c = 110; c < 190; ++c) { mn = juce::jmin (mn, up[(size_t) c]); mx = juce::jmax (mx, up[(size_t) c]); }
+        check (mx - mn < 1.0e-5f && std::abs (mx - 0.5f) < 1.0e-5f, "Outline: tapa los ciclos del bajo (plano arriba)", mx - mn);
+        check (up[95] < 1.0e-5f && up[205] < 1.0e-5f, "Outline: los bordes no se ensanchan (el golpe empieza y termina donde está)", up[205]);
+        check (std::abs (down[150] + 0.5f) < 1.0e-5f, "Outline: abajo, lo mismo con los picos negativos", down[150]);
 
-        // Dos notas separadas por silencio: no se unen.
-        V h2 (300, 0.0f), l2 (300, 0.0f);
-        h2[10] = 0.5f; h2[290] = 0.5f;
-        const auto [up2, down2] = ScopeView::tipEdges (h2, l2, H (300, 1), 100);
-        check (up2[150] < 1.0e-5f, "Outline: no une puntas separadas por silencio", up2[150]);
+        // Un golpe más alto en el medio: escalón nítido, del ancho del golpe.
+        V h2 (300, 0.2f), l2 (300, -0.2f);
+        for (int c = 140; c < 160; ++c) h2[(size_t) c] = 0.8f;
+        const auto [up2, down2] = ScopeView::holdEdges (h2, l2, H (300, 1), 4);
+        check (std::abs (up2[150] - 0.8f) < 1.0e-5f && std::abs (up2[135] - 0.2f) < 1.0e-5f && std::abs (up2[165] - 0.2f) < 1.0e-5f,
+               "Outline: un golpe se ve como un escalón de su mismo ancho", up2[135]);
     }
     {
         // Zoom: el audio guarda la onda muestra a muestra (120 BPM, 1 compás = 2 s = 96000 muestras).
