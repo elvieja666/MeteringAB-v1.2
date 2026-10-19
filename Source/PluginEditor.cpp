@@ -1260,13 +1260,14 @@ void MeteringABPanel::resized()
     auto scopeHeader = section.removeFromTop (scopeHeaderHeight).withSizeKeepingCentre (section.getWidth(), 28);
     zoomBox.setBounds (scopeHeader.removeFromRight (96));
     scopeHeader.removeFromRight (8);
-    compareButton.setBounds (scopeHeader.removeFromRight (104));
-    scopeHeader.removeFromRight (6);
-    gainLineButton.setBounds (scopeHeader.removeFromRight (58));
+    // De izquierda a derecha: Gain Applied, Overlay, Freeze, Options (y el largo).
+    optionsButton.setBounds (scopeHeader.removeFromRight (74));
     scopeHeader.removeFromRight (6);
     freezeButton.setBounds (scopeHeader.removeFromRight (64));
     scopeHeader.removeFromRight (6);
-    optionsButton.setBounds (scopeHeader.removeFromRight (74));
+    compareButton.setBounds (scopeHeader.removeFromRight (104));
+    scopeHeader.removeFromRight (6);
+    gainLineButton.setBounds (scopeHeader.removeFromRight (110));
     scopeLabel.setBounds (scopeHeader);
 
     scope.setBounds (section.withTrimmedBottom (16));
