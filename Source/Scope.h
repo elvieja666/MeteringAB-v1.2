@@ -554,7 +554,7 @@ private:
             g.drawText (text, r.toNearestInt(), juce::Justification::centred);
         };
 
-        if (gainLineDb.has_value())                       // ganancia aplicada (blanca): a -|ganancia| dB
+        if (gainLineDb.has_value())                       // ganancia aplicada: solo la línea blanca punteada, a -|ganancia| dB
         {
             const float level = juce::jlimit (-60.0f, 0.0f, -std::abs (*gainLineDb));
             const auto ys = yForDb (level);
@@ -562,13 +562,6 @@ private:
             const float dash[] = { 8.0f, 4.0f };
             for (float y : ys)
                 g.drawDashedLine (juce::Line<float> (plot.getX(), y, plot.getRight(), y), dash, 2, 1.3f);
-            const auto text = "Gain " + juce::String (*gainLineDb >= 0.0f ? "+" : "") + juce::String (*gainLineDb, 2) + " dB";
-            const auto r = juce::Rectangle<float> (plot.getX() + 6.0f, ys.front() - 9.0f, 104.0f, 18.0f)
-                               .withY (juce::jlimit (plot.getY(), plot.getBottom() - 18.0f, ys.front() - 9.0f));
-            g.setColour (gainColour);
-            g.fillRoundedRectangle (r, 4.0f);
-            g.setColour (juce::Colour (0xff0b0c0e));
-            g.drawText (text, r.toNearestInt(), juce::Justification::centred);
         }
 
         if (markerDb.has_value())
