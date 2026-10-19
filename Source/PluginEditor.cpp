@@ -1023,7 +1023,7 @@ void MeteringABPanel::timerCallback()
     }
     else if (isSendMode)
     {
-        statusLabel.setText ("Send active on Link ID " + juce::String (link) + ". Put a Metering A/B in Receive at the end of the chain."_u, juce::dontSendNotification);
+        statusLabel.setText ("Send active on Link ID " + juce::String (link) + ".", juce::dontSendNotification);
         statusLabel.setColour (juce::Label::textColourId, Colours::good);
     }
     else if (processor.sendConnected.load())
