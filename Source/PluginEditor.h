@@ -114,6 +114,8 @@ public:
     ChipButton& getShowPostButtonForTests()     { return showPostButton; }
     bool isScopeLinkedForTests() const          { return scopeLinked; }
     bool isSendLayout() const                   { return isSendMode; }
+    bool isScopeOpenForTests() const            { return scopeOpen; }
+    juce::TextButton& getScopeToggleForTests()  { return scopeToggleButton; }
 
     int getStyleMenuOpenedForTests() const      { return styleMenuOpenedForTests; }
     float getShownPreForTests() const             { return shownPre; }
@@ -155,6 +157,9 @@ private:
     juce::ComboBox zoomBox;
     ChipButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };   // clic derecho: menú de estilo
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
+    juce::TextButton scopeToggleButton { "Scope" };   // abrir / cerrar el osciloscopio (al pie de la columna gris)
+    bool scopeOpen = true;
+    void setScopeOpen (bool open);
     bool scopeLinked = true;                          // el osciloscopio sigue a la escucha (siempre, salvo
                                                       // que elijas una onda a mano hasta el próximo cambio)
     void setScopeLinked (bool linked);

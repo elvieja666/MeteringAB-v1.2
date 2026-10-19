@@ -127,6 +127,28 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
         return;
     }
 
+    if (kind == "scopetoggle")                       // Scope: pastilla con triángulo (abierto = encendido)
+    {
+        r = r.reduced (0.5f);
+        const float radius = r.getHeight() * 0.5f;
+        const bool on = button.getToggleState();
+        g.setColour (on ? Theme::raisedTop : Theme::pill.brighter (over ? 0.03f : 0.0f));
+        g.fillRoundedRectangle (r, radius);
+        if (on)
+        {
+            g.setColour (Theme::accent.withAlpha (0.45f));
+            g.drawRoundedRectangle (r, radius, 1.0f);
+        }
+        // Triángulo a la derecha: ◀ cerrar (abierto) / ▶ abrir (cerrado).
+        const float cx = r.getRight() - radius - 2.0f, cy = r.getCentreY(), t = 4.5f;
+        juce::Path p;
+        if (on) p.addTriangle (cx + t * 0.6f, cy - t, cx + t * 0.6f, cy + t, cx - t * 0.8f, cy);
+        else    p.addTriangle (cx - t * 0.6f, cy - t, cx - t * 0.6f, cy + t, cx + t * 0.8f, cy);
+        g.setColour (on ? Theme::accent : Theme::inkDim);
+        g.fillPath (p);
+        return;
+    }
+
     if (kind == "segment")                           // ms | Sync: la elegida en relieve
     {
         if (button.getToggleState())
@@ -149,6 +171,11 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
     {
         const auto chipColour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::accentBright.getARGB()));
         colour = button.getToggleState() ? chipColour.brighter (0.25f) : Theme::chipText;
+    }
+    else if (kind == "scopetoggle")
+    {
+        colour = button.getToggleState() ? Theme::accent : Theme::inkDim;
+        r = r.withTrimmedRight (r.getHeight() / 2 + 6).withTrimmedLeft (4);
     }
     else if (kind == "segment")
     {
@@ -475,6 +502,13 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     };
     addAndMakeVisible (freezeButton);
 
+    // Scope: abrir / cerrar el osciloscopio (se guarda con el proyecto).
+    scopeToggleButton.getProperties().set ("kind", "scopetoggle");
+    scopeToggleButton.setClickingTogglesState (false);
+    scopeToggleButton.onClick = [this] { setScopeOpen (! scopeOpen); };
+    addAndMakeVisible (scopeToggleButton);
+    scopeOpen = (bool) apvts.state.getProperty ("scopeVisible", true);
+
     zoomBox.getProperties().set ("kind", "chip");
 
     for (auto* b : { &showPreButton, &showPostButton })
@@ -702,17 +736,26 @@ void MeteringABPanel::pickCustomColour (bool forPre)
 
 
 // Muestra u oculta la sección del osciloscopio y ajusta el alto de la ventana.
+void MeteringABPanel::setScopeOpen (bool open)
+{
+    scopeOpen = open;
+    processor.apvts.state.setProperty ("scopeVisible", open, nullptr);
+    updateScopeSection();
+}
+
 void MeteringABPanel::updateScopeSection()
 {
-    // Receive: el osciloscopio está siempre, a la derecha. Send: no hay.
-    const bool showScope = ! isSendMode;
+    // Receive: el osciloscopio a la derecha (si está abierto). Send: no hay.
+    const bool showScope = ! isSendMode && scopeOpen;
+    scopeToggleButton.setVisible (! isSendMode);
+    scopeToggleButton.setToggleState (scopeOpen, juce::dontSendNotification);
 
     for (auto* c : scopeParts)
         c->setVisible (showScope);
 
     scopeLabel.setVisible (showScope);
 
-    const int width  = isSendMode ? sendWidth : receiveWidth;
+    const int width  = isSendMode ? sendWidth : scopeOpen ? receiveWidth : sideWidth;
     const int height = isSendMode ? sendHeight : receiveHeight;
 
     if (getWidth() != width || getHeight() != height)
@@ -1183,9 +1226,12 @@ void MeteringABPanel::resized()
     {
         listenLabel.setBounds (k.removeFromTop (20));
         k.removeFromTop (6);
-        abButton.setBounds (k.removeFromTop (66).expanded (4, 0));
-        k.removeFromTop (8);
-        matchInfoLabel.setBounds (k.removeFromTop (14));
+        abButton.setBounds (k.removeFromTop (58).expanded (4, 0));
+        k.removeFromTop (6);
+        auto row = k.removeFromTop (24);
+        scopeToggleButton.setBounds (row.removeFromRight (92));      // Scope: abrir / cerrar el osciloscopio
+        matchInfoLabel.setBounds (row);
+        matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
     }
 
     // ---- Osciloscopio (a la derecha, siempre) ----
