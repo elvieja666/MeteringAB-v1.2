@@ -1330,7 +1330,7 @@ int main (int argc, char** argv)
         check (panel->getStyleMenuOpenedForTests() == 0 && ! panel->isCompareOnForTests(), "Overlay: el clic derecho no abre ningún menú", panel->getStyleMenuOpenedForTests());
         panel->getOptionsButtonForTests().onClick();
         check (panel->getStyleMenuOpenedForTests() == 1 && ! panel->isCompareOnForTests() && panel->getOptionsButtonForTests().isVisible(),
-               "Options: abre el menú de colores, canales y grilla", panel->getStyleMenuOpenedForTests());
+               "Options: abre el menú de canales y grilla", panel->getStyleMenuOpenedForTests());
         std::set<int> ids;
         std::function<void (const juce::PopupMenu&)> walk = [&] (const juce::PopupMenu& m)
         {
@@ -1341,11 +1341,8 @@ int main (int argc, char** argv)
             }
         };
         walk (panel->buildStyleMenu());
-        check (ids.count (700) && ids.count (750) && ids.count (400) && ids.count (500) && ! ids.count (100) && ! ids.count (150),
-               "Menú: colores de PRE y POST, canales y grilla (sin formas)", (double) ids.size());
-        const auto postBefore = sc.getPostColour();
-        panel->applyStyleMenuResult (700 + 7);             // Violeta para PRE
-        check (sc.getPreColour() == juce::Colour (0xff9b8cff) && sc.getPostColour() == postBefore, "Color de PRE: cambia solo PRE", 1);
+        check (ids.count (400) && ids.count (500) && ids.count (503) && ! ids.count (700) && ! ids.count (750) && ! ids.count (300),
+               "Options: solo canales y grilla (sin colores)", (double) ids.size());
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;

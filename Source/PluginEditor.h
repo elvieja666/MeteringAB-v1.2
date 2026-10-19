@@ -164,7 +164,7 @@ private:
     ChipButton compareButton { "Overlay" };
     bool compareOn = false;
     void setCompare (bool on);
-    juce::TextButton optionsButton { "Options" };     // menú: colores, canales (L / R / suma) y grilla
+    juce::TextButton optionsButton { "Options" };     // menú: canales (L / R / suma) y grilla
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
     juce::TextButton gainLineButton { "Gain" };       // línea con el valor de la ganancia aplicada
     bool gainLineOn = false;
@@ -177,7 +177,7 @@ private:
     void syncWavesToListen();
     void showStyleMenu (juce::Component& anchor);     // menú de opciones gráficas (botón Options)
 public:
-    juce::PopupMenu buildStyleMenu() const;          // colores de PRE y POST, canales y grilla
+    juce::PopupMenu buildStyleMenu() const;          // canales y grilla
     void applyStyleMenuResult (int result);
 private:
     juce::Component* styleMenuAnchor = nullptr;

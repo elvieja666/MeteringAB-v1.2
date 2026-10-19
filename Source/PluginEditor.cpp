@@ -514,7 +514,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
         b->getProperties().set ("kind", "chip");
 
     // Freeze: congela lo que se ve (para mirarlo y hacerle zoom tranquilo).
-    // Options: colores de PRE y POST, canales (L / R / suma) y grilla.
+    // Options: canales (L / R / suma) y grilla.
     optionsButton.setClickingTogglesState (false);
     optionsButton.onClick = [this] { showStyleMenu (optionsButton); };
     addAndMakeVisible (optionsButton);
@@ -637,28 +637,12 @@ static const std::array<std::pair<const char*, juce::uint32>, 9> waveColours {{
     { "Red",         0xffeb5757 }, { "Violet",      0xff9b8cff }, { "Lime",       0xffb5e655 },
 }};
 
-// Menú del botón Options: el color de cada onda, canales y grilla.
+// Menú del botón Options: canales y grilla.
 juce::PopupMenu MeteringABPanel::buildStyleMenu() const
 {
     auto& state = processor.apvts.state;
     juce::PopupMenu menu;
 
-    for (const bool pre : { true, false })
-    {
-        const int colourBase = pre ? 700 : 750;
-        const auto current = pre ? scope.getPreColour() : scope.getPostColour();
-        menu.addSectionHeader (pre ? "PRE FX colour (Outline)" : "POST FX colour (Lines only)");
-        bool known = false;
-        for (int i = 0; i < (int) waveColours.size(); ++i)
-        {
-            const bool on = current.getARGB() == waveColours[(size_t) i].second;
-            known = known || on;
-            menu.addColouredItem (colourBase + i, waveColours[(size_t) i].first, juce::Colour (waveColours[(size_t) i].second), true, on);
-        }
-        menu.addItem (pre ? 300 : 301, juce::String::fromUTF8 ("Other colour\xe2\x80\xa6"), true, ! known);
-    }
-
-    menu.addSectionHeader ("Oscilloscope");
     juce::PopupMenu channelsMenu;
     const int channels = (int) state.getProperty ("scopeChannels", 0);
     for (int i = 0; i < ScopeView::channelNames.size(); ++i)
