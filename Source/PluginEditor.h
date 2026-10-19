@@ -111,8 +111,8 @@ public:
     ScopeView& getScopeForTests()             { return scope; }
     juce::TextButton& getFreezeButtonForTests() { return freezeButton; }
     juce::TextButton& getGainLineButtonForTests() { return gainLineButton; }
-    ChipButton& getShowPreButtonForTests()      { return showPreButton; }
-    ChipButton& getShowPostButtonForTests()     { return showPostButton; }
+    ChipButton& getCompareButtonForTests()      { return compareButton; }
+    bool isCompareOnForTests() const            { return compareOn; }
     bool isScopeLinkedForTests() const          { return scopeLinked; }
     bool isSendLayout() const                   { return isSendMode; }
     bool isScopeOpenForTests() const            { return scopeOpen; }
@@ -156,7 +156,11 @@ private:
     ScopeView scope { processor };
     juce::Label scopeLabel;
     juce::ComboBox zoomBox;
-    ChipButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };   // clic derecho: menú de estilo
+    // PRE + POST: las dos ondas juntas (PRE en Outline, POST en Lines only).
+    // Apagado, el osciloscopio sigue a la escucha. Clic derecho: colores, canales y grilla.
+    ChipButton compareButton { "PRE + POST" };
+    bool compareOn = false;
+    void setCompare (bool on);
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
     juce::TextButton gainLineButton { "Gain" };       // línea con el valor de la ganancia aplicada
     bool gainLineOn = false;
@@ -169,8 +173,7 @@ private:
     void syncWavesToListen();
     void showStyleMenu (juce::Component& anchor);     // menú de opciones gráficas (clic derecho en PRE / POST)
 public:
-    enum class StyleMenuFor { pre, post };
-    juce::PopupMenu buildStyleMenu (StyleMenuFor which) const;   // cada botón, solo lo suyo
+    juce::PopupMenu buildStyleMenu() const;          // colores de PRE y POST, canales y grilla
     void applyStyleMenuResult (int result);
 private:
     juce::Component* styleMenuAnchor = nullptr;
@@ -179,7 +182,7 @@ private:
     void pickCustomColour (bool forPre);
     void updateScopeSection();
 
-    juce::Component* scopeParts[6] = { &scope, &zoomBox, &showPreButton, &showPostButton, &freezeButton, &gainLineButton };
+    juce::Component* scopeParts[5] = { &scope, &zoomBox, &compareButton, &freezeButton, &gainLineButton };
 
     static constexpr int scopeHeaderHeight = 52;      // barra "Osciloscopio" arriba del gráfico
     void setWaves (bool pre, bool post);

@@ -489,7 +489,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     scope.setShowPre  ((bool) apvts.state.getProperty ("scopeShowPre",  true));
     scope.setShowPost ((bool) apvts.state.getProperty ("scopeShowPost", true));
 
-    for (juce::TextButton* b : { (juce::TextButton*) &showPreButton, (juce::TextButton*) &showPostButton, &freezeButton, &gainLineButton })
+    for (juce::TextButton* b : { (juce::TextButton*) &compareButton, &freezeButton, &gainLineButton })
         b->getProperties().set ("kind", "chip");
 
     // Freeze: congela lo que se ve (para mirarlo y hacerle zoom tranquilo).
@@ -525,35 +525,20 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     zoomBox.getProperties().set ("kind", "chip");
 
-    for (auto* b : { &showPreButton, &showPostButton })
-    {
-        b->setClickingTogglesState (false);
-        addAndMakeVisible (*b);
-    }
-
-    // Clic: ver solo esa onda (si estaba la otra, pasa a esta). Cmd + clic: sumarla
-    // o sacarla sin tocar la otra (para ver las dos juntas). Lo elegido a mano
-    // queda hasta el próximo cambio de escucha; ahí el osciloscopio vuelve a seguirla.
-    auto waveClick = [this] (bool isPre, const juce::ModifierKeys& mods)
-    {
-        if (scopeLinked)
-            setScopeLinked (false);
-
-        if (mods.isCommandDown())
-            setWaves (isPre ? ! scope.getShowPre() : scope.getShowPre(),
-                      isPre ? scope.getShowPost()   : ! scope.getShowPost());
-        else
-            setWaves (isPre, ! isPre);
-    };
-    showPreButton.onClick  = [this, waveClick] { waveClick (true,  showPreButton.lastClickMods); };
-    showPostButton.onClick = [this, waveClick] { waveClick (false, showPostButton.lastClickMods); };
+    // PRE + POST: las dos ondas juntas para comparar (se guarda con el proyecto).
+    compareButton.setClickingTogglesState (false);
+    compareButton.onClick = [this] { setCompare (! compareOn); };
+    compareButton.onRightClick = [this] { showStyleMenu (compareButton); };
+    addAndMakeVisible (compareButton);
 
     // Botón ⇄ linkeado a la escucha: hace lo mismo que el botón PRE/POST FX
     // grande (alterna lo que suena) y el osciloscopio lo sigue.
     // LINK: prendido, el osciloscopio sigue a la escucha (muestra solo la onda
     // que suena); apagado, muestra lo que dejes con PRE FX / POST FX.
-    scopeLinked = true;                               // siempre sigue a la escucha
+    scopeLinked = true;                               // siempre sigue a la escucha...
     scope.setLinked (scopeLinked);
+    if ((bool) apvts.state.getProperty ("scopeCompare", false))
+        setCompare (true);                            // ...salvo con PRE + POST prendido
 
     updateWaveButtons();
 
@@ -565,10 +550,6 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     latencyMsLabel.setJustificationType (juce::Justification::centredLeft);
     latencyInfoLabel.setJustificationType (juce::Justification::centredRight);
 
-    // Estilo: forma de dibujar, colores y grilla (se guardan con el proyecto).
-    // Se abre con clic derecho sobre LINK, PRE FX o POST FX.
-    for (auto* b : { &showPreButton, &showPostButton })
-        b->onRightClick = [this, b] { showStyleMenu (*b); };
     applyScopeLook();
 
     statusLabel.setFont (Theme::font (12.5f, 400));
@@ -604,11 +585,8 @@ void MeteringABPanel::applyScopeLook()
 {
     auto& state = processor.apvts.state;
     // Forma de PRE y de POST por separado (si no hay, toman la forma general de antes).
-    const int legacyStyle = (int) state.getProperty ("scopeStyle", 0);
-    scope.setStyles ((ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStylePre",  legacyStyle)),
-                     (ScopeView::Style) juce::jlimit (0, 2, (int) state.getProperty ("scopeStylePost", legacyStyle)));
-    // Siguiendo la escucha: siempre Detallado (picos). Las formas de PRE FX y
-    // POST FX (clic derecho en cada botón) se usan cuando elegís la onda a mano.
+    // PRE + POST: PRE en Outline y POST en Lines only. Siguiendo la escucha: Detallado (picos).
+    scope.setStyles (ScopeView::Style::contour, ScopeView::Style::lines);
     scope.setLinkStyle (ScopeView::Style::detailed);
     scope.setShowGrid ((bool) state.getProperty ("scopeGrid", true));
     scope.setChannels ((ScopeView::Channels) juce::jlimit (0, 3, (int) state.getProperty ("scopeChannels", 0)));
@@ -632,24 +610,17 @@ static const std::array<std::pair<const char*, juce::uint32>, 9> waveColours {{
     { "Red",         0xffeb5757 }, { "Violet",      0xff9b8cff }, { "Lime",       0xffb5e655 },
 }};
 
-// Menú de estilo de cada botón: PRE FX y POST FX muestran solo lo de su onda
-// (forma y color); LINK, solo la forma con LINK. Canales y grilla, en todos.
-juce::PopupMenu MeteringABPanel::buildStyleMenu (StyleMenuFor which) const
+// Menú de clic derecho en PRE + POST: el color de cada onda, canales y grilla.
+juce::PopupMenu MeteringABPanel::buildStyleMenu() const
 {
     auto& state = processor.apvts.state;
     juce::PopupMenu menu;
 
+    for (const bool pre : { true, false })
     {
-        const bool pre = which == StyleMenuFor::pre;
-        const int style = (int) (pre ? scope.getStylePre() : scope.getStylePost());
-        const int formBase = pre ? 100 : 150, colourBase = pre ? 700 : 750;
+        const int colourBase = pre ? 700 : 750;
         const auto current = pre ? scope.getPreColour() : scope.getPostColour();
-
-        menu.addSectionHeader (pre ? "PRE FX shape" : "POST FX shape");
-        for (int i = 0; i < ScopeView::styleNames.size(); ++i)
-            menu.addItem (formBase + i, ScopeView::styleNames[i], true, style == i);
-
-        menu.addSectionHeader (pre ? "PRE FX colour" : "POST FX colour");
+        menu.addSectionHeader (pre ? "PRE FX colour (Outline)" : "POST FX colour (Lines only)");
         bool known = false;
         for (int i = 0; i < (int) waveColours.size(); ++i)
         {
@@ -707,9 +678,7 @@ void MeteringABPanel::showStyleMenu (juce::Component& anchor)
     if (! anchor.isShowing())                      // fuera de pantalla (tests): no hay dónde mostrarlo
         return;
 
-    const auto which = &anchor == &showPreButton ? StyleMenuFor::pre : StyleMenuFor::post;
-
-    buildStyleMenu (which).showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&anchor),
+    buildStyleMenu().showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&anchor),
                                           [safe = juce::Component::SafePointer<MeteringABPanel> (this)] (int result)
     {
         if (safe != nullptr)
@@ -743,7 +712,7 @@ void MeteringABPanel::pickCustomColour (bool forPre)
         });
 
     // Funciona tanto en el plugin como en la ventana aparte.
-    auto* anchor = styleMenuAnchor != nullptr ? styleMenuAnchor : static_cast<juce::Component*> (&showPostButton);
+    auto* anchor = styleMenuAnchor != nullptr ? styleMenuAnchor : static_cast<juce::Component*> (&compareButton);
     auto* host = anchor->getTopLevelComponent();
     juce::CallOutBox::launchAsynchronously (std::move (selector),
                                             host->getLocalArea (anchor, anchor->getLocalBounds()), host);
@@ -800,11 +769,24 @@ void MeteringABPanel::updateWaveButtons()
         b.repaint();
     };
 
-    // Con LINK prendido solo se enciende LINK (PRE FX / POST FX quedan apagados).
-    // Siguiendo la escucha no se enciende ninguno: solo cuando los tocás (onda elegida a mano).
-    style (showPreButton,  ! scopeLinked && scope.getShowPre(),  scope.getPreColour());
-    style (showPostButton, ! scopeLinked && scope.getShowPost(), scope.getPostColour());
+    style (compareButton, compareOn, Theme::accentBright);
 
+}
+
+void MeteringABPanel::setCompare (bool on)
+{
+    compareOn = on;
+    processor.apvts.state.setProperty ("scopeCompare", on, nullptr);
+
+    if (on)
+    {
+        setScopeLinked (false);       // deja de seguir la escucha...
+        setWaves (true, true);        // ...y muestra las dos (PRE Outline, POST Lines only)
+    }
+    else
+    {
+        setScopeLinked (true);        // vuelve a seguir la escucha (Detallado)
+    }
 }
 
 void MeteringABPanel::setScopeLinked (bool linked)
@@ -913,7 +895,9 @@ void MeteringABPanel::timerCallback()
 
         if (lastListenPre >= 0 && listenPre != lastListenPre)
         {
-            if (scopeLinked)
+            if (compareOn)
+                updateWaveButtons();      // PRE + POST: siguen las dos a la vista
+            else if (scopeLinked)
                 setWaves (listenPre == 1, listenPre == 0);
             else
                 setScopeLinked (true);    // vuelve a seguir la escucha (y muestra la que suena)
@@ -1264,9 +1248,7 @@ void MeteringABPanel::resized()
     auto scopeHeader = section.removeFromTop (scopeHeaderHeight).withSizeKeepingCentre (section.getWidth(), 28);
     zoomBox.setBounds (scopeHeader.removeFromRight (96));
     scopeHeader.removeFromRight (8);
-    showPostButton.setBounds (scopeHeader.removeFromRight (74));
-    scopeHeader.removeFromRight (6);
-    showPreButton.setBounds (scopeHeader.removeFromRight (66));
+    compareButton.setBounds (scopeHeader.removeFromRight (104));
     scopeHeader.removeFromRight (6);
     gainLineButton.setBounds (scopeHeader.removeFromRight (58));
     scopeHeader.removeFromRight (6);

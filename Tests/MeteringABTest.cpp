@@ -367,6 +367,14 @@ int main (int argc, char** argv)
                 auto pimg = panel->createComponentSnapshot (panel->getLocalBounds(), true, 2.0f);
                 juce::File pf (juce::String (argv[1]) + "/audio-panel-freeze.png");
                 pf.deleteFile(); juce::FileOutputStream pos (pf); juce::PNGImageFormat().writeImageToStream (pimg, pos);
+
+                // PRE + POST: las dos juntas (PRE Outline, POST Lines only).
+                sc.resetZoom();
+                panel->getCompareButtonForTests().onClick();
+                auto cimg = panel->createComponentSnapshot (panel->getLocalBounds(), true, 2.0f);
+                juce::File cf (juce::String (argv[1]) + "/audio-compare.png");
+                cf.deleteFile(); juce::FileOutputStream cos (cf); juce::PNGImageFormat().writeImageToStream (cimg, cos);
+                panel->getCompareButtonForTests().onClick();
             }
             send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
         }
@@ -682,8 +690,8 @@ int main (int argc, char** argv)
         a.apvts.state.setProperty ("scopeStylePost", 2, nullptr);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
         auto* e = panelOf (ed);
-        check (e->getScopeForTests().getStylePre() == ScopeView::Style::detailed && e->getScopeForTests().getStylePost() == ScopeView::Style::lines,
-               "Forma separada: PRE Detallado (de antes) y POST Solo líneas", 1);
+        check (e->getScopeForTests().getStylePre() == ScopeView::Style::contour && e->getScopeForTests().getStylePost() == ScopeView::Style::lines,
+               "Formas fijas: PRE Outline y POST Lines only (aunque el proyecto tuviera otras)", 1);
     }
     {
         // Ya no hay forma aparte para LINK: cada onda usa la suya.
@@ -1361,81 +1369,43 @@ int main (int argc, char** argv)
         panel->getGainLineButtonForTests().onClick();
         check (! sc.getGainLine().has_value(), "Gain: otro clic la saca", 1);
 
-        // Sin botón Estilo: el menú se abre con clic derecho en PRE FX / POST FX / LINK.
-        auto& preBtn = panel->getShowPreButtonForTests();
-        const bool wasShown = sc.getShowPre();
-        const juce::ModifierKeys right (juce::ModifierKeys::rightButtonModifier);
-        auto rightClick = [&] (juce::Component& c) { return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), { 5.0f, 5.0f }, right, 1.0f,
-                                                                              0.0f, 0.0f, 0.0f, 0.0f, &c, &c, juce::Time::getCurrentTime(), { 5.0f, 5.0f },
-                                                                              juce::Time::getCurrentTime(), 1, false); };
-        preBtn.mouseDown (rightClick (preBtn));
-        preBtn.mouseUp (rightClick (preBtn));
-        check (panel->getStyleMenuOpenedForTests() == 1 && sc.getShowPre() == wasShown,
-               "Clic derecho en PRE FX: abre el menú de estilo (y no oculta la onda)", panel->getStyleMenuOpenedForTests());
-        check (panel->findChildWithID ("link") == nullptr, "Ya no hay botón LINK", 1);
-        bool noStyleButton = true;
-        for (auto* child : panel->getChildren())
-            if (auto* b = dynamic_cast<juce::Button*> (child))
-                noStyleButton = noStyleButton && b->getButtonText() != "Estilo";
-        check (noStyleButton, "Ya no está el botón Estilo", 1);
-
-        // Cada botón muestra solo lo suyo.
-        auto ids = [&] (MeteringABPanel::StyleMenuFor which)
-        {
-            std::set<int> out;
-            std::function<void (const juce::PopupMenu&)> walk = [&] (const juce::PopupMenu& m)
-            {
-                for (juce::PopupMenu::MenuItemIterator it (m); it.next();)
-                {
-                    auto& item = it.getItem();
-                    if (item.itemID != 0) out.insert (item.itemID);
-                    if (item.subMenu != nullptr) walk (*item.subMenu);
-                }
-            };
-            walk (panel->buildStyleMenu (which));
-            return out;
-        };
-        auto any = [] (const std::set<int>& v, int lo, int hi) { for (int i : v) if (i >= lo && i < hi) return true; return false; };
-        const auto mPre = ids (MeteringABPanel::StyleMenuFor::pre), mPost = ids (MeteringABPanel::StyleMenuFor::post),
-                   mLink = std::set<int> { 400, 500 };
-        check (any (mPre, 100, 150) && any (mPre, 700, 750) && ! any (mPre, 150, 200) && ! any (mPre, 600, 700) && ! any (mPre, 750, 800),
-               "Menú de PRE FX: solo forma y color de PRE", (double) mPre.size());
-        check (any (mPost, 150, 200) && any (mPost, 750, 800) && ! any (mPost, 100, 150) && ! any (mPost, 600, 700) && ! any (mPost, 700, 750),
-               "Menú de POST FX: solo forma y color de POST", (double) mPost.size());
-        check (mPre.count (400) && mPost.count (400) && mLink.count (400) && mLink.count (500), "Canales y grilla en los tres menús", 1);
-
-        // Elegir un color de PRE no cambia el de POST.
-        const auto postBefore = sc.getPostColour();
-        panel->applyStyleMenuResult (700 + 7);             // Violeta para PRE
-        check (sc.getPreColour() == juce::Colour (0xff9b8cff) && sc.getPostColour() == postBefore,
-               "Color de PRE: cambia solo PRE", 1);
-        panel->applyStyleMenuResult (152);                 // Solo líneas para POST
-        check (sc.getStylePost() == ScopeView::Style::lines, "Forma de POST desde su menú", 1);
-
-        // Siguiendo la escucha no se enciende ningún botón; tocar PRE FX la elige a
-        // mano (y se enciende) hasta el próximo cambio de escucha.
+        // PRE + POST: un solo botón que muestra las dos ondas juntas.
+        auto& cmp = panel->getCompareButtonForTests();
         setParam (r, ParamIDs::pre, 1); panel->refreshNow();
         setParam (r, ParamIDs::pre, 0); panel->refreshNow();
-        check (panel->isScopeLinkedForTests() && ! preBtn.getToggleState() && ! panel->getShowPostButtonForTests().getToggleState(),
-               "Cambiar la escucha no enciende PRE FX / POST FX", preBtn.getToggleState());
-        preBtn.lastClickMods = {};
-        preBtn.onClick();
-        check (! panel->isScopeLinkedForTests() && preBtn.getToggleState() && sc.getShowPre() && ! sc.getShowPost(),
-               "Tocar PRE FX: solo PRE (elegido a mano)", 1);
+        check (panel->isScopeLinkedForTests() && ! cmp.getToggleState() && ! sc.getShowPre() && sc.getShowPost(),
+               "Sin PRE + POST: sigue a la escucha (solo POST, apagado)", cmp.getToggleState());
+        cmp.onClick();
+        check (panel->isCompareOnForTests() && cmp.getToggleState() && sc.getShowPre() && sc.getShowPost() && ! panel->isScopeLinkedForTests()
+                   && sc.getStylePre() == ScopeView::Style::contour && sc.getStylePost() == ScopeView::Style::lines,
+               "PRE + POST: las dos juntas, PRE en Outline y POST en Lines only", 1);
+        setParam (r, ParamIDs::pre, 1); panel->refreshNow();
+        check (sc.getShowPre() && sc.getShowPost(), "PRE + POST: cambiar la escucha no lo apaga", 1);
+        cmp.onClick();
+        check (! panel->isCompareOnForTests() && panel->isScopeLinkedForTests() && sc.getShowPre() && ! sc.getShowPost(),
+               "PRE + POST apagado: vuelve a seguir la escucha", 1);
 
-        // Clic = solo esa onda; Cmd + clic = sumarla / sacarla.
-        auto& postBtn = panel->getShowPostButtonForTests();
-        auto clickWith = [] (ChipButton& b, juce::ModifierKeys mods) { b.lastClickMods = mods; b.onClick(); };
-        const juce::ModifierKeys cmd (juce::ModifierKeys::commandModifier);
-        clickWith (postBtn, {});
-        check (! sc.getShowPre() && sc.getShowPost(), "Con PRE, clic en POST FX: pasa a POST (solo)", 1);
-        clickWith (preBtn, cmd);
-        check (sc.getShowPre() && sc.getShowPost() && preBtn.getToggleState() && postBtn.getToggleState(),
-               "Cmd + clic en PRE FX: se ven las dos", 1);
-        clickWith (postBtn, cmd);
-        check (sc.getShowPre() && ! sc.getShowPost(), "Cmd + clic en POST FX: la saca (queda PRE)", 1);
-        clickWith (postBtn, cmd); clickWith (preBtn, {});
-        check (sc.getShowPre() && ! sc.getShowPost(), "Con las dos, clic en PRE FX: solo PRE", 1);
+        // Clic derecho en PRE + POST: menú con colores de PRE y POST, canales y grilla.
+        const juce::ModifierKeys right (juce::ModifierKeys::rightButtonModifier);
+        juce::MouseEvent rc (juce::Desktop::getInstance().getMainMouseSource(), { 5.0f, 5.0f }, right, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                             &cmp, &cmp, juce::Time::getCurrentTime(), { 5.0f, 5.0f }, juce::Time::getCurrentTime(), 1, false);
+        cmp.mouseDown (rc); cmp.mouseUp (rc);
+        check (panel->getStyleMenuOpenedForTests() == 1 && ! panel->isCompareOnForTests(), "Clic derecho en PRE + POST: abre el menú (sin prenderlo)", 1);
+        std::set<int> ids;
+        std::function<void (const juce::PopupMenu&)> walk = [&] (const juce::PopupMenu& m)
+        {
+            for (juce::PopupMenu::MenuItemIterator it (m); it.next();)
+            {
+                if (it.getItem().itemID != 0) ids.insert (it.getItem().itemID);
+                if (it.getItem().subMenu != nullptr) walk (*it.getItem().subMenu);
+            }
+        };
+        walk (panel->buildStyleMenu());
+        check (ids.count (700) && ids.count (750) && ids.count (400) && ids.count (500) && ! ids.count (100) && ! ids.count (150),
+               "Menú: colores de PRE y POST, canales y grilla (sin formas)", (double) ids.size());
+        const auto postBefore = sc.getPostColour();
+        panel->applyStyleMenuResult (700 + 7);             // Violeta para PRE
+        check (sc.getPreColour() == juce::Colour (0xff9b8cff) && sc.getPostColour() == postBefore, "Color de PRE: cambia solo PRE", 1);
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;
