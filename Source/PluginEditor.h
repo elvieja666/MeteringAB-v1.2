@@ -94,7 +94,7 @@ public:
     static constexpr int scopeWidth = 1101;            // 595 * 1,85
     static constexpr int sideWidth = 380;             // la columna gris (Receive)
     static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1967 (al 100%)
-    static constexpr int sendWidth = sideWidth, sendHeight = 150;    // Send: hasta el estado (antes de los números del Receive)
+    static constexpr int sendWidth = sideWidth, sendHeight = 134;    // Send: corta justo donde en el Receive empieza el recuadro de los números
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
     explicit MeteringABPanel (MeteringABProcessor&);
@@ -118,6 +118,7 @@ public:
     bool isSendLayout() const                   { return isSendMode; }
     bool isScopeOpenForTests() const            { return scopeOpen; }
     juce::TextButton& getABButtonForTests()      { return abButton; }
+    juce::Rectangle<int> getMeterAreaForTests() const { return meterArea(); }
     static inline bool scopeOpenOnStart = false;   // pruebas: abrir con el osciloscopio a la vista
     juce::TextButton& getScopeToggleForTests()  { return scopeToggleButton; }
 

@@ -618,6 +618,12 @@ int main (int argc, char** argv)
         std::unique_ptr<juce::AudioProcessorEditor> ed2 (sendP.createEditor());
         check (panelOf (ed2)->getHeight() == MeteringABEditor::sendHeight && ! panelOf (ed2)->getScopeForTests().isVisible(),
                "Modo Send: sin sección de osciloscopio (alto px)", panelOf (ed2)->getHeight());
+        {
+            MeteringABProcessor rcv; setParam (rcv, ParamIDs::mode, 1);
+            std::unique_ptr<juce::AudioProcessorEditor> er (rcv.createEditor());
+            check (panelOf (er)->getMeterAreaForTests().getY() == MeteringABPanel::sendHeight,
+                   "Send: corta justo donde en el Receive empieza el recuadro de los LUFS", panelOf (er)->getMeterAreaForTests().getY());
+        }
     }
     {
         // Plugin escalable: todo se agranda en proporción y el tamaño se guarda.
