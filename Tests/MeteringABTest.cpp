@@ -374,6 +374,14 @@ int main (int argc, char** argv)
                 auto cimg = panel->createComponentSnapshot (panel->getLocalBounds(), true, 2.0f);
                 juce::File cf (juce::String (argv[1]) + "/audio-compare.png");
                 cf.deleteFile(); juce::FileOutputStream cos (cf); juce::PNGImageFormat().writeImageToStream (cimg, cos);
+                for (int z = 0; z < 2; ++z)             // ...y con zoom (x8 y x40)
+                {
+                    sc.setView (zooms[z][0], zooms[z][1]);
+                    auto zc = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
+                    juce::File zf (juce::String (argv[1]) + (z == 0 ? "/audio-compare-zoom8.png" : "/audio-compare-zoom40.png"));
+                    zf.deleteFile(); juce::FileOutputStream zos (zf); juce::PNGImageFormat().writeImageToStream (zc, zos);
+                }
+                sc.resetZoom();
                 panel->getCompareButtonForTests().onClick();
             }
             send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
@@ -1149,80 +1157,54 @@ int main (int argc, char** argv)
     }
 
     {
-        // Contorno/líneas "graves sin onda + agudos prolijos" (1 ms por columna).
+        // Outline / Lines only: de pico a pico (1 ms por columna).
         constexpr int bins = MeteringABProcessor::scopeBins;
         const double binSec = 1.0e-3;
         using V = std::vector<float>;
-        auto env = [&] (const V& pos, const V& neg, const V& hmin, const V& hmax, int from = 0, int to = bins)
-        { return ScopeView::smoothEnvelope ({ pos.data(), neg.data(), hmin.data(), hmax.data() }, from, to, binSec); };
+        auto env = [&] (const V& pos, const V& neg, int from = 0, int to = bins)
+        { return ScopeView::peakEnvelope ({ pos.data(), neg.data() }, from, to, binSec); };
+        auto valueAt = [&] (const std::vector<ScopeView::EnvelopePoint>& p, int bin) { return p[(size_t) bin + 1].hi; };
         const V zero ((size_t) bins, 0.0f);
 
-        // Agudos: un golpe de 40 ms.
-        V hmin ((size_t) bins, 0.0f), hmax ((size_t) bins, 0.0f);
-        for (int b = 100; b < 140; ++b) { hmax[(size_t) b] = 1.0f; hmin[(size_t) b] = -1.0f; }
-        const auto pts = env (zero, zero, hmin, hmax);
-        check ((int) pts.size() == bins + 2, "Contorno: un punto por columna (mucha definición)", (double) pts.size());
-        auto valueAt = [&] (const std::vector<ScopeView::EnvelopePoint>& p, int bin) { return p[(size_t) bin + 1].hi; };
-        check (valueAt (pts, 94) < 0.05f && valueAt (pts, 104) > 0.9f, "Contorno: el golpe sube justo donde cae", valueAt (pts, 96));
-        check (valueAt (pts, 142) > 0.9f && valueAt (pts, 160) < 0.05f, "Agudos: se sostienen 8 ms y bajan enseguida", valueAt (pts, 160));
-        check (valueAt (pts, 147) > valueAt (pts, 149) && valueAt (pts, 149) > valueAt (pts, 151),
-               "Contorno: la bajada es una curva, no un escalón", valueAt (pts, 149));
-        check (pts.front().bin == 0.0f && pts.back().bin == (float) bins, "Contorno: el dibujo cubre todo el tramo", pts.back().bin);
-        const auto part = env (zero, zero, hmin, hmax, 300, 500);
-        check (part.front().bin == 300.0f && part.back().bin == 500.0f, "Contorno: con LINK cada tramo se dibuja aparte", part.size());
-
-        // Grave de 50 Hz (un pico arriba y uno abajo cada 20 ms), asimétrico y con un
-        // medio ciclo más bajo cada tanto (vaivén del ciclo): el borde queda liso.
+        // Picos positivos cada 30 ms (0.54, 0.6, 0.52) y negativos en el medio.
         V pos ((size_t) bins, 0.0f), neg ((size_t) bins, 0.0f);
-        for (int b = 0; b < bins; b += 20)
+        pos[200] = 0.54f; pos[230] = 0.6f; pos[260] = 0.52f;
+        neg[215] = -0.5f; neg[245] = -0.44f;
+        const auto pts = env (pos, neg);
+        check ((int) pts.size() == bins + 2, "Outline: un punto por columna", (double) pts.size());
+        check (std::abs (valueAt (pts, 230) - 0.6f) < 1.0e-4f && std::abs (valueAt (pts, 215) - 0.57f) < 1.0e-4f
+               && std::abs (valueAt (pts, 245) - 0.56f) < 1.0e-4f,
+               "Outline: arriba va en línea recta de pico positivo a pico positivo", valueAt (pts, 215));
+        check (std::abs (pts[231].lo + 0.47f) < 1.0e-4f, "Outline: abajo va de pico negativo a pico negativo", pts[231].lo);
         {
-            pos[(size_t) b] = (b / 20) % 3 == 1 ? 0.35f : 0.5f;
-            if (b + 10 < bins) neg[(size_t) (b + 10)] = -0.4f;
+            V withSmall = pos;
+            withSmall[215] = 0.15f;                    // un agudo que cruza en el medio del ciclo
+            const auto sm = env (withSmall, neg);
+            check (std::abs (valueAt (sm, 215) - 0.57f) < 1.0e-4f, "Outline: un pico chico entre dos grandes no hunde la línea", valueAt (sm, 215));
         }
-        const auto bass = env (pos, neg, zero, zero);
-        float lo = 1.0f, hi = 0.0f, lo2 = 0.0f, hi2 = -1.0f;
-        for (int i = 200; i < 1800; ++i)
-        {
-            lo = juce::jmin (lo, valueAt (bass, i)); hi = juce::jmax (hi, valueAt (bass, i));
-            lo2 = juce::jmin (lo2, bass[(size_t) i + 1].lo); hi2 = juce::jmax (hi2, bass[(size_t) i + 1].lo);
-        }
-        check (hi - lo < 0.02f && hi > 0.48f, "Grave: no se ven los ciclos ni el pozo de un solo ciclo", hi - lo);
-        check (hi2 - lo2 < 0.02f && lo2 < -0.38f, "Grave: borde de abajo con su propio nivel (asimétrico)", lo2);
+        check (valueAt (pts, 150) < 0.01f && valueAt (pts, 300) < 0.01f, "Outline: antes y después del sonido, cero", valueAt (pts, 300));
+        check (pts.front().bin == 0.0f && pts.back().bin == (float) bins, "Outline: el dibujo cubre todo el tramo", pts.back().bin);
+        const auto part = env (pos, neg, 300, 500);
+        check (part.front().bin == 300.0f && part.back().bin == 500.0f, "Outline: con LINK cada tramo se dibuja aparte", part.size());
 
-        // Cambio de volumen de verdad (varios ciclos más bajos): sí se ve.
-        V drop ((size_t) bins, 0.0f);
-        for (int b = 0; b < bins; b += 20)
-            drop[(size_t) b] = b < 1000 ? 0.5f : 0.2f;
-        const auto dropped = env (drop, zero, zero, zero);
-        check (valueAt (dropped, 900) > 0.48f && valueAt (dropped, 1100) < 0.22f, "Grave: un cambio de volumen se ve", valueAt (dropped, 1100));
+        // Audio fuerte y parejo: plano arriba.
+        V flat ((size_t) bins, 0.0f);
+        for (int b = 0; b < bins; b += 7) flat[(size_t) b] = 0.9f;
+        const auto f = env (flat, zero);
+        float lo = 1.0f, hi = 0.0f;
+        for (int i = 100; i < 1900; ++i) { lo = juce::jmin (lo, valueAt (f, i)); hi = juce::jmax (hi, valueAt (f, i)); }
+        check (hi - lo < 1.0e-4f, "Outline: audio denso y limitado queda plano arriba", hi - lo);
 
-        // Silencio entre dos notas graves (400 ms): no las une, baja a cero.
+        // Silencio entre dos notas (400 ms): no las une.
         V notes ((size_t) bins, 0.0f);
         for (int b = 0; b < bins; b += 20)
             if (b < 600 || b >= 1000) notes[(size_t) b] = 0.5f;
-        const auto gap = env (notes, zero, zero, zero);
-        check (valueAt (gap, 800) < 0.01f && valueAt (gap, 500) > 0.48f, "Grave: no une notas separadas por silencio", valueAt (gap, 800));
-
-        // Audio limitado / clipeado: graves + agudos sumados no pasan el pico real.
-        {
-            V cmin ((size_t) bins, -0.5f), cmax ((size_t) bins, 0.5f);        // todo topea en 0.5
-            V cpos ((size_t) bins, 0.0f), cneg ((size_t) bins, 0.0f), chmin ((size_t) bins, -0.3f), chmax ((size_t) bins, 0.3f);
-            for (int b = 0; b < bins; b += 20) { cpos[(size_t) b] = 0.45f; if (b + 10 < bins) cneg[(size_t) (b + 10)] = -0.45f; }
-            const auto clipped = ScopeView::smoothEnvelope ({ cpos.data(), cneg.data(), chmin.data(), chmax.data(), cmin.data(), cmax.data() },
-                                                            0, bins, binSec);
-            float top = 0.0f, bottom = 0.0f;
-            for (int i = 100; i < 1900; ++i) { top = juce::jmax (top, clipped[(size_t) i].hi); bottom = juce::jmin (bottom, clipped[(size_t) i].lo); }
-            check (top <= 0.501f && bottom >= -0.501f && top > 0.49f, "Audio clipeado: el borde no pasa el pico real (queda plano)", top);
-        }
-
-        // Grave + agudos: los agudos van encima del grave.
-        const auto both = env (pos, neg, hmin, hmax);
-        check (valueAt (both, 120) > 0.99f && valueAt (both, 400) > 0.48f && valueAt (both, 400) < 0.52f,
-               "Grave + agudos: el golpe se suma encima del grave", valueAt (both, 400));
+        const auto gap = env (notes, zero);
+        check (valueAt (gap, 800) < 0.01f && valueAt (gap, 500) > 0.49f, "Outline: no une notas separadas por silencio", valueAt (gap, 800));
     }
     {
         // De punta a punta: el audio separa graves (picos de medio ciclo) y agudos.
-        struct Bands { float lowPos, lowNeg, high; int peaks; };
+        struct Bands { float lowPos, lowNeg, high; int peaks; float fullPos, fullNeg; int fullPeaks; };
         auto bandsWith = [] (double freq)
         {
             MeteringABProcessor send, recv; juce::MidiBuffer m;
@@ -1243,13 +1225,16 @@ int main (int argc, char** argv)
             send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
             const auto& t = recv.scopeTraces[MeteringABProcessor::preSum];
             const int end = recv.scopeCurrentBin.load() - 30;
-            Bands r { 0.0f, 0.0f, 0.0f, 0 };
+            Bands r { 0.0f, 0.0f, 0.0f, 0, 0.0f, 0.0f, 0 };
             for (int k = juce::jmax (0, end - 300); k < end; ++k)
             {
                 r.lowPos = juce::jmax (r.lowPos, t.lowPos[(size_t) k].load());
                 r.lowNeg = juce::jmin (r.lowNeg, t.lowNeg[(size_t) k].load());
                 r.high = juce::jmax (r.high, t.hiMax[(size_t) k].load());
                 r.peaks += t.lowPos[(size_t) k].load() > 0.0f ? 1 : 0;
+                r.fullPos = juce::jmax (r.fullPos, t.fullPos[(size_t) k].load());
+                r.fullNeg = juce::jmin (r.fullNeg, t.fullNeg[(size_t) k].load());
+                r.fullPeaks += t.fullPos[(size_t) k].load() > 0.0f ? 1 : 0;
             }
             return r;
         };
@@ -1259,6 +1244,10 @@ int main (int argc, char** argv)
                "Bajo de 40 Hz: va a los graves (picos de medio ciclo), casi nada en agudos", bass.lowPos);
         check (bass.peaks >= 10 && bass.peaks <= 13, "Bajo de 40 Hz: un pico por ciclo", bass.peaks);
         check (treble.high > 0.45f && treble.lowPos < 0.01f, "Agudo de 2 kHz: va a los agudos", treble.high);
+        check (bass.fullPeaks >= 10 && bass.fullPeaks <= 13 && bass.fullPos > 0.49f && bass.fullNeg < -0.49f,
+               "Pico a pico: un pico positivo y uno negativo por ciclo (onda entera)", bass.fullPeaks);
+        check (treble.fullPeaks >= 250 && treble.fullPos > 0.49f && treble.fullNeg < -0.49f,
+               "Pico a pico: un agudo marca picos en todas las columnas", treble.fullPeaks);
     }
     {
         // Zoom: el audio guarda la onda muestra a muestra (120 BPM, 1 compás = 2 s = 96000 muestras).

@@ -26,6 +26,9 @@ public:
         bool  peakDone = false;                         // terminó un medio ciclo del grave...
         float peak = 0.0f;                              // ...con este pico (+ arriba, - abajo)
         int   peakBin = -1;                             // ...en esta columna (-1 = no se estaba dibujando)
+        bool  fullDone = false;                         // lo mismo, con la onda entera (sin filtrar):
+        float fullPeak = 0.0f;                          // Outline / Lines only unen pico con pico
+        int   fullBin = -1;
     };
 
     void prepare (double sampleRate)
@@ -49,6 +52,7 @@ public:
         positive = true;
         curPeak = 0.0;
         curBin = -1;
+        full = {};
     }
 
     // x: la muestra; bin: la columna donde se está dibujando (-1 = no se dibuja).
@@ -77,8 +81,29 @@ public:
             curBin = bin;
         }
 
+        // Onda entera: medios ciclos con la misma regla (cruce "de verdad" = 25% del nivel).
+        full.level = std::max (std::abs ((double) x), full.level * levelRelease);
+        const double fullThreshold = hysteresis * full.level;
+        if (full.positive ? x > full.peak : x < full.peak)
+        {
+            full.peak = x;
+            full.bin = bin;
+        }
+        if (full.positive ? x < -fullThreshold : x > fullThreshold)
+        {
+            r.fullDone = true;
+            r.fullPeak = (float) full.peak;
+            r.fullBin = full.bin;
+            full.positive = ! full.positive;
+            full.peak = x;
+            full.bin = bin;
+        }
+
         return r;
     }
+
+    float pendingFullPeak() const { return (float) full.peak; }
+    int   pendingFullBin() const  { return full.bin; }
 
     // El medio ciclo que está en curso (su pico hasta ahora y en qué columna).
     float pendingPeak() const { return (float) curPeak; }
@@ -112,6 +137,7 @@ private:
     };
 
     Biquad lp[2], hp[2];
+    struct HalfCycle { double level = 0.0, peak = 0.0; bool positive = true; int bin = -1; } full;
     double levelRelease = 0.99, level = 0.0, curPeak = 0.0;
     bool positive = true;
     int curBin = -1;

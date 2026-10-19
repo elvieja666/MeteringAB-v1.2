@@ -108,7 +108,7 @@ public:
     // Para Contorno / Solo líneas además (ver ScopeBands): el pico de los agudos
     // (hiMin / hiMax) y el pico de cada medio ciclo del grave que cae en esa
     // columna (lowPos arriba / lowNeg abajo; 0 = ningún medio ciclo terminó ahí).
-    struct ScopeTrace { std::array<std::atomic<float>, scopeBins> min, max, sq, hiMin, hiMax, lowPos, lowNeg; };
+    struct ScopeTrace { std::array<std::atomic<float>, scopeBins> min, max, sq, hiMin, hiMax, lowPos, lowNeg, fullPos, fullNeg; };
 
     enum ScopeTraceIndex { preSum = 0, postSum, preLeft, postLeft, preRight, postRight, numScopeTraces };
     std::array<ScopeTrace, numScopeTraces> scopeTraces;                  // L+R (promedio), solo L, solo R
@@ -189,7 +189,7 @@ private:
     // Pico provisorio del medio ciclo en curso (así el borde llega hasta el cabezal):
     // en qué columna se escribió y qué había antes ahí, para devolverlo si se mueve.
     struct PendingPeak { int bin = -1; bool positive = true; float before = 0.0f, written = 0.0f; };
-    std::array<PendingPeak, numScopeTraces> pendingPeaks;
+    std::array<PendingPeak, numScopeTraces> pendingPeaks, pendingFullPeaks;
     bool   scopeWasPlaying = false;                   // para detectar cuándo se da play
     bool   scopeGateOpen = true;                      // false solo durante el tramo previo al play
     double scopeLastBlockPpq = 0.0;                   // para detectar saltos hacia atrás (ciclo)

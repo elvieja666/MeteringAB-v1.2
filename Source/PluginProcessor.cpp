@@ -612,6 +612,8 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
                     trace.hiMax[k].store (bands.high, std::memory_order_relaxed);
                     trace.lowPos[k].store (0.0f, std::memory_order_relaxed);
                     trace.lowNeg[k].store (0.0f, std::memory_order_relaxed);
+                    trace.fullPos[k].store (0.0f, std::memory_order_relaxed);
+                    trace.fullNeg[k].store (0.0f, std::memory_order_relaxed);
                 }
                 else
                 {
@@ -627,45 +629,54 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
             // Mientras el medio ciclo sigue, su pico se escribe provisorio (el borde
             // llega hasta el cabezal); si el pico se mueve, la columna vieja vuelve a
             // lo que tenía. Al terminar, queda fijo.
-            auto& pend = pendingPeaks[(size_t) t];
-            auto slot = [&] (int b, bool positive) -> std::atomic<float>& { return positive ? trace.lowPos[(size_t) b] : trace.lowNeg[(size_t) b]; };
-
-            auto undoPending = [&]
+            // Lo mismo para los picos de la onda entera (fullPos / fullNeg), que es lo que
+            // unen Outline y Lines only.
+            auto& bandsState = scopeBands[(size_t) t];
+            auto track = [&] (PendingPeak& pend, std::array<std::atomic<float>, scopeBins>& posArr,
+                              std::array<std::atomic<float>, scopeBins>& negArr,
+                              bool done, int doneBin, float donePeak, int pb, float pp)
             {
-                if (pend.bin >= 0 && juce::exactlyEqual (slot (pend.bin, pend.positive).load (std::memory_order_relaxed), pend.written))
-                    slot (pend.bin, pend.positive).store (pend.before, std::memory_order_relaxed);
-                pend.bin = -1;
+                auto slot = [&] (int b, bool positive) -> std::atomic<float>& { return positive ? posArr[(size_t) b] : negArr[(size_t) b]; };
+
+                auto undoPending = [&]
+                {
+                    if (pend.bin >= 0 && juce::exactlyEqual (slot (pend.bin, pend.positive).load (std::memory_order_relaxed), pend.written))
+                        slot (pend.bin, pend.positive).store (pend.before, std::memory_order_relaxed);
+                    pend.bin = -1;
+                };
+
+                auto writePeak = [&] (int b, float peak)
+                {
+                    if (b < 0 || b >= scopeBins || juce::exactlyEqual (peak, 0.0f))
+                        return;
+                    auto& cell = slot (b, peak > 0.0f);
+                    const float before = cell.load (std::memory_order_relaxed);
+                    if (peak > 0.0f ? peak > before : peak < before)
+                        cell.store (peak, std::memory_order_relaxed);
+                    pend = { b, peak > 0.0f, before, cell.load (std::memory_order_relaxed) };
+                };
+
+                if (done)
+                {
+                    undoPending();
+                    writePeak (doneBin, donePeak);
+                    pend.bin = -1;                      // ya es definitivo
+                }
+
+                const bool samePending = pend.bin == pb && pb >= 0
+                                         && juce::exactlyEqual (slot (pb, pend.positive).load (std::memory_order_relaxed), pend.written)
+                                         && (pend.positive ? pp <= pend.written : pp >= pend.written) && (pp > 0.0f) == pend.positive;
+                if (! samePending)
+                {
+                    undoPending();
+                    writePeak (pb, pp);
+                }
             };
 
-            auto writePeak = [&] (int b, float peak) -> bool
-            {
-                if (b < 0 || b >= scopeBins || juce::exactlyEqual (peak, 0.0f))
-                    return false;
-                auto& cell = slot (b, peak > 0.0f);
-                const float before = cell.load (std::memory_order_relaxed);
-                if (peak > 0.0f ? peak > before : peak < before)
-                    cell.store (peak, std::memory_order_relaxed);
-                pend = { b, peak > 0.0f, before, cell.load (std::memory_order_relaxed) };
-                return true;
-            };
-
-            if (bands.peakDone)
-            {
-                undoPending();
-                writePeak (bands.peakBin, bands.peak);
-                pend.bin = -1;                          // ya es definitivo
-            }
-
-            const int pb = scopeBands[(size_t) t].pendingBin();
-            const float pp = scopeBands[(size_t) t].pendingPeak();
-            const bool samePending = pend.bin == pb && pb >= 0
-                                     && juce::exactlyEqual (slot (pb, pend.positive).load (std::memory_order_relaxed), pend.written)
-                                     && (pend.positive ? pp <= pend.written : pp >= pend.written) && (pp > 0.0f) == pend.positive;
-            if (! samePending)
-            {
-                undoPending();
-                writePeak (pb, pp);
-            }
+            track (pendingPeaks[(size_t) t], trace.lowPos, trace.lowNeg, bands.peakDone, bands.peakBin, bands.peak,
+                   bandsState.pendingBin(), bandsState.pendingPeak());
+            track (pendingFullPeaks[(size_t) t], trace.fullPos, trace.fullNeg, bands.fullDone, bands.fullBin, bands.fullPeak,
+                   bandsState.pendingFullBin(), bandsState.pendingFullPeak());
         }
 
         // Detalle de muestra (zoom): mínimo y máximo de cada casillero.
@@ -761,6 +772,8 @@ void MeteringABProcessor::clearScope()
             trace.hiMax[(size_t) b] = 0.0f;
             trace.lowPos[(size_t) b] = 0.0f;
             trace.lowNeg[(size_t) b] = 0.0f;
+            trace.fullPos[(size_t) b] = 0.0f;
+            trace.fullNeg[(size_t) b] = 0.0f;
         }
 
         scopeCount[(size_t) b] = 0;
@@ -779,6 +792,8 @@ void MeteringABProcessor::clearScope()
     for (auto& t : scopeBands)                         // que ningún medio ciclo viejo caiga en el loop nuevo
         t.reset();
     for (auto& p : pendingPeaks)
+        p.bin = -1;
+    for (auto& p : pendingFullPeaks)
         p.bin = -1;
 }
 

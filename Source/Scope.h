@@ -450,6 +450,8 @@ private:
                 dst.hiMax[(size_t) b]  = src.hiMax[(size_t) b].load (std::memory_order_relaxed);
                 dst.lowPos[(size_t) b] = src.lowPos[(size_t) b].load (std::memory_order_relaxed);
                 dst.lowNeg[(size_t) b] = src.lowNeg[(size_t) b].load (std::memory_order_relaxed);
+                dst.fullPos[(size_t) b] = src.fullPos[(size_t) b].load (std::memory_order_relaxed);
+                dst.fullNeg[(size_t) b] = src.fullNeg[(size_t) b].load (std::memory_order_relaxed);
             }
         }
 
@@ -728,7 +730,7 @@ public:
         float x (double loopFraction) const { return left + (float) ((loopFraction - start) / span) * width; }
         double fractionAt (float px) const  { return start + (double) (px - left) / width * span; }
     };
-    struct TraceCopy { Bins min {}, max {}, sq {}, hiMin {}, hiMax {}, lowPos {}, lowNeg {}; };
+    struct TraceCopy { Bins min {}, max {}, sq {}, hiMin {}, hiMax {}, lowPos {}, lowNeg {}, fullPos {}, fullNeg {}; };
 
     // Máscara opcional: con LINK, qué columnas dibujar de cada onda.
     using Flags = std::array<std::uint8_t, MeteringABProcessor::scopeBins>;
@@ -736,32 +738,26 @@ public:
                   bool includes (int b) const { return flags == nullptr || (*flags)[(size_t) b] == wanted; } };
 
 public:
-    // Borde de Contorno / Solo líneas: "graves sin onda + agudos prolijos" (H2).
-    //  - Graves (< 150 Hz): une los picos de cada medio ciclo (el audio los marca en
-    //    lowPos / lowNeg). Un pico que baja solo, entre dos vecinos más altos, es el
-    //    vaivén del ciclo y se ignora; si bajan dos o más seguidos es un cambio de
-    //    volumen de verdad y se ve. Pozos de menos de 20 ms se tapan.
-    //  - Agudos: su pico se sostiene 8 ms (menos "ruido") y se suma encima del grave.
-    //  - Al final, un suavizado gaussiano de 2,5 ms.
-    static constexpr double lowMergeMs  = 3.0;     // picos del grave a menos de esto: vale el mayor
-    static constexpr float  lowDipRatio = 0.85f;   // un pico solo más bajo que esto (x vecinos) se ignora
-    static constexpr double lowGapMs    = 120.0;   // picos más separados no se unen (silencio entre notas)
-    static constexpr double lowFadeMs   = 10.0;    // ...y el grave baja / sube en este tiempo
-    static constexpr double lowCloseMs  = 20.0;    // pozos más angostos que esto se tapan
-    static constexpr double highHoldMs  = 8.0;     // cuánto se sostiene el pico de los agudos
-    static constexpr double smoothMs    = 2.5;     // suavizado final
+    // Borde de Outline / Lines only: de pico a pico.
+    //  - El audio marca el pico de cada medio ciclo de la onda entera (fullPos arriba,
+    //    fullNeg abajo), en la columna donde ocurrió.
+    //  - La línea de arriba va de un pico positivo al siguiente en línea recta; la de
+    //    abajo, igual con los negativos. Con audio fuerte y denso queda plana arriba.
+    //  - Picos más separados que 120 ms (silencio entre notas) no se unen: la línea
+    //    baja / sube a cero en 10 ms.
+    //  - Un pico chico al lado de otros grandes (agudos que cruzan en el medio de un
+    //    ciclo del grave) no es el borde: si es menos del 85% del mayor a ±40 ms (más de un ciclo del grave), se saltea.
+    static constexpr double peakGapMs  = 120.0;
+    static constexpr double peakNearMs = 40.0;
+    static constexpr float  peakKeep   = 0.85f;
+    static constexpr double peakFadeMs = 10.0;
 
-    // Lo que guarda el audio de cada onda, columna por columna.
-    // mins / maxs: los picos reales de la onda entera; el borde nunca los pasa
-    // (nullptr = sin ese tope).
-    struct EnvelopeData { const float* lowPos; const float* lowNeg; const float* hiMin; const float* hiMax;
-                          const float* mins = nullptr; const float* maxs = nullptr; };
-    static constexpr double peakCeilingMs = 35.0;  // el tope: el pico real más alto a ±35 ms
+    struct EnvelopeData { const float* pos; const float* neg; };
 
-    // Un punto por columna del osciloscopio (centro en bins) con su pico de arriba y de abajo.
+    // Un punto por columna del osciloscopio (centro en bins) con su borde de arriba y de abajo.
     struct EnvelopePoint { float bin, hi, lo; };
 
-    static std::vector<EnvelopePoint> smoothEnvelope (EnvelopeData d, int from, int to, double binSeconds)
+    static std::vector<EnvelopePoint> peakEnvelope (EnvelopeData d, int from, int to, double binSeconds)
     {
         std::vector<EnvelopePoint> points;
         const int n = to - from;
@@ -770,61 +766,34 @@ public:
 
         const double secs = binSeconds > 0.0 ? binSeconds : 1.0e-3;
         auto toBins = [secs] (double ms) { return (int) std::lround (ms * 0.001 / secs); };
+        const int gap = juce::jmax (1, toBins (peakGapMs));
+        const int fade = juce::jmax (1, toBins (peakFadeMs));
 
-        // --- Graves: borde de arriba (picos positivos) y de abajo (negativos, en positivo).
-        auto lowEdge = [&] (const float* peaks, float sign)
+        auto edgeOf = [&] (const float* peaks, float sign)
         {
             struct Peak { int bin; float v; };
-            std::vector<Peak> list;
+            std::vector<Peak> all;
             for (int i = 0; i < n; ++i)
+                if (const float v = peaks[from + i] * sign; v > 0.0f)
+                    all.push_back ({ i, v });
+
+            const int near = juce::jmax (1, toBins (peakNearMs));
+            std::vector<Peak> list;
+            for (size_t i = 0, lo = 0, hi = 0; i < all.size(); ++i)
             {
-                const float v = peaks[from + i] * sign;
-                if (v > 0.0f)
-                    list.push_back ({ i, v });
+                while (all[i].bin - all[lo].bin > near) ++lo;
+                while (hi + 1 < all.size() && all[hi + 1].bin - all[i].bin <= near) ++hi;
+                float m = 0.0f;
+                for (size_t j = lo; j <= hi; ++j)
+                    m = juce::jmax (m, all[j].v);
+                if (all[i].v >= peakKeep * m)
+                    list.push_back (all[i]);
             }
 
-            const int gap = juce::jmax (1, toBins (lowGapMs));
-
-            // Pozo de un solo medio ciclo (entre dos vecinos más altos): es el ciclo, no el volumen.
-            for (bool changed = true; changed && list.size() > 2;)
-            {
-                changed = false;
-                std::vector<Peak> kept { list.front() };
-                for (size_t i = 1; i + 1 < list.size(); ++i)
-                {
-                    const auto& prev = kept.back();
-                    const auto& next = list[i + 1];
-                    const bool between = list[i].bin - prev.bin <= gap && next.bin - list[i].bin <= gap;
-                    if (between && list[i].v < lowDipRatio * juce::jmin (prev.v, next.v))
-                    {
-                        changed = true;
-                        continue;
-                    }
-                    kept.push_back (list[i]);
-                }
-                kept.push_back (list.back());
-                list.swap (kept);
-            }
-
-            // Picos muy juntos: cada uno vale el mayor de los que tiene cerca.
-            const int merge = toBins (lowMergeMs);
-            std::vector<float> merged (list.size());
-            for (size_t i = 0; i < list.size(); ++i)
-            {
-                float m = list[i].v;
-                for (size_t j = i; j-- > 0 && list[i].bin - list[j].bin <= merge;)
-                    m = juce::jmax (m, list[j].v);
-                for (size_t j = i + 1; j < list.size() && list[j].bin - list[i].bin <= merge; ++j)
-                    m = juce::jmax (m, list[j].v);
-                merged[i] = m;
-            }
-
-            // Unir pico con pico (si están cerca); si no, bajar / subir rápido a cero.
             std::vector<float> edge ((size_t) n, 0.0f);
-            const int fade = juce::jmax (1, toBins (lowFadeMs));
             auto fadeFrom = [&] (int bin, float v, int dir)
             {
-                for (int k = 0; k <= fade; ++k)
+                for (int k = 1; k <= fade; ++k)
                 {
                     const int b = bin + dir * k;
                     if (b < 0 || b >= n) break;
@@ -835,143 +804,46 @@ public:
             for (size_t i = 0; i < list.size(); ++i)
             {
                 const int b0 = list[i].bin;
-                edge[(size_t) b0] = juce::jmax (edge[(size_t) b0], merged[i]);
+                const float v0 = list[i].v;
+                edge[(size_t) b0] = juce::jmax (edge[(size_t) b0], v0);
 
                 if (i + 1 < list.size() && list[i + 1].bin - b0 <= gap)
                 {
                     const int b1 = list[i + 1].bin;
                     for (int b = b0 + 1; b < b1; ++b)
-                    {
-                        const float t = (float) (b - b0) / (float) (b1 - b0);
-                        edge[(size_t) b] = merged[i] + (merged[i + 1] - merged[i]) * t;
-                    }
+                        edge[(size_t) b] = v0 + (list[i + 1].v - v0) * (float) (b - b0) / (float) (b1 - b0);
                 }
                 else if (i + 1 == list.size() && n - 1 - b0 <= gap)
                 {
-                    for (int b = b0 + 1; b < n; ++b)    // el último pico, cerca del final del tramo: sigue igual
-                        edge[(size_t) b] = merged[i];
+                    for (int b = b0 + 1; b < n; ++b)    // el último, cerca del final del tramo: sigue igual
+                        edge[(size_t) b] = v0;
                 }
                 else
                 {
-                    fadeFrom (b0, merged[i], 1);
+                    fadeFrom (b0, v0, 1);
                 }
 
                 if (i == 0 && b0 <= gap)
                 {
                     for (int b = 0; b < b0; ++b)        // el primero, cerca del comienzo del tramo: igual
-                        edge[(size_t) b] = merged[i];
+                        edge[(size_t) b] = v0;
                 }
                 else if (i == 0 || b0 - list[i - 1].bin > gap)
                 {
-                    fadeFrom (b0, merged[i], -1);
-                }
-            }
-
-            // Tapar pozos angostos: ensanchar y volver al ancho (cierre).
-            const int r = toBins (lowCloseMs) / 2;
-            if (r > 0)
-            {
-                std::vector<float> wide ((size_t) n);
-                for (int i = 0; i < n; ++i)
-                {
-                    float m = edge[(size_t) i];
-                    for (int j = juce::jmax (0, i - r); j <= juce::jmin (n - 1, i + r); ++j)
-                        m = juce::jmax (m, edge[(size_t) j]);
-                    wide[(size_t) i] = m;
-                }
-                for (int i = 0; i < n; ++i)
-                {
-                    float m = wide[(size_t) i];
-                    for (int j = juce::jmax (0, i - r); j <= juce::jmin (n - 1, i + r); ++j)
-                        m = juce::jmin (m, wide[(size_t) j]);
-                    edge[(size_t) i] = m;
+                    fadeFrom (b0, v0, -1);
                 }
             }
             return edge;
         };
 
-        const auto lowUp = lowEdge (d.lowPos, 1.0f);
-        const auto lowDown = lowEdge (d.lowNeg, -1.0f);
+        const auto up = edgeOf (d.pos, 1.0f);
+        const auto down = edgeOf (d.neg, -1.0f);
 
-        // --- Agudos: pico sostenido 8 ms, encima del grave.
-        const int hold = juce::jmax (1, toBins (highHoldMs));
-        std::vector<float> up ((size_t) n), down ((size_t) n);
-        for (int i = 0; i < n; ++i)
-        {
-            float hi = 0.0f, lo = 0.0f;
-            for (int j = juce::jmax (0, i - hold + 1); j <= i; ++j)
-            {
-                hi = juce::jmax (hi, d.hiMax[from + j]);
-                lo = juce::jmin (lo, d.hiMin[from + j]);
-            }
-            up[(size_t) i]   = lowUp[(size_t) i] + hi;
-            down[(size_t) i] = -lowDown[(size_t) i] + lo;
-        }
-
-        // --- Tope: graves + agudos sumados pueden pasar el pico real (sobre todo
-        //     con audio limitado o clipeado, que tiene muchos agudos). El borde
-        //     nunca pasa el pico real más alto de alrededor (±35 ms, más de medio
-        //     ciclo del grave, así el tope no dibuja los ciclos).
-        if (d.mins != nullptr && d.maxs != nullptr)
-        {
-            const int r = juce::jmax (1, toBins (peakCeilingMs));
-            auto slidingExtreme = [n, r] (const float* v, bool wantMax)
-            {
-                std::vector<float> out ((size_t) n);
-                std::deque<int> q;                        // índices con valores monótonos
-                auto better = [wantMax] (float a, float b) { return wantMax ? a >= b : a <= b; };
-                int next = 0;
-                for (int i = 0; i < n; ++i)
-                {
-                    for (; next < juce::jmin (n, i + r + 1); ++next)
-                    {
-                        while (! q.empty() && better (v[next], v[q.back()]))
-                            q.pop_back();
-                        q.push_back (next);
-                    }
-                    while (q.front() < i - r)
-                        q.pop_front();
-                    out[(size_t) i] = v[q.front()];
-                }
-                return out;
-            };
-            const auto ceilUp = slidingExtreme (d.maxs + from, true);
-            const auto ceilDown = slidingExtreme (d.mins + from, false);
-            for (int i = 0; i < n; ++i)
-            {
-                up[(size_t) i]   = juce::jmin (up[(size_t) i],   juce::jmax (0.0f, ceilUp[(size_t) i]));
-                down[(size_t) i] = juce::jmax (down[(size_t) i], juce::jmin (0.0f, ceilDown[(size_t) i]));
-            }
-        }
-
-        // --- Suavizado final (gaussiano de 2,5 ms).
         points.reserve ((size_t) n + 2);
-        points.push_back ({ (float) from, 0.0f, 0.0f });       // punta izquierda (se completa abajo)
-
-        const double sigma = juce::jmax (0.5, smoothMs * 0.001 / secs);
-        const int radius = juce::jmin (96, (int) std::ceil (3.0 * sigma));
-        std::vector<double> weights ((size_t) radius + 1);
-        for (int k = 0; k <= radius; ++k)
-            weights[(size_t) k] = std::exp (-0.5 * (k / sigma) * (k / sigma));
-
+        points.push_back ({ (float) from, up.front(), -down.front() });       // punta izquierda
         for (int i = 0; i < n; ++i)
-        {
-            double hi = 0.0, lo = 0.0, sum = 0.0;
-            for (int k = -radius; k <= radius; ++k)
-            {
-                const auto j = (size_t) juce::jlimit (0, n - 1, i + k);
-                const double w = weights[(size_t) std::abs (k)];
-                hi += w * up[j];
-                lo += w * down[j];
-                sum += w;
-            }
-            points.push_back ({ (float) (from + i) + 0.5f, (float) juce::jmin (1.0, hi / sum), (float) juce::jmax (-1.0, lo / sum) });
-        }
-
-        // Puntas del tramo, para que cubra de borde a borde.
-        points.front().hi = points[1].hi;
-        points.front().lo = points[1].lo;
-        points.push_back ({ (float) to, points.back().hi, points.back().lo });
+            points.push_back ({ (float) (from + i) + 0.5f, juce::jmin (1.0f, up[(size_t) i]), juce::jmax (-1.0f, -down[(size_t) i]) });
+        points.push_back ({ (float) to, points.back().hi, points.back().lo }); // punta derecha
         return points;
     }
 
@@ -984,14 +856,14 @@ private:
         return lengthBars * quartersPerBar * 60.0 / bpm / MeteringABProcessor::scopeBins;
     }
 
-    // Contorno (con relleno) o solo líneas: borde definido (ver smoothEnvelope).
+    // Contorno (con relleno) o solo líneas: de pico a pico (ver peakEnvelope).
     // Las columnas fuera de la máscara quedan vacías (cada tramo se dibuja aparte).
     template <typename YFunc>
     static void drawEnvelope (juce::Graphics& g, juce::Rectangle<float>, const TraceCopy& t, View view, YFunc yFor,
                               juce::Colour colour, bool filled, Mask mask, double binSeconds)
     {
         const int bins = MeteringABProcessor::scopeBins;
-        drawEnvelopeOf (g, { t.lowPos.data(), t.lowNeg.data(), t.hiMin.data(), t.hiMax.data(), t.min.data(), t.max.data() }, bins,
+        drawEnvelopeOf (g, { t.fullPos.data(), t.fullNeg.data() }, bins,
                         [&] (int b) { return mask.includes (b); },
                         [&] (float b) { return view.x ((double) b / (double) bins); },
                         yFor, colour, filled, binSeconds);
@@ -1014,7 +886,7 @@ private:
             while (end < bins && include (end))
                 ++end;
 
-            const auto points = smoothEnvelope (d, b, end, binSeconds);
+            const auto points = peakEnvelope (d, b, end, binSeconds);
             juce::Path top, bottom;
 
             for (size_t i = 0; i < points.size(); ++i)
@@ -1072,54 +944,40 @@ private:
         const double fEnd   = juce::jmin (1.0, view.start + view.span + fineMarginMs * 0.001 / loopSecs);
         const int n = juce::jlimit (1, 16384, (int) std::ceil ((fEnd - fStart) * loopSecs / fineSec));
 
-        std::vector<float> lowPos ((size_t) n, 0.0f), lowNeg ((size_t) n, 0.0f), hiMin ((size_t) n, 0.0f), hiMax ((size_t) n, 0.0f),
-                           mins ((size_t) n, 0.0f), maxs ((size_t) n, 0.0f);
-        std::vector<std::uint8_t> touched ((size_t) n, 0);
+        std::vector<float> pos ((size_t) n, 0.0f), neg ((size_t) n, 0.0f);
 
         auto fineOf = [&] (int slot) { return (int) std::floor ((((double) slot + 0.5) / rawSlots - fStart) * loopSecs / fineSec); };
         auto putPeak = [&] (int fb, float peak)
         {
             if (fb < 0 || fb >= n) return;
-            if (peak > 0.0f) lowPos[(size_t) fb] = juce::jmax (lowPos[(size_t) fb], peak);
-            else if (peak < 0.0f) lowNeg[(size_t) fb] = juce::jmin (lowNeg[(size_t) fb], peak);
+            if (peak > 0.0f) pos[(size_t) fb] = juce::jmax (pos[(size_t) fb], peak);
+            else if (peak < 0.0f) neg[(size_t) fb] = juce::jmin (neg[(size_t) fb], peak);
         };
 
+        // Cada casillero guarda el mínimo y el máximo: se recorren en el orden en que
+        // pasaron (para que los picos de un casillero cuenten los dos).
         ScopeBands bands;
-        bands.prepare (slotRate);
+        bands.prepare (slotRate * 2.0);
         const int first = juce::jmax (0, (int) std::floor ((fStart - fineWarmupMs * 0.001 / loopSecs) * rawSlots));
         const int last  = juce::jmin (rawSlots, (int) std::ceil (fEnd * rawSlots));
 
         for (int i = first; i < last; ++i)
         {
             const float lo = MeteringABProcessor::rawLo (raw[(size_t) i]), hi = MeteringABProcessor::rawHi (raw[(size_t) i]);
-            const float v = 0.5f * (lo + hi);
             const int fb = fineOf (i);
-            const bool inside = fb >= 0 && fb < n;
-            const auto r = bands.process (v, inside ? fb : -1);
-
-            if (inside)
+            const int bin = fb >= 0 && fb < n ? fb : -1;
+            for (const float v : { lo, hi })
             {
-                const auto k = (size_t) fb;
-                if (! touched[k])
-                {
-                    touched[k] = 1;
-                    mins[k] = lo; maxs[k] = hi; hiMin[k] = r.high; hiMax[k] = r.high;
-                }
-                else
-                {
-                    mins[k] = juce::jmin (mins[k], lo); maxs[k] = juce::jmax (maxs[k], hi);
-                    hiMin[k] = juce::jmin (hiMin[k], r.high); hiMax[k] = juce::jmax (hiMax[k], r.high);
-                }
+                const auto r = bands.process (v, bin);
+                if (r.fullDone)
+                    putPeak (r.fullBin, r.fullPeak);
             }
-
-            if (r.peakDone)
-                putPeak (r.peakBin, r.peak);
         }
 
-        putPeak (bands.pendingBin(), bands.pendingPeak());   // el medio ciclo que quedó abierto
+        putPeak (bands.pendingFullBin(), bands.pendingFullPeak());   // el medio ciclo que quedó abierto
 
         const double startBinsFrac = fStart;
-        drawEnvelopeOf (g, { lowPos.data(), lowNeg.data(), hiMin.data(), hiMax.data(), mins.data(), maxs.data() }, n,
+        drawEnvelopeOf (g, { pos.data(), neg.data() }, n,
                         [&] (int fb)
                         {
                             const double f = startBinsFrac + ((double) fb + 0.5) * fineSec / loopSecs;
