@@ -883,9 +883,11 @@ void MeteringABPanel::timerCallback()
     ease (shownPost, targetPost, fallStepPost);
 
     // La ganancia aplicada queda a la vista (también en pausa) una vez que hubo algo medido.
+    const bool wasShown = gainShown;
     gainShown = processor.gainMeasured.load();
     if (processor.displayGainValid.load())
-        shownGain += (processor.displayGain.load() - shownGain) * 0.35f;
+        shownGain = wasShown ? shownGain + (processor.displayGain.load() - shownGain) * 0.35f
+                             : processor.displayGain.load();   // después de un clic arranca del valor nuevo
 
     // El osciloscopio sigue a la escucha: cuando cambia PRE/POST FX (botón,
     // tecla asignada o automatización), muestra solo la onda que suena.
@@ -1156,7 +1158,10 @@ void MeteringABPanel::mouseDown (const juce::MouseEvent& e)
 void MeteringABPanel::resetMeters()
 {
     processor.requestMeterReset();
-    shownPre = shownPost = -120.0f;                 // el clic los borra en el momento (la ganancia queda)
+    processor.gainMeasured = false;                 // la ganancia aplicada también se borra ("—")...
+    processor.displayGainValid = false;             // ...hasta que haya una medición nueva
+    gainShown = false;
+    shownPre = shownPost = -120.0f;                 // el clic los borra en el momento
     repaint (meterArea());
 }
 

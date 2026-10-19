@@ -534,9 +534,11 @@ int main (int argc, char** argv)
         std::unique_ptr<juce::AudioProcessorEditor> ed (r.createEditor());
         auto* e = panelOf (ed);
         e->clickMetersForTests();
-        check (e->getShownPreForTests() <= -119.0f && e->isGainShownForTests(), "Clic en los números: se borran enseguida (la ganancia queda)", e->getShownPreForTests());
+        check (e->getShownPreForTests() <= -119.0f && ! e->isGainShownForTests(), "Clic en los números: se borran enseguida (también la ganancia)", e->getShownPreForTests());
         c.run (512.0 / 48000.0);
         check (c.recv.displayPre.load() < before - 10.0f, "Clic en los números: el medidor arranca de cero (dB)", c.recv.displayPre.load());
+        c.run (0.3); e->refreshNow();
+        check (e->isGainShownForTests(), "Clic en los números: la ganancia vuelve a aparecer al medir de nuevo", 1);
     }
     {
         Chain c (2, 4.5f, 0);
