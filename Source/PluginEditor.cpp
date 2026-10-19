@@ -510,10 +510,15 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     scope.setShowPre  ((bool) apvts.state.getProperty ("scopeShowPre",  true));
     scope.setShowPost ((bool) apvts.state.getProperty ("scopeShowPost", true));
 
-    for (juce::TextButton* b : { (juce::TextButton*) &compareButton, &freezeButton, &gainLineButton })
+    for (juce::TextButton* b : { (juce::TextButton*) &compareButton, &freezeButton, &gainLineButton, &optionsButton })
         b->getProperties().set ("kind", "chip");
 
     // Freeze: congela lo que se ve (para mirarlo y hacerle zoom tranquilo).
+    // Options: colores de PRE y POST, canales (L / R / suma) y grilla.
+    optionsButton.setClickingTogglesState (false);
+    optionsButton.onClick = [this] { showStyleMenu (optionsButton); };
+    addAndMakeVisible (optionsButton);
+
     freezeButton.setClickingTogglesState (false);
     freezeButton.getProperties().set ("chipColour", (juce::int64) Theme::accentBright.getARGB());
     freezeButton.onClick = [this]
@@ -551,7 +556,6 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     compareButton.setClickingTogglesState (false);
     compareButton.getProperties().set ("icon", "eye");          // ojo: solo cambia lo que se ve
     compareButton.onClick = [this] { setCompare (! compareOn); };
-    compareButton.onRightClick = [this] { showStyleMenu (compareButton); };
     addAndMakeVisible (compareButton);
 
     // Botón ⇄ linkeado a la escucha: hace lo mismo que el botón PRE/POST FX
@@ -633,7 +637,7 @@ static const std::array<std::pair<const char*, juce::uint32>, 9> waveColours {{
     { "Red",         0xffeb5757 }, { "Violet",      0xff9b8cff }, { "Lime",       0xffb5e655 },
 }};
 
-// Menú de clic derecho en PRE + POST: el color de cada onda, canales y grilla.
+// Menú del botón Options: el color de cada onda, canales y grilla.
 juce::PopupMenu MeteringABPanel::buildStyleMenu() const
 {
     auto& state = processor.apvts.state;
@@ -735,7 +739,7 @@ void MeteringABPanel::pickCustomColour (bool forPre)
         });
 
     // Funciona tanto en el plugin como en la ventana aparte.
-    auto* anchor = styleMenuAnchor != nullptr ? styleMenuAnchor : static_cast<juce::Component*> (&compareButton);
+    auto* anchor = styleMenuAnchor != nullptr ? styleMenuAnchor : static_cast<juce::Component*> (&optionsButton);
     auto* host = anchor->getTopLevelComponent();
     juce::CallOutBox::launchAsynchronously (std::move (selector),
                                             host->getLocalArea (anchor, anchor->getLocalBounds()), host);
@@ -1277,6 +1281,8 @@ void MeteringABPanel::resized()
     gainLineButton.setBounds (scopeHeader.removeFromRight (58));
     scopeHeader.removeFromRight (6);
     freezeButton.setBounds (scopeHeader.removeFromRight (64));
+    scopeHeader.removeFromRight (6);
+    optionsButton.setBounds (scopeHeader.removeFromRight (74));
     scopeLabel.setBounds (scopeHeader);
 
     scope.setBounds (section.withTrimmedBottom (16));

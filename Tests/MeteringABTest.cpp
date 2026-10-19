@@ -1322,12 +1322,15 @@ int main (int argc, char** argv)
         check (! panel->isCompareOnForTests() && panel->isScopeLinkedForTests() && sc.getShowPre() && ! sc.getShowPost(),
                "PRE + POST apagado: vuelve a seguir la escucha", 1);
 
-        // Clic derecho en PRE + POST: menú con colores de PRE y POST, canales y grilla.
+        // Overlay ya no tiene clic derecho; el menú (colores, canales y grilla) está en Options.
         const juce::ModifierKeys right (juce::ModifierKeys::rightButtonModifier);
         juce::MouseEvent rc (juce::Desktop::getInstance().getMainMouseSource(), { 5.0f, 5.0f }, right, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
                              &cmp, &cmp, juce::Time::getCurrentTime(), { 5.0f, 5.0f }, juce::Time::getCurrentTime(), 1, false);
         cmp.mouseDown (rc); cmp.mouseUp (rc);
-        check (panel->getStyleMenuOpenedForTests() == 1 && ! panel->isCompareOnForTests(), "Clic derecho en PRE + POST: abre el menú (sin prenderlo)", 1);
+        check (panel->getStyleMenuOpenedForTests() == 0 && ! panel->isCompareOnForTests(), "Overlay: el clic derecho no abre ningún menú", panel->getStyleMenuOpenedForTests());
+        panel->getOptionsButtonForTests().onClick();
+        check (panel->getStyleMenuOpenedForTests() == 1 && ! panel->isCompareOnForTests() && panel->getOptionsButtonForTests().isVisible(),
+               "Options: abre el menú de colores, canales y grilla", panel->getStyleMenuOpenedForTests());
         std::set<int> ids;
         std::function<void (const juce::PopupMenu&)> walk = [&] (const juce::PopupMenu& m)
         {

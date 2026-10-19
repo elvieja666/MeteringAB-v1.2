@@ -110,6 +110,7 @@ public:
     const ScopeView& getScopeForTests() const { return scope; }
     ScopeView& getScopeForTests()             { return scope; }
     juce::TextButton& getFreezeButtonForTests() { return freezeButton; }
+    juce::TextButton& getOptionsButtonForTests() { return optionsButton; }
     juce::TextButton& getGainLineButtonForTests() { return gainLineButton; }
     ChipButton& getCompareButtonForTests()      { return compareButton; }
     bool isCompareOnForTests() const            { return compareOn; }
@@ -163,6 +164,7 @@ private:
     ChipButton compareButton { "Overlay" };
     bool compareOn = false;
     void setCompare (bool on);
+    juce::TextButton optionsButton { "Options" };     // menú: colores, canales (L / R / suma) y grilla
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
     juce::TextButton gainLineButton { "Gain" };       // línea con el valor de la ganancia aplicada
     bool gainLineOn = false;
@@ -173,7 +175,7 @@ private:
                                                       // que elijas una onda a mano hasta el próximo cambio)
     void setScopeLinked (bool linked);
     void syncWavesToListen();
-    void showStyleMenu (juce::Component& anchor);     // menú de opciones gráficas (clic derecho en PRE / POST)
+    void showStyleMenu (juce::Component& anchor);     // menú de opciones gráficas (botón Options)
 public:
     juce::PopupMenu buildStyleMenu() const;          // colores de PRE y POST, canales y grilla
     void applyStyleMenuResult (int result);
@@ -184,7 +186,7 @@ private:
     void pickCustomColour (bool forPre);
     void updateScopeSection();
 
-    juce::Component* scopeParts[5] = { &scope, &zoomBox, &compareButton, &freezeButton, &gainLineButton };
+    juce::Component* scopeParts[6] = { &scope, &zoomBox, &compareButton, &freezeButton, &gainLineButton, &optionsButton };
 
     static constexpr int scopeHeaderHeight = 52;      // barra "Osciloscopio" arriba del gráfico
     void setWaves (bool pre, bool post);
