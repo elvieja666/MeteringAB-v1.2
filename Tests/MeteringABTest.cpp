@@ -489,6 +489,12 @@ int main (int argc, char** argv)
                 setParam (*a, ParamIDs::sync, 1);
                 panelOf (ed)->refreshNow();
                 save (*ed, "/receive-sync.png");
+
+                MeteringABPanel::scopeOpenOnStart = false;            // así se abre el plugin
+                std::unique_ptr<juce::AudioProcessorEditor> ed3 (a->createEditor());
+                panelOf (ed3)->refreshNow();
+                save (*ed3, "/receive-abre.png");
+                MeteringABPanel::scopeOpenOnStart = true;
             }
 
         }
