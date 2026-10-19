@@ -52,9 +52,12 @@ namespace Theme
         }
     }
 
+    // Todos los textos un 22% más grandes que el diseño base (más legibles).
+    constexpr float textScale = 1.22f;
+
     inline juce::Font font (float height, int weight = 400, float kerning = 0.0f)
     {
-        return juce::Font (juce::FontOptions (typeface (weight)).withHeight (height).withKerningFactor (kerning));
+        return juce::Font (juce::FontOptions (typeface (weight)).withHeight (height * textScale).withKerningFactor (kerning));
     }
 
     // Recuadro hundido (fondo claro con sombra interior arriba).

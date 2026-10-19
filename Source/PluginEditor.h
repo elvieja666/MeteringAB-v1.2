@@ -194,6 +194,7 @@ private:
     bool metersFalling = false;
     bool audioWasStopped = false;
     juce::Rectangle<int> meterArea() const;
+    juce::Rectangle<int> metersBounds { 20, 136, 340, 124 };
     void resetMeters();
     bool isSendMode = false;
     int lastListenPre = -1;                           // para seguir al botón de escucha

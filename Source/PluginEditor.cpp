@@ -546,6 +546,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     // Columna gris: títulos a la izquierda.
     for (auto* l : { &listenLabel, &windowLabel, &latencyLabel })
         l->setJustificationType (juce::Justification::centredLeft);
+
     linkLabel.setJustificationType (juce::Justification::centredLeft);
     latencyMsLabel.setJustificationType (juce::Justification::centredLeft);
     latencyInfoLabel.setJustificationType (juce::Justification::centredRight);
@@ -1072,7 +1073,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
     // Título
     g.setColour (juce::Colour (0xff3a3d42));
     g.setFont (Theme::font (14.0f, 600, 0.3f));
-    g.drawText ("METERING A/B", 20, 8, 240, 32, juce::Justification::centredLeft);
+    g.drawText ("METERING A/B", 20, isSendMode ? 8 : 5, 240, 32, juce::Justification::centredLeft);
 
     // Pastilla del Link ID (− 1 +)
     {
@@ -1143,7 +1144,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
 // Clic sobre los números: medidores a cero (vuelven a medir desde ahí).
 juce::Rectangle<int> MeteringABPanel::meterArea() const
 {
-    return { 20, 142, sideWidth - 40, 140 };
+    return metersBounds;
 }
 
 void MeteringABPanel::mouseDown (const juce::MouseEvent& e)
@@ -1169,7 +1170,7 @@ void MeteringABPanel::resized()
 {
     // ---- Columna gris (de arriba a abajo). En Send queda solo esta parte de arriba. ----
     auto k = juce::Rectangle<int> (20, 0, (isSendMode ? sendWidth : sideWidth) - 40, getHeight());
-    k.removeFromTop (46);                                       // título (se dibuja en paint)
+    k.removeFromTop (isSendMode ? 46 : 40);                     // título (se dibuja en paint)
     modeBox.setBounds (k.removeFromTop (30));
     k.removeFromTop (6);
     {
@@ -1192,7 +1193,9 @@ void MeteringABPanel::resized()
 
     statusLabel.setBounds (k.removeFromTop (22).withTrimmedLeft (14));
     statusLabel.setJustificationType (juce::Justification::centredLeft);
-    k.removeFromTop (meterArea().getBottom() - k.getY());       // medidores (se dibujan en paint)
+
+    metersBounds = { 20, k.getY() + 2, sideWidth - 40, 124 };   // medidores (se dibujan en paint)
+    k.removeFromTop (metersBounds.getBottom() - k.getY());
     k.removeFromTop (12);
 
     // Ventana: título y ms|Sync, perilla con el valor, equivalencia abajo.
@@ -1202,34 +1205,34 @@ void MeteringABPanel::resized()
         syncButtons[0].setBounds (header.removeFromRight (38));
         windowLabel.setBounds (header);
         k.removeFromTop (2);
-        const auto knobs = k.removeFromTop (84);
+        const auto knobs = k.removeFromTop (80);
         windowSlider.setBounds (knobs);
         windowSyncSlider.setBounds (knobs);
         windowInfoLabel.setBounds (k.removeFromTop (16));
     }
-    k.removeFromTop (16);
+    k.removeFromTop (14);
 
     // Latencia: número a la izquierda, Medir a la derecha, estado debajo.
     {
         latencyLabel.setBounds (k.removeFromTop (20));
         k.removeFromTop (4);
-        auto row = k.removeFromTop (52);
+        auto row = k.removeFromTop (50);
         auto rightSide = row.removeFromRight (126);
         measureButton.setBounds (rightSide.withSizeKeepingCentre (126, 42).translated (0, -3));
         latencyNumberArea = row.removeFromTop (34);
         latencyMsLabel.setBounds (row.removeFromTop (16));
         latencyInfoLabel.setBounds (k.removeFromTop (16));
     }
-    k.removeFromTop (16);
+    k.removeFromTop (14);
 
-    // Escuchar: el botón grande PRE FX / POST FX y cómo se nivela.
+    // Escuchar: el botón grande PRE FX / POST FX y, al pie, cómo se nivela y Scope.
     {
         listenLabel.setBounds (k.removeFromTop (20));
         k.removeFromTop (6);
-        abButton.setBounds (k.removeFromTop (58).expanded (4, 0));
-        k.removeFromTop (6);
-        auto row = k.removeFromTop (24);
-        scopeToggleButton.setBounds (row.removeFromRight (92));      // Scope: abrir / cerrar el osciloscopio
+        abButton.setBounds (k.removeFromTop (60).expanded (4, 0));
+        k.removeFromTop (14);
+        auto row = k.removeFromTop (34);
+        scopeToggleButton.setBounds (row.removeFromRight (116));   // Scope: abrir / cerrar el osciloscopio
         matchInfoLabel.setBounds (row);
         matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
     }

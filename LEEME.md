@@ -72,7 +72,7 @@ Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achi
 
 ### Osciloscopio
 
-Está siempre a la vista, a la derecha de la columna gris y a toda la altura del plugin. La columna gris tiene, de arriba a abajo: modo y Link ID, los tres números (Original, Ganancia aplicada y Procesado) juntos, Ventana, Latencia y Escuchar.
+Está a la derecha de la columna gris, a toda la altura del plugin. El botón **Scope** (al pie de la columna gris) lo cierra y lo abre; cerrado queda solo la columna gris, y se guarda con el proyecto. La columna gris tiene, de arriba a abajo: modo y Link ID, los tres números (Original, Ganancia aplicada y Procesado) juntos, Ventana, Latencia y Escuchar.
 
 Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al volumen del original, así ves solo lo que cambió.
 
