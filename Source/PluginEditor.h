@@ -116,6 +116,7 @@ public:
     bool isScopeLinkedForTests() const          { return scopeLinked; }
     bool isSendLayout() const                   { return isSendMode; }
     bool isScopeOpenForTests() const            { return scopeOpen; }
+    static inline bool scopeOpenOnStart = false;   // pruebas: abrir con el osciloscopio a la vista
     juce::TextButton& getScopeToggleForTests()  { return scopeToggleButton; }
 
     int getStyleMenuOpenedForTests() const      { return styleMenuOpenedForTests; }

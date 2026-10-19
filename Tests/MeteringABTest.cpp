@@ -261,6 +261,7 @@ static Result runMeasureCase (int link, std::unique_ptr<Fx> fx)
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
+    MeteringABPanel::scopeOpenOnStart = true;   // casi todas las pruebas miran el osciloscopio
 
     if (argc > 2) // MeteringABTests <carpeta> <audio.raw>: tu audio (estéreo, float, 48 kHz) por el plugin real, 2 bars a 70 BPM
     {
@@ -647,20 +648,23 @@ int main (int argc, char** argv)
         check (ed2->getWidth() == MeteringABPanel::receiveWidth, "Escalable: al reabrir el plugin recuerda el tamaño (ancho px)", ed2->getWidth());
     }
     {
-        // Botón Scope (al pie de la columna gris): cierra y abre el osciloscopio; se guarda.
+        // Botón Scope (al pie de la columna gris): el plugin se abre con el osciloscopio cerrado.
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
+        MeteringABPanel::scopeOpenOnStart = false;
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
         auto* p = panelOf (ed);
-        check (p->isScopeOpenForTests() && p->getScopeToggleForTests().isVisible() && p->getScopeToggleForTests().getToggleState(),
-               "Scope: arranca abierto y el botón está encendido", 1);
-        p->getScopeToggleForTests().onClick();
-        check (! p->isScopeOpenForTests() && ! p->getScopeForTests().isVisible() && p->getWidth() == MeteringABPanel::sideWidth,
-               "Scope: al cerrarlo queda solo la columna gris (ancho)", p->getWidth());
-        std::unique_ptr<juce::AudioProcessorEditor> ed2 (a.createEditor());
-        check (! panelOf (ed2)->isScopeOpenForTests(), "Scope: cerrado se guarda con el proyecto", 1);
+        check (! p->isScopeOpenForTests() && ! p->getScopeForTests().isVisible() && p->getWidth() == MeteringABPanel::sideWidth
+               && ! p->getScopeToggleForTests().getToggleState(),
+               "Scope: el plugin se abre con el osciloscopio cerrado (solo la columna gris)", p->getWidth());
         p->getScopeToggleForTests().onClick();
         check (p->isScopeOpenForTests() && p->getScopeForTests().isVisible() && p->getWidth() == MeteringABPanel::receiveWidth,
                "Scope: al abrirlo vuelve el osciloscopio (ancho)", p->getWidth());
+        std::unique_ptr<juce::AudioProcessorEditor> ed2 (a.createEditor());
+        check (! panelOf (ed2)->isScopeOpenForTests(), "Scope: al reabrir el plugin vuelve a estar cerrado", 1);
+        p->getScopeToggleForTests().onClick();
+        check (! p->isScopeOpenForTests() && p->getWidth() == MeteringABPanel::sideWidth,
+               "Scope: al cerrarlo queda solo la columna gris (ancho)", p->getWidth());
+        MeteringABPanel::scopeOpenOnStart = true;
     }
     {
         // Columna gris a la izquierda y el osciloscopio a la derecha (aunque un
