@@ -94,7 +94,7 @@ public:
     static constexpr int scopeWidth = 1101;            // 595 * 1,85
     static constexpr int sideWidth = 380;             // la columna gris (Receive)
     static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1967 (al 100%)
-    static constexpr int sendWidth = sideWidth, sendHeight = 168;    // Send: solo la parte de arriba de la columna
+    static constexpr int sendWidth = sideWidth, sendHeight = 150;    // Send: hasta el estado (antes de los números del Receive)
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
     explicit MeteringABPanel (MeteringABProcessor&);

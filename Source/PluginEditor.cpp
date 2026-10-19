@@ -1088,7 +1088,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
     // Título
     g.setColour (juce::Colour (0xff3a3d42));
     g.setFont (Theme::font (14.0f, 600, 0.3f));
-    g.drawText ("METERING A/B", 20, isSendMode ? 8 : 5, 240, 32, juce::Justification::centredLeft);
+    g.drawText ("METERING A/B", 20, 5, 240, 32, juce::Justification::centredLeft);
 
     // Pastilla del Link ID (− 1 +)
     {
@@ -1188,7 +1188,7 @@ void MeteringABPanel::resized()
 {
     // ---- Columna gris (de arriba a abajo). En Send queda solo esta parte de arriba. ----
     auto k = juce::Rectangle<int> (20, 0, (isSendMode ? sendWidth : sideWidth) - 40, getHeight());
-    k.removeFromTop (isSendMode ? 46 : 40);                     // título (se dibuja en paint)
+    k.removeFromTop (40);                                       // título (se dibuja en paint)
     modeBox.setBounds (k.removeFromTop (30));
     k.removeFromTop (6);
     {
@@ -1201,16 +1201,12 @@ void MeteringABPanel::resized()
     }
     k.removeFromTop (4);
 
-    if (isSendMode)                                             // Send: el estado en dos renglones y listo
-    {
-        statusLabel.setBounds (k.removeFromTop (38).withTrimmedLeft (14));
-        statusLabel.setJustificationType (juce::Justification::topLeft);
-        statusLabel.setMinimumHorizontalScale (1.0f);
-        return;
-    }
-
+    // El estado, en un renglón (igual en Send y Receive). El Send termina acá: corta
+    // justo antes de donde en el Receive empiezan los números.
     statusLabel.setBounds (k.removeFromTop (22).withTrimmedLeft (14));
     statusLabel.setJustificationType (juce::Justification::centredLeft);
+    if (isSendMode)
+        return;
 
     metersBounds = { 20, k.getY() + 2, sideWidth - 40, 124 };   // medidores (se dibujan en paint)
     k.removeFromTop (metersBounds.getBottom() - k.getY());
