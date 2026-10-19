@@ -504,7 +504,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     // Gain: línea en el osciloscopio con el valor de la ganancia aplicada (se guarda).
     gainLineButton.setClickingTogglesState (false);
-    gainLineButton.getProperties().set ("chipColour", (juce::int64) 0xff6fdc8c);
+    gainLineButton.getProperties().set ("chipColour", (juce::int64) 0xffeceef1);
     gainLineButton.onClick = [this]
     {
         gainLineOn = ! gainLineOn;

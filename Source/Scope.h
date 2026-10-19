@@ -563,7 +563,7 @@ private:
             g.drawText (text, r.toNearestInt(), juce::Justification::centred);
         };
 
-        if (gainLineDb.has_value())                       // ganancia aplicada (verde): a -|ganancia| dB
+        if (gainLineDb.has_value())                       // ganancia aplicada (blanca): a -|ganancia| dB
         {
             const float level = juce::jlimit (-60.0f, 0.0f, -std::abs (*gainLineDb));
             const auto ys = yForDb (level);
@@ -1261,7 +1261,7 @@ private:
     std::unique_ptr<juce::TextEditor> markerEditor;
     static inline const juce::Colour markerColour { 0xffffc24a };
     std::optional<float> gainLineDb;                    // línea de la ganancia aplicada
-    static inline const juce::Colour gainColour { 0xff6fdc8c };
+    static inline const juce::Colour gainColour { 0xffeceef1 };   // blanco
     juce::Rectangle<float> zoomLabelArea;               // "Show all" (con zoom)
     Channels channels = Channels::sum;
     Flags showPreAt {};
