@@ -264,9 +264,6 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     preMeter.prepare (sampleRate);
     postMeter.prepare (sampleRate);
 
-    for (auto& t : scopeBands)
-        t.prepare (sampleRate);
-
     for (auto& raw : scopeRaw)                       // zoom del osciloscopio (una sola vez)
         if (raw == nullptr)
         {
@@ -593,11 +590,10 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         const int bin = drawing ? juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins)) : -1;
         const bool newBin = drawing && bin != lastScopeBin;   // columna nueva: reemplaza la del loop anterior
 
-        for (int t = 0; t < numScopeTraces; ++t)        // graves / agudos de cada onda (siempre, para no perder el hilo)
+        for (int t = 0; t < numScopeTraces; ++t)
         {
             auto& trace = scopeTraces[(size_t) t];
             const float v = values[t];
-            const auto bands = scopeBands[(size_t) t].process (v, bin);
 
             if (drawing)
             {
@@ -608,75 +604,14 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
                     trace.min[k].store (v, std::memory_order_relaxed);
                     trace.max[k].store (v, std::memory_order_relaxed);
                     trace.sq[k].store (v * v, std::memory_order_relaxed);
-                    trace.hiMin[k].store (bands.high, std::memory_order_relaxed);
-                    trace.hiMax[k].store (bands.high, std::memory_order_relaxed);
-                    trace.lowPos[k].store (0.0f, std::memory_order_relaxed);
-                    trace.lowNeg[k].store (0.0f, std::memory_order_relaxed);
-                    trace.fullPos[k].store (0.0f, std::memory_order_relaxed);
-                    trace.fullNeg[k].store (0.0f, std::memory_order_relaxed);
                 }
                 else
                 {
                     if (v < trace.min[k].load (std::memory_order_relaxed)) trace.min[k].store (v, std::memory_order_relaxed);
                     if (v > trace.max[k].load (std::memory_order_relaxed)) trace.max[k].store (v, std::memory_order_relaxed);
                     trace.sq[k].store (trace.sq[k].load (std::memory_order_relaxed) + v * v, std::memory_order_relaxed);
-                    if (bands.high < trace.hiMin[k].load (std::memory_order_relaxed)) trace.hiMin[k].store (bands.high, std::memory_order_relaxed);
-                    if (bands.high > trace.hiMax[k].load (std::memory_order_relaxed)) trace.hiMax[k].store (bands.high, std::memory_order_relaxed);
                 }
             }
-
-            // Graves: el pico de cada medio ciclo va a la columna donde ocurrió.
-            // Mientras el medio ciclo sigue, su pico se escribe provisorio (el borde
-            // llega hasta el cabezal); si el pico se mueve, la columna vieja vuelve a
-            // lo que tenía. Al terminar, queda fijo.
-            // Lo mismo para los picos de la onda entera (fullPos / fullNeg), que es lo que
-            // unen Outline y Lines only.
-            auto& bandsState = scopeBands[(size_t) t];
-            auto track = [&] (PendingPeak& pend, std::array<std::atomic<float>, scopeBins>& posArr,
-                              std::array<std::atomic<float>, scopeBins>& negArr,
-                              bool done, int doneBin, float donePeak, int pb, float pp)
-            {
-                auto slot = [&] (int b, bool positive) -> std::atomic<float>& { return positive ? posArr[(size_t) b] : negArr[(size_t) b]; };
-
-                auto undoPending = [&]
-                {
-                    if (pend.bin >= 0 && juce::exactlyEqual (slot (pend.bin, pend.positive).load (std::memory_order_relaxed), pend.written))
-                        slot (pend.bin, pend.positive).store (pend.before, std::memory_order_relaxed);
-                    pend.bin = -1;
-                };
-
-                auto writePeak = [&] (int b, float peak)
-                {
-                    if (b < 0 || b >= scopeBins || juce::exactlyEqual (peak, 0.0f))
-                        return;
-                    auto& cell = slot (b, peak > 0.0f);
-                    const float before = cell.load (std::memory_order_relaxed);
-                    if (peak > 0.0f ? peak > before : peak < before)
-                        cell.store (peak, std::memory_order_relaxed);
-                    pend = { b, peak > 0.0f, before, cell.load (std::memory_order_relaxed) };
-                };
-
-                if (done)
-                {
-                    undoPending();
-                    writePeak (doneBin, donePeak);
-                    pend.bin = -1;                      // ya es definitivo
-                }
-
-                const bool samePending = pend.bin == pb && pb >= 0
-                                         && juce::exactlyEqual (slot (pb, pend.positive).load (std::memory_order_relaxed), pend.written)
-                                         && (pend.positive ? pp <= pend.written : pp >= pend.written) && (pp > 0.0f) == pend.positive;
-                if (! samePending)
-                {
-                    undoPending();
-                    writePeak (pb, pp);
-                }
-            };
-
-            track (pendingPeaks[(size_t) t], trace.lowPos, trace.lowNeg, bands.peakDone, bands.peakBin, bands.peak,
-                   bandsState.pendingBin(), bandsState.pendingPeak());
-            track (pendingFullPeaks[(size_t) t], trace.fullPos, trace.fullNeg, bands.fullDone, bands.fullBin, bands.fullPeak,
-                   bandsState.pendingFullBin(), bandsState.pendingFullPeak());
         }
 
         // Detalle de muestra (zoom): mínimo y máximo de cada casillero.
@@ -768,12 +703,6 @@ void MeteringABProcessor::clearScope()
             trace.min[(size_t) b] = 0.0f;
             trace.max[(size_t) b] = 0.0f;
             trace.sq[(size_t) b] = 0.0f;
-            trace.hiMin[(size_t) b] = 0.0f;
-            trace.hiMax[(size_t) b] = 0.0f;
-            trace.lowPos[(size_t) b] = 0.0f;
-            trace.lowNeg[(size_t) b] = 0.0f;
-            trace.fullPos[(size_t) b] = 0.0f;
-            trace.fullNeg[(size_t) b] = 0.0f;
         }
 
         scopeCount[(size_t) b] = 0;
@@ -789,12 +718,6 @@ void MeteringABProcessor::clearScope()
             for (int i = 0; i < rawInUse; ++i)
                 raw[(size_t) i].store (0, std::memory_order_relaxed);
 
-    for (auto& t : scopeBands)                         // que ningún medio ciclo viejo caiga en el loop nuevo
-        t.reset();
-    for (auto& p : pendingPeaks)
-        p.bin = -1;
-    for (auto& p : pendingFullPeaks)
-        p.bin = -1;
 }
 
 // Dónde arranca el bloque dentro del loop del osciloscopio (en negras).

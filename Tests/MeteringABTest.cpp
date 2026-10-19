@@ -374,6 +374,12 @@ int main (int argc, char** argv)
                 auto cimg = panel->createComponentSnapshot (panel->getLocalBounds(), true, 2.0f);
                 juce::File cf (juce::String (argv[1]) + "/audio-compare.png");
                 cf.deleteFile(); juce::FileOutputStream cos (cf); juce::PNGImageFormat().writeImageToStream (cimg, cos);
+                {
+                    sc.setView (0.0, 0.5);                 // un compás, como se ve en Logic
+                    auto bc = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
+                    juce::File bf (juce::String (argv[1]) + "/audio-compare-1bar.png");
+                    bf.deleteFile(); juce::FileOutputStream bos (bf); juce::PNGImageFormat().writeImageToStream (bc, bos);
+                }
                 for (int z = 0; z < 2; ++z)             // ...y con zoom (x8 y x40)
                 {
                     sc.setView (zooms[z][0], zooms[z][1]);
@@ -1157,97 +1163,26 @@ int main (int argc, char** argv)
     }
 
     {
-        // Outline / Lines only: de pico a pico (1 ms por columna).
-        constexpr int bins = MeteringABProcessor::scopeBins;
-        const double binSec = 1.0e-3;
+        // Outline / Lines only: Detallado unido punta a punta.
         using V = std::vector<float>;
-        auto env = [&] (const V& pos, const V& neg, int from = 0, int to = bins)
-        { return ScopeView::peakEnvelope ({ pos.data(), neg.data() }, from, to, binSec); };
-        auto valueAt = [&] (const std::vector<ScopeView::EnvelopePoint>& p, int bin) { return p[(size_t) bin + 1].hi; };
-        const V zero ((size_t) bins, 0.0f);
+        using H = std::vector<std::uint8_t>;
+        //          columnas: 0     1     2      3     4      5     6     7
+        const V hi { 0.1f, 0.5f, -0.2f, 0.4f, 0.05f, 0.6f, 0.3f, 0.2f };
+        const V lo { -0.1f, 0.1f, -0.5f, -0.3f, -0.6f, -0.1f, -0.4f, -0.2f };
+        const auto [up, down] = ScopeView::tipEdges (hi, lo, H (8, 1), 100);
+        check (std::abs (up[1] - 0.5f) < 1.0e-5f && std::abs (up[3] - 0.4f) < 1.0e-5f && std::abs (up[5] - 0.6f) < 1.0e-5f,
+               "Outline: las puntas de arriba quedan donde están (todo el detalle)", up[3]);
+        check (std::abs (up[2] - 0.45f) < 1.0e-5f && std::abs (up[4] - 0.5f) < 1.0e-5f,
+               "Outline: entre punta y punta, línea recta (se llena el Detallado)", up[4]);
+        check (std::abs (down[3] + 0.55f) < 1.0e-5f && std::abs (down[5] + 0.5f) < 1.0e-5f,
+               "Outline: abajo, igual con las puntas negativas", down[3]);
+        check (up[7] >= 0.0f && down[0] <= 0.0f, "Outline: arriba nunca baja del centro ni abajo lo pasa", up[7]);
 
-        // Picos positivos cada 30 ms (0.54, 0.6, 0.52) y negativos en el medio.
-        V pos ((size_t) bins, 0.0f), neg ((size_t) bins, 0.0f);
-        pos[200] = 0.54f; pos[230] = 0.6f; pos[260] = 0.52f;
-        neg[215] = -0.5f; neg[245] = -0.44f;
-        const auto pts = env (pos, neg);
-        check ((int) pts.size() == bins + 2, "Outline: un punto por columna", (double) pts.size());
-        check (std::abs (valueAt (pts, 230) - 0.6f) < 1.0e-4f && std::abs (valueAt (pts, 215) - 0.57f) < 1.0e-4f
-               && std::abs (valueAt (pts, 245) - 0.56f) < 1.0e-4f,
-               "Outline: arriba va en línea recta de pico positivo a pico positivo", valueAt (pts, 215));
-        check (std::abs (pts[231].lo + 0.47f) < 1.0e-4f, "Outline: abajo va de pico negativo a pico negativo", pts[231].lo);
-        {
-            V withSmall = pos;
-            withSmall[215] = 0.15f;                    // un agudo que cruza en el medio del ciclo
-            const auto sm = env (withSmall, neg);
-            check (std::abs (valueAt (sm, 215) - 0.57f) < 1.0e-4f, "Outline: un pico chico entre dos grandes no hunde la línea", valueAt (sm, 215));
-        }
-        check (valueAt (pts, 150) < 0.01f && valueAt (pts, 300) < 0.01f, "Outline: antes y después del sonido, cero", valueAt (pts, 300));
-        check (pts.front().bin == 0.0f && pts.back().bin == (float) bins, "Outline: el dibujo cubre todo el tramo", pts.back().bin);
-        const auto part = env (pos, neg, 300, 500);
-        check (part.front().bin == 300.0f && part.back().bin == 500.0f, "Outline: con LINK cada tramo se dibuja aparte", part.size());
-
-        // Audio fuerte y parejo: plano arriba.
-        V flat ((size_t) bins, 0.0f);
-        for (int b = 0; b < bins; b += 7) flat[(size_t) b] = 0.9f;
-        const auto f = env (flat, zero);
-        float lo = 1.0f, hi = 0.0f;
-        for (int i = 100; i < 1900; ++i) { lo = juce::jmin (lo, valueAt (f, i)); hi = juce::jmax (hi, valueAt (f, i)); }
-        check (hi - lo < 1.0e-4f, "Outline: audio denso y limitado queda plano arriba", hi - lo);
-
-        // Silencio entre dos notas (400 ms): no las une.
-        V notes ((size_t) bins, 0.0f);
-        for (int b = 0; b < bins; b += 20)
-            if (b < 600 || b >= 1000) notes[(size_t) b] = 0.5f;
-        const auto gap = env (notes, zero);
-        check (valueAt (gap, 800) < 0.01f && valueAt (gap, 500) > 0.49f, "Outline: no une notas separadas por silencio", valueAt (gap, 800));
-    }
-    {
-        // De punta a punta: el audio separa graves (picos de medio ciclo) y agudos.
-        struct Bands { float lowPos, lowNeg, high; int peaks; float fullPos, fullNeg; int fullPeaks; };
-        auto bandsWith = [] (double freq)
-        {
-            MeteringABProcessor send, recv; juce::MidiBuffer m;
-            setParam (send, ParamIDs::link, 14); setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 14);
-            ChainHead head; send.setPlayHead (&head); recv.setPlayHead (&head);
-            send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
-            juce::AudioBuffer<float> b (2, 512); double ph = 0; long long count = 0;
-            for (int blk = 0; blk < 180; ++blk)   // 1,92 s: casi un compás, sin dar la vuelta
-            {
-                for (int i = 0; i < 512; ++i)
-                {
-                    const float x = 0.5f * (float) std::sin (ph); ph += 2 * juce::MathConstants<double>::pi * freq / 48000.0;
-                    b.setSample (0, i, x); b.setSample (1, i, x);
-                }
-                head.ppq = (double) count * 2.0 / 48000.0; count += 512;
-                send.processBlock (b, m); recv.processBlock (b, m);
-            }
-            send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
-            const auto& t = recv.scopeTraces[MeteringABProcessor::preSum];
-            const int end = recv.scopeCurrentBin.load() - 30;
-            Bands r { 0.0f, 0.0f, 0.0f, 0, 0.0f, 0.0f, 0 };
-            for (int k = juce::jmax (0, end - 300); k < end; ++k)
-            {
-                r.lowPos = juce::jmax (r.lowPos, t.lowPos[(size_t) k].load());
-                r.lowNeg = juce::jmin (r.lowNeg, t.lowNeg[(size_t) k].load());
-                r.high = juce::jmax (r.high, t.hiMax[(size_t) k].load());
-                r.peaks += t.lowPos[(size_t) k].load() > 0.0f ? 1 : 0;
-                r.fullPos = juce::jmax (r.fullPos, t.fullPos[(size_t) k].load());
-                r.fullNeg = juce::jmin (r.fullNeg, t.fullNeg[(size_t) k].load());
-                r.fullPeaks += t.fullPos[(size_t) k].load() > 0.0f ? 1 : 0;
-            }
-            return r;
-        };
-        const auto bass = bandsWith (40.0), treble = bandsWith (2000.0);
-        // 300 columnas a 120 BPM (1 compás = 2 s): ~293 ms = ~12 ciclos de 40 Hz.
-        check (bass.lowPos > 0.45f && bass.lowNeg < -0.45f && bass.high < 0.05f,
-               "Bajo de 40 Hz: va a los graves (picos de medio ciclo), casi nada en agudos", bass.lowPos);
-        check (bass.peaks >= 10 && bass.peaks <= 13, "Bajo de 40 Hz: un pico por ciclo", bass.peaks);
-        check (treble.high > 0.45f && treble.lowPos < 0.01f, "Agudo de 2 kHz: va a los agudos", treble.high);
-        check (bass.fullPeaks >= 10 && bass.fullPeaks <= 13 && bass.fullPos > 0.49f && bass.fullNeg < -0.49f,
-               "Pico a pico: un pico positivo y uno negativo por ciclo (onda entera)", bass.fullPeaks);
-        check (treble.fullPeaks >= 250 && treble.fullPos > 0.49f && treble.fullNeg < -0.49f,
-               "Pico a pico: un agudo marca picos en todas las columnas", treble.fullPeaks);
+        // Dos notas separadas por silencio: no se unen.
+        V h2 (300, 0.0f), l2 (300, 0.0f);
+        h2[10] = 0.5f; h2[290] = 0.5f;
+        const auto [up2, down2] = ScopeView::tipEdges (h2, l2, H (300, 1), 100);
+        check (up2[150] < 1.0e-5f, "Outline: no une puntas separadas por silencio", up2[150]);
     }
     {
         // Zoom: el audio guarda la onda muestra a muestra (120 BPM, 1 compás = 2 s = 96000 muestras).
