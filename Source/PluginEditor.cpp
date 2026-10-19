@@ -1109,7 +1109,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
     if (isSendMode)
         return;
 
-    // Números: Original | Ganancia | Procesado, juntos en un recuadro hundido (uno debajo del otro).
+    // Números: Original | Procesado | Ganancia aplicada, juntos en un recuadro hundido (uno debajo del otro).
     const auto meters = meterArea();
     Theme::drawWell (g, meters.toFloat(), 14.0f);
 
@@ -1118,9 +1118,9 @@ void MeteringABPanel::paint (juce::Graphics& g)
     struct Readout { juce::String title, number, unit; juce::Colour colour; };
     const Readout readouts[] = {
         { "Original (Send)",   level (shownPre),  "LUFS", Theme::inkStrong },
+        { "Processed",         level (shownPost), "LUFS", Theme::inkStrong },
         { "Applied gain", gainShown ? (shownGain >= 0 ? "+" : "") + juce::String (shownGain, 2) : juce::String ("—"_u),
                                gainShown ? "dB" : "", Theme::accent },
-        { "Processed",         level (shownPost), "LUFS", Theme::inkStrong },
     };
 
     auto rows = meters.reduced (16, 4);
