@@ -9,7 +9,7 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Versión mínima de macOS")
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Arquitecturas")
 
-project(MeteringAB VERSION 0.1.0 LANGUAGES C CXX)
+project(MeteringAB VERSION 0.1.1 LANGUAGES C CXX)   # subir la versión hace que Logic vuelva a leer el nombre
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,7 +24,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(JUCE)
 
 juce_add_plugin(MeteringAB
-    COMPANY_NAME             "0600musica"
+    COMPANY_NAME             "DIY"
     BUNDLE_ID                "com.0600musica.meteringab"
     PLUGIN_MANUFACTURER_CODE Ms06        # 4 letras, al menos una mayúscula
     PLUGIN_CODE              Mtab        # 4 letras, única para este plugin
