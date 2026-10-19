@@ -87,7 +87,7 @@ Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al vo
   - *Color PRE FX* / *Color POST FX* (cada uno en su menú): Gris, Gris oscuro, Gris claro, Blanco, Azul, Rosa, Rojo, Violeta o Lima, o **Elegir otro color…** con un selector. Cambiar uno no toca el otro. Los botones PRE FX / POST FX toman los mismos colores.
   - *Mostrar grilla*: prende o apaga las líneas de fondo (las de cada compás quedan siempre).
   - Todo se guarda con el proyecto.
-- **Regla de nivel**: al pasar el mouse por el osciloscopio aparece una línea horizontal con su valor en dB. **Clic** = la línea queda fija (gris claro, arriba y abajo de -∞); clic sobre ella la saca; **doble clic** = escribir el valor exacto (por ejemplo -6 o -12.5) y Enter.
+- **Regla de nivel**: al pasar el mouse por el osciloscopio aparece una línea horizontal con su valor en dB. **Clic** = la línea queda fija (gris claro, arriba y abajo de -∞); clic sobre ella la saca; con el mouse sobre su cartelito de dB no aparece la línea del mouse; **doble clic** = escribir el valor exacto (por ejemplo -6 o -12.5) y Enter.
 - **Gain** (el primero de la barra): dibuja una línea blanca punteada (sin cartel) al nivel de la **ganancia aplicada**, en dB. Sirve para ver hasta dónde llega lo procesado después de nivelarlo. Otro clic la saca; se guarda con el proyecto.
 - **Freeze** (botón arriba del osciloscopio): lo congela; otro clic lo descongela.
 - **Zoom**: rueda del mouse o pellizco en el trackpad, centrado donde está el mouse (hasta ver unas 48 muestras a lo ancho). **Arrastrá** para moverte (o deslizá de costado en el trackpad) y tocá **Show all** (abajo a la izquierda) para volver a ver todo. Con zoom se ve la onda real, muestra por muestra; funciona congelado o en vivo.

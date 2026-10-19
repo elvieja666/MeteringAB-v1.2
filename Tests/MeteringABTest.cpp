@@ -1287,6 +1287,15 @@ int main (int argc, char** argv)
             check (sc.getMarkerDb().has_value() && std::abs (*sc.getMarkerDb() + 12.5f) < 0.01f, "Regla: doble clic y escribir -12.5 dB", sc.getMarkerDb().value_or (0));
             sc.setMarkerDb (8.0f);
             check (std::abs (*sc.getMarkerDb() + 8.0f) < 0.01f, "Regla: un valor positivo se toma como negativo", *sc.getMarkerDb());
+            {
+                const auto tagC = sc.getMarkerTagAreaForTests().getCentre();
+                sc.mouseMove (mouse (tagC.x).withNewPosition (tagC));
+                const bool hiddenOnTag = ! sc.isHoverLineShownForTests();
+                const juce::Point<float> away { pl.getCentreX(), pl.getY() + 20.0f };
+                sc.mouseMove (mouse (away.x).withNewPosition (away));
+                check (hiddenOnTag && sc.isHoverLineShownForTests(),
+                       "Regla: sobre el cartelito de dB no se dibuja la línea del mouse (afuera sí)", hiddenOnTag);
+            }
             sc.setMarkerDb (std::nullopt);
         }
 

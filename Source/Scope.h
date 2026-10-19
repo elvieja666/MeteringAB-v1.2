@@ -144,6 +144,7 @@ public:
     void mouseMove (const juce::MouseEvent& e) override
     {
         hoverY = plotArea().contains (e.position) ? e.position.y : -1.0f;
+        hoverX = e.position.x;
         repaint();
     }
 
@@ -223,6 +224,13 @@ public:
         ed.grabKeyboardFocus();
         repaint();
     }
+
+    bool isHoverLineShownForTests() const
+    {
+        const auto plot = plotArea();
+        return hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY) && ! isOnMarkerTag();
+    }
+    juce::Rectangle<float> getMarkerTagAreaForTests() const { return markerTagArea(); }
 
     bool isShowAllAt (juce::Point<float> p) const { return zoomLabelArea.contains (p); }
     void typeMarkerForTests (const juce::String& text)
@@ -529,7 +537,14 @@ private:
     {
         const auto plot = plotArea();
         const float y = markerDb.has_value() ? yForDb (*markerDb).front() : plot.getY();
-        return { plot.getRight() - 78.0f, y - 9.0f, 72.0f, 18.0f };
+        return juce::Rectangle<float> (plot.getRight() - 78.0f, y - 9.0f, 72.0f, 18.0f)
+                   .withY (juce::jlimit (plot.getY(), plot.getBottom() - 18.0f, y - 9.0f));
+    }
+
+    // ¿El mouse está sobre el cartelito de la línea fija? (ahí no se dibuja la del mouse)
+    bool isOnMarkerTag() const
+    {
+        return markerDb.has_value() && hoverY >= 0.0f && markerTagArea().expanded (3.0f).contains (hoverX, hoverY);
     }
 
     static juce::String dbText (float db)
@@ -574,7 +589,7 @@ private:
                 tag (ys.front(), dbText (*markerDb), markerColour, juce::Colour (0xff0b0c0e));
         }
 
-        if (hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY))
+        if (hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY) && ! isOnMarkerTag())
         {
             const float db = dbAtY (hoverY);
             g.setColour (juce::Colours::white.withAlpha (0.45f));
@@ -1068,6 +1083,7 @@ private:
     float dragStartX = 0.0f;
     bool dragged = false;
     float hoverY = -1.0f;                               // regla: altura del mouse (-1 = afuera)
+    float hoverX = -1.0f;
     std::optional<float> markerDb, markerBeforeClick;   // regla: línea fija (en dB)
     std::unique_ptr<juce::TextEditor> markerEditor;
     static inline const juce::Colour markerColour { 0xffd3d6db };   // gris claro
