@@ -399,6 +399,9 @@ public:
             g.drawText ("Show all", zoomLabelArea.toNearestInt(), juce::Justification::centredLeft);   // clic: ver todo
         }
 
+        if (showPre && showPost)
+            drawOverlayLegend (g, plot);
+
         if (frozen)
         {
             g.setColour (juce::Colour (0xffe8e6e3));
@@ -724,6 +727,73 @@ public:
                   bool includes (int b) const { return flags == nullptr || (*flags)[(size_t) b] == wanted; } };
 
 private:
+    // Overlay (las dos ondas a la vista): leyenda con cuál es cuál y cuál suena
+    // (el parlante sigue al botón de escucha). Las dos se ven; suena una sola.
+    bool listeningPre() const { return processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f; }
+
+    void drawOverlayLegend (juce::Graphics& g, juce::Rectangle<float> plot) const
+    {
+        juce::Graphics::ScopedSaveState keep (g);
+        const bool preSounds = listeningPre();
+        const auto font = Theme::font (13.0f, 400), bold = Theme::font (13.0f, 500);
+        const float swatch = 16.0f, gap = 6.0f, spk = 13.0f;
+        auto widthOf = [] (const juce::Font& f, const juce::String& t) { return juce::GlyphArrangement::getStringWidth (f, t); };
+        const juce::String sounding ("sounding");
+
+        struct Item { juce::String name; bool sounds; bool filled; juce::Colour colour; };
+        const Item items[] = { { "PRE", preSounds, true, preColour }, { "POST", ! preSounds, false, postColour } };
+
+        float total = 12.0f;
+        for (const auto& it : items)
+            total += swatch + gap + widthOf (it.sounds ? bold : font, it.name)
+                     + (it.sounds ? gap + spk + 5.0f + widthOf (font, sounding) : 0.0f) + 16.0f;
+        total -= 4.0f;
+
+        auto box = juce::Rectangle<float> (plot.getX() + 10.0f, plot.getY() + 8.0f, total, 26.0f);
+        g.setColour (Theme::darkBg.withAlpha (0.85f));
+        g.fillRoundedRectangle (box, 8.0f);
+        g.setColour (Theme::chipLine);
+        g.drawRoundedRectangle (box, 8.0f, 1.0f);
+
+        float x = box.getX() + 12.0f;
+        const float cy = box.getCentreY();
+        for (const auto& it : items)
+        {
+            const auto textColour = it.sounds ? it.colour.brighter (0.35f) : Theme::chipText;
+            if (it.filled)
+            {
+                g.setColour (it.colour.withAlpha (0.6f));
+                g.fillRoundedRectangle (juce::Rectangle<float> (x, cy - 5.0f, swatch, 10.0f), 2.0f);
+            }
+            else
+            {
+                g.setColour (it.colour);
+                g.fillRect (juce::Rectangle<float> (x, cy - 1.0f, swatch, 2.0f));
+            }
+            x += swatch + gap;
+
+            const auto& f = it.sounds ? bold : font;
+            g.setFont (f);
+            g.setColour (textColour);
+            const float w = widthOf (f, it.name);
+            g.drawText (it.name, juce::Rectangle<float> (x, box.getY(), w + 2.0f, box.getHeight()), juce::Justification::centredLeft, false);
+            x += w;
+
+            if (it.sounds)
+            {
+                x += gap;
+                Theme::drawSpeaker (g, juce::Rectangle<float> (x, cy - spk * 0.5f, spk, spk), textColour);
+                x += spk + 5.0f;
+                g.setFont (font);
+                g.setColour (textColour.withMultipliedAlpha (0.7f));
+                const float sw = widthOf (font, sounding);
+                g.drawText (sounding, juce::Rectangle<float> (x, box.getY(), sw + 2.0f, box.getHeight()), juce::Justification::centredLeft, false);
+                x += sw;
+            }
+            x += 16.0f;
+        }
+    }
+
     // Segundos que dura cada columna del osciloscopio (según tempo y largo).
     double binSeconds() const
     {

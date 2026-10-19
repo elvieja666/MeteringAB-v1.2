@@ -116,6 +116,7 @@ public:
     bool isScopeLinkedForTests() const          { return scopeLinked; }
     bool isSendLayout() const                   { return isSendMode; }
     bool isScopeOpenForTests() const            { return scopeOpen; }
+    juce::TextButton& getABButtonForTests()      { return abButton; }
     static inline bool scopeOpenOnStart = false;   // pruebas: abrir con el osciloscopio a la vista
     juce::TextButton& getScopeToggleForTests()  { return scopeToggleButton; }
 
@@ -159,7 +160,7 @@ private:
     juce::ComboBox zoomBox;
     // PRE + POST: las dos ondas juntas (PRE en Outline, POST en Lines only).
     // Apagado, el osciloscopio sigue a la escucha. Clic derecho: colores, canales y grilla.
-    ChipButton compareButton { "PRE + POST" };
+    ChipButton compareButton { "Overlay" };
     bool compareOn = false;
     void setCompare (bool on);
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)

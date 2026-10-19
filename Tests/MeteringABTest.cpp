@@ -1313,6 +1313,9 @@ int main (int argc, char** argv)
         check (panel->isCompareOnForTests() && cmp.getToggleState() && sc.getShowPre() && sc.getShowPost() && ! panel->isScopeLinkedForTests()
                    && sc.getStylePre() == ScopeView::Style::contour && sc.getStylePost() == ScopeView::Style::lines,
                "PRE + POST: las dos juntas, PRE en Outline y POST en Lines only", 1);
+        check (cmp.getButtonText() == "Overlay" && cmp.getProperties()["icon"].toString() == "eye"
+                   && panel->getABButtonForTests().getProperties()["icon"].toString() == "speaker",
+               "Overlay: se llama Overlay con un ojo (se ve); la escucha lleva el parlante (suena)", 1);
         setParam (r, ParamIDs::pre, 1); panel->refreshNow();
         check (sc.getShowPre() && sc.getShowPost(), "PRE + POST: cambiar la escucha no lo apaga", 1);
         cmp.onClick();

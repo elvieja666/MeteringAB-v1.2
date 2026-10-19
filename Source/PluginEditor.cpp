@@ -202,6 +202,26 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
     if (raised)
         r = raisedShape (r.toFloat()).toNearestInt().translated (0, button.isDown() ? 1 : 0);
 
+    // Con ícono (ojo = Overlay, parlante = escucha): ícono + texto centrados juntos.
+    const auto icon = button.getProperties()["icon"].toString();
+    if (icon.isNotEmpty())
+    {
+        const auto font = getTextButtonFont (button, button.getHeight());
+        const float textW = juce::GlyphArrangement::getStringWidth (font, button.getButtonText());
+        const float iconH = button.getProperties().contains ("big") ? 24.0f : 14.0f;
+        const float iconW = icon == "eye" ? iconH : iconH * 0.95f;
+        const float gap = button.getProperties().contains ("big") ? 12.0f : 6.0f;
+        const auto rf = r.toFloat();
+        const float x0 = rf.getCentreX() - (iconW + gap + textW) * 0.5f;
+        const auto iconBox = juce::Rectangle<float> (x0, rf.getCentreY() - iconH * 0.5f, iconW, iconH);
+        if (icon == "eye") Theme::drawEye (g, iconBox, colour);
+        else               Theme::drawSpeaker (g, iconBox, colour);
+        g.setColour (colour);
+        g.drawText (button.getButtonText(), juce::Rectangle<float> (x0 + iconW + gap, rf.getY(), textW + 4.0f, rf.getHeight()),
+                    juce::Justification::centredLeft, false);
+        return;
+    }
+
     g.drawFittedText (button.getButtonText(), r,
                       kind == "plain" && button.getProperties().contains ("open") ? juce::Justification::centredLeft
                                                                                   : juce::Justification::centred, 1);
@@ -439,6 +459,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     // Botón único PRE FX / POST FX (cada clic alterna).
     abButton.getProperties().set ("big", true);
+    abButton.getProperties().set ("icon", "speaker");          // parlante: esto es lo que suena
     abButton.setClickingTogglesState (false);
     abButton.onClick = [this] { toggleAB(); };
     addAndMakeVisible (abButton);
@@ -526,8 +547,9 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     zoomBox.getProperties().set ("kind", "chip");
 
-    // PRE + POST: las dos ondas juntas para comparar (se guarda con el proyecto).
+    // Overlay: las dos ondas juntas para comparar, solo a la vista (se guarda con el proyecto).
     compareButton.setClickingTogglesState (false);
+    compareButton.getProperties().set ("icon", "eye");          // ojo: solo cambia lo que se ve
     compareButton.onClick = [this] { setCompare (! compareOn); };
     compareButton.onRightClick = [this] { showStyleMenu (compareButton); };
     addAndMakeVisible (compareButton);
@@ -903,6 +925,8 @@ void MeteringABPanel::timerCallback()
                 setScopeLinked (true);    // vuelve a seguir la escucha (y muestra la que suena)
         }
 
+        if (listenPre != lastListenPre)
+            scope.repaint();          // Overlay: el parlante de la leyenda sigue a la escucha
         lastListenPre = listenPre;
     }
 
