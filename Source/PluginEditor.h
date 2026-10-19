@@ -166,7 +166,7 @@ private:
     void setCompare (bool on);
     juce::TextButton optionsButton { "Options" };     // menú: canales (L / R / suma) y grilla
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
-    juce::TextButton gainLineButton { "Gain Applied" };       // línea con el valor de la ganancia aplicada
+    juce::TextButton gainLineButton { "Gain" };       // línea con el valor de la ganancia aplicada
     bool gainLineOn = false;
     juce::TextButton scopeToggleButton { "Scope" };   // abrir / cerrar el osciloscopio (al pie de la columna gris)
     bool scopeOpen = true;
