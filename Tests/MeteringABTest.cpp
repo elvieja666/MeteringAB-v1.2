@@ -353,6 +353,8 @@ int main (int argc, char** argv)
                 juce::MouseEvent mv (juce::Desktop::getInstance().getMainMouseSource(), { pl.getCentreX(), y }, {}, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
                                      &sc, &sc, juce::Time::getCurrentTime(), { pl.getCentreX(), y }, juce::Time::getCurrentTime(), 0, false);
                 sc.mouseMove (mv);
+                panelOf (ed)->getGainLineButtonForTests().onClick();   // + la línea de la ganancia aplicada
+                panelOf (ed)->refreshNow();
                 auto rimg = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
                 juce::File rf (juce::String (argv[1]) + "/audio-regla.png");
                 rf.deleteFile(); juce::FileOutputStream ros (rf); juce::PNGImageFormat().writeImageToStream (rimg, ros);
@@ -1347,6 +1349,17 @@ int main (int argc, char** argv)
 
         panel->getFreezeButtonForTests().onClick();
         check (! sc.isFrozen(), "Freeze: otro clic descongela", 1);
+
+        // Gain: línea con el valor de la ganancia aplicada.
+        for (int k = 0; k < 20; ++k) panel->refreshNow();
+        check (! sc.getGainLine().has_value(), "Gain: apagado no dibuja la línea", 1);
+        panel->getGainLineButtonForTests().onClick();
+        panel->refreshNow();
+        check (panel->getGainLineButtonForTests().getToggleState() && sc.getGainLine().has_value()
+                   && std::abs (*sc.getGainLine() - r.displayGain.load()) < 0.3f,
+               "Gain: la línea toma el valor de la ganancia aplicada (dB)", sc.getGainLine().value_or (99.0f));
+        panel->getGainLineButtonForTests().onClick();
+        check (! sc.getGainLine().has_value(), "Gain: otro clic la saca", 1);
 
         // Sin botón Estilo: el menú se abre con clic derecho en PRE FX / POST FX / LINK.
         auto& preBtn = panel->getShowPreButtonForTests();

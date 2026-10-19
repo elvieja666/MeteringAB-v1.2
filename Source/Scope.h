@@ -118,6 +118,13 @@ public:
     // Pasando el mouse se ve una línea con el nivel; un clic la deja fija (otro
     // clic sobre ella la saca); doble clic sobre la fija para escribir el valor.
     std::optional<float> getMarkerDb() const   { return markerDb; }
+
+    // Línea de la ganancia aplicada (botón Gain): su nivel en dB (vacío = no se dibuja).
+    void setGainLine (std::optional<float> gainDb)
+    {
+        if (gainDb != gainLineDb) { gainLineDb = gainDb; repaint(); }
+    }
+    std::optional<float> getGainLine() const   { return gainLineDb; }
     void setMarkerDb (std::optional<float> db)
     {
         if (db.has_value())
@@ -555,6 +562,23 @@ private:
             g.setColour (ink);
             g.drawText (text, r.toNearestInt(), juce::Justification::centred);
         };
+
+        if (gainLineDb.has_value())                       // ganancia aplicada (verde): a -|ganancia| dB
+        {
+            const float level = juce::jlimit (-60.0f, 0.0f, -std::abs (*gainLineDb));
+            const auto ys = yForDb (level);
+            g.setColour (gainColour.withAlpha (0.9f));
+            const float dash[] = { 8.0f, 4.0f };
+            for (float y : ys)
+                g.drawDashedLine (juce::Line<float> (plot.getX(), y, plot.getRight(), y), dash, 2, 1.3f);
+            const auto text = "Gain " + juce::String (*gainLineDb >= 0.0f ? "+" : "") + juce::String (*gainLineDb, 2) + " dB";
+            const auto r = juce::Rectangle<float> (plot.getX() + 6.0f, ys.front() - 9.0f, 104.0f, 18.0f)
+                               .withY (juce::jlimit (plot.getY(), plot.getBottom() - 18.0f, ys.front() - 9.0f));
+            g.setColour (gainColour);
+            g.fillRoundedRectangle (r, 4.0f);
+            g.setColour (juce::Colour (0xff0b0c0e));
+            g.drawText (text, r.toNearestInt(), juce::Justification::centred);
+        }
 
         if (markerDb.has_value())
         {
@@ -1236,6 +1260,8 @@ private:
     std::optional<float> markerDb, markerBeforeClick;   // regla: línea fija (en dB)
     std::unique_ptr<juce::TextEditor> markerEditor;
     static inline const juce::Colour markerColour { 0xffffc24a };
+    std::optional<float> gainLineDb;                    // línea de la ganancia aplicada
+    static inline const juce::Colour gainColour { 0xff6fdc8c };
     juce::Rectangle<float> zoomLabelArea;               // "Show all" (con zoom)
     Channels channels = Channels::sum;
     Flags showPreAt {};

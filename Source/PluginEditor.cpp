@@ -489,7 +489,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     scope.setShowPre  ((bool) apvts.state.getProperty ("scopeShowPre",  true));
     scope.setShowPost ((bool) apvts.state.getProperty ("scopeShowPost", true));
 
-    for (juce::TextButton* b : { (juce::TextButton*) &showPreButton, (juce::TextButton*) &showPostButton, &freezeButton })
+    for (juce::TextButton* b : { (juce::TextButton*) &showPreButton, (juce::TextButton*) &showPostButton, &freezeButton, &gainLineButton })
         b->getProperties().set ("kind", "chip");
 
     // Freeze: congela lo que se ve (para mirarlo y hacerle zoom tranquilo).
@@ -501,6 +501,20 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
         freezeButton.setToggleState (scope.isFrozen(), juce::dontSendNotification);
     };
     addAndMakeVisible (freezeButton);
+
+    // Gain: línea en el osciloscopio con el valor de la ganancia aplicada (se guarda).
+    gainLineButton.setClickingTogglesState (false);
+    gainLineButton.getProperties().set ("chipColour", (juce::int64) 0xff6fdc8c);
+    gainLineButton.onClick = [this]
+    {
+        gainLineOn = ! gainLineOn;
+        processor.apvts.state.setProperty ("scopeGainLine", gainLineOn, nullptr);
+        gainLineButton.setToggleState (gainLineOn, juce::dontSendNotification);
+        scope.setGainLine (gainLineOn && gainShown ? std::optional<float> (shownGain) : std::nullopt);
+    };
+    gainLineOn = (bool) apvts.state.getProperty ("scopeGainLine", false);
+    gainLineButton.setToggleState (gainLineOn, juce::dontSendNotification);
+    addAndMakeVisible (gainLineButton);
 
     // Scope: abrir / cerrar el osciloscopio (se guarda con el proyecto).
     scopeToggleButton.getProperties().set ("kind", "scopetoggle");
@@ -889,6 +903,9 @@ void MeteringABPanel::timerCallback()
         shownGain = wasShown ? shownGain + (processor.displayGain.load() - shownGain) * 0.35f
                              : processor.displayGain.load();   // después de un clic arranca del valor nuevo
 
+    // Línea de la ganancia aplicada en el osciloscopio (botón Gain).
+    scope.setGainLine (gainLineOn && gainShown ? std::optional<float> (std::round (shownGain * 100.0f) / 100.0f) : std::nullopt);
+
     // El osciloscopio sigue a la escucha: cuando cambia PRE/POST FX (botón,
     // tecla asignada o automatización), muestra solo la onda que suena.
     {
@@ -1250,6 +1267,8 @@ void MeteringABPanel::resized()
     showPostButton.setBounds (scopeHeader.removeFromRight (74));
     scopeHeader.removeFromRight (6);
     showPreButton.setBounds (scopeHeader.removeFromRight (66));
+    scopeHeader.removeFromRight (6);
+    gainLineButton.setBounds (scopeHeader.removeFromRight (58));
     scopeHeader.removeFromRight (6);
     freezeButton.setBounds (scopeHeader.removeFromRight (64));
     scopeLabel.setBounds (scopeHeader);

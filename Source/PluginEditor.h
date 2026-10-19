@@ -110,6 +110,7 @@ public:
     const ScopeView& getScopeForTests() const { return scope; }
     ScopeView& getScopeForTests()             { return scope; }
     juce::TextButton& getFreezeButtonForTests() { return freezeButton; }
+    juce::TextButton& getGainLineButtonForTests() { return gainLineButton; }
     ChipButton& getShowPreButtonForTests()      { return showPreButton; }
     ChipButton& getShowPostButtonForTests()     { return showPostButton; }
     bool isScopeLinkedForTests() const          { return scopeLinked; }
@@ -157,6 +158,8 @@ private:
     juce::ComboBox zoomBox;
     ChipButton showPreButton { "PRE FX" }, showPostButton { "POST FX" };   // clic derecho: menú de estilo
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
+    juce::TextButton gainLineButton { "Gain" };       // línea con el valor de la ganancia aplicada
+    bool gainLineOn = false;
     juce::TextButton scopeToggleButton { "Scope" };   // abrir / cerrar el osciloscopio (al pie de la columna gris)
     bool scopeOpen = true;
     void setScopeOpen (bool open);
@@ -176,7 +179,7 @@ private:
     void pickCustomColour (bool forPre);
     void updateScopeSection();
 
-    juce::Component* scopeParts[5] = { &scope, &zoomBox, &showPreButton, &showPostButton, &freezeButton };
+    juce::Component* scopeParts[6] = { &scope, &zoomBox, &showPreButton, &showPostButton, &freezeButton, &gainLineButton };
 
     static constexpr int scopeHeaderHeight = 52;      // barra "Osciloscopio" arriba del gráfico
     void setWaves (bool pre, bool post);
