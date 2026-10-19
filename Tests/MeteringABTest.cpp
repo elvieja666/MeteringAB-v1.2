@@ -344,6 +344,20 @@ int main (int argc, char** argv)
                 juce::File zf (juce::String (argv[1]) + base[style] + (z == 0 ? "-zoom8.png" : z == 1 ? "-zoom40.png" : "-zoommax.png"));
                 zf.deleteFile(); juce::FileOutputStream zos (zf); juce::PNGImageFormat().writeImageToStream (zimg, zos);
             }
+            if (style == 2)                             // regla de nivel: línea fija en -6 dB y el mouse en -14 dB
+            {
+                sc.resetZoom();
+                sc.setMarkerDb (-6.0f);
+                const auto pl = sc.plotArea();
+                const float y = pl.getCentreY() - juce::Decibels::decibelsToGain (-14.0f) * pl.getHeight() * 0.5f;
+                juce::MouseEvent mv (juce::Desktop::getInstance().getMainMouseSource(), { pl.getCentreX(), y }, {}, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                     &sc, &sc, juce::Time::getCurrentTime(), { pl.getCentreX(), y }, juce::Time::getCurrentTime(), 0, false);
+                sc.mouseMove (mv);
+                auto rimg = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
+                juce::File rf (juce::String (argv[1]) + "/audio-regla.png");
+                rf.deleteFile(); juce::FileOutputStream ros (rf); juce::PNGImageFormat().writeImageToStream (rimg, ros);
+                sc.setMarkerDb (std::nullopt);
+            }
             if (style == 0)                             // la interfaz entera, con Freeze y zoom
             {
                 sc.setView (0.36, 0.125);
@@ -1289,8 +1303,36 @@ int main (int argc, char** argv)
         sc.setView (2.0, 0.1);
         check (sc.getViewStart() + sc.getViewSpan() <= 1.0 + 1.0e-9, "Zoom: no se va del loop", sc.getViewStart());
 
-        sc.mouseDoubleClick (mouse (mx));
-        check (! sc.isZoomed(), "Doble clic: vuelve a ver todo", sc.getViewSpan());
+        {
+            // Con zoom, "Show all" abajo a la izquierda vuelve a ver todo.
+            auto snap = sc.createComponentSnapshot (sc.getLocalBounds());   // pinta y ubica "Show all"
+            (void) snap;
+            const auto pl = sc.plotArea();
+            juce::Point<float> showAll { 0, 0 };
+            for (float x = pl.getX() + 8.0f; x < pl.getX() + 300.0f && showAll.x == 0; x += 2.0f)
+                if (sc.isShowAllAt ({ x, pl.getBottom() - 16.0f })) showAll = { x + 4.0f, pl.getBottom() - 16.0f };
+            sc.mouseDown (mouse (showAll.x).withNewPosition (showAll)); sc.mouseUp (mouse (showAll.x).withNewPosition (showAll));
+            check (! sc.isZoomed(), "Show all: vuelve a ver todo", sc.getViewSpan());
+        }
+
+        {
+            // Regla de nivel: clic deja una línea fija en ese dB; clic sobre ella la saca.
+            const auto pl = sc.plotArea();
+            const float y6 = pl.getCentreY() - 0.501187f * pl.getHeight() * 0.5f;   // -6 dB
+            check (std::abs (sc.dbAtY (y6) + 6.0f) < 0.05f, "Regla: la altura de -6 dB se lee -6 dB", sc.dbAtY (y6));
+            const juce::Point<float> at { pl.getCentreX(), y6 };
+            sc.mouseDown (mouse (at.x).withNewPosition (at)); sc.mouseUp (mouse (at.x).withNewPosition (at));
+            check (sc.getMarkerDb().has_value() && std::abs (*sc.getMarkerDb() + 6.0f) < 0.05f, "Regla: clic deja la línea fija en -6 dB", sc.getMarkerDb().value_or (0));
+            sc.mouseDown (mouse (at.x).withNewPosition (at)); sc.mouseUp (mouse (at.x).withNewPosition (at));
+            check (! sc.getMarkerDb().has_value(), "Regla: clic sobre la línea la saca", 1);
+            sc.setMarkerDb (-3.0f);
+            sc.showMarkerEditor();
+            sc.typeMarkerForTests ("-12.5");
+            check (sc.getMarkerDb().has_value() && std::abs (*sc.getMarkerDb() + 12.5f) < 0.01f, "Regla: doble clic y escribir -12.5 dB", sc.getMarkerDb().value_or (0));
+            sc.setMarkerDb (8.0f);
+            check (std::abs (*sc.getMarkerDb() + 8.0f) < 0.01f, "Regla: un valor positivo se toma como negativo", *sc.getMarkerDb());
+            sc.setMarkerDb (std::nullopt);
+        }
 
         // Con zoom se dibuja la onda real (se ve distinto que sin zoom) y se pinta sin problemas.
         sc.setView (0.3, 0.01);

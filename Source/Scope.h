@@ -17,7 +17,7 @@
 //  - PRE FX y encima POST FX (ya nivelado), con colores y estilo a elección.
 //  - Freeze (botón de arriba): congela lo que se ve.
 //  - Zoom: rueda del mouse / pellizco en el trackpad (centrado en el mouse),
-//    arrastrar para moverse, doble clic para volver a ver todo. Con zoom se ve
+//    arrastrar para moverse, "Show all" (abajo) para volver a ver todo. Con zoom se ve
 //    la onda real, muestra por muestra.
 // ---------------------------------------------------------------------------
 class ScopeView : public juce::Component, public juce::SettableTooltipClient
@@ -114,20 +114,131 @@ public:
         setView (viewStart - (double) pixels / juce::jmax (1.0f, plotArea().getWidth()) * viewSpan, viewSpan);
     }
 
+    // ---- Regla de nivel: línea horizontal con su valor en dB ----
+    // Pasando el mouse se ve una línea con el nivel; un clic la deja fija (otro
+    // clic sobre ella la saca); doble clic sobre la fija para escribir el valor.
+    std::optional<float> getMarkerDb() const   { return markerDb; }
+    void setMarkerDb (std::optional<float> db)
+    {
+        if (db.has_value())
+            db = juce::jlimit (-60.0f, 0.0f, -std::abs (*db));
+        markerDb = db;
+        repaint();
+    }
+
+    // dB que corresponde a una altura del osciloscopio (según la franja: suma o L / R).
+    float dbAtY (float y) const
+    {
+        const auto area = laneAt (y);
+        const float v = std::abs (area.getCentreY() - y) / juce::jmax (1.0f, area.getHeight() * 0.5f);
+        return v <= 1.0e-4f ? -120.0f : juce::jlimit (-120.0f, 0.0f, juce::Decibels::gainToDecibels (v));
+    }
+
+    void mouseMove (const juce::MouseEvent& e) override
+    {
+        hoverY = plotArea().contains (e.position) ? e.position.y : -1.0f;
+        repaint();
+    }
+
+    void mouseExit (const juce::MouseEvent&) override
+    {
+        hoverY = -1.0f;
+        repaint();
+    }
+
     void mouseDown (const juce::MouseEvent& e) override
     {
         dragStartView = viewStart;
         dragStartX = e.position.x;
+        dragged = false;
     }
 
     void mouseDrag (const juce::MouseEvent& e) override
     {
+        if (e.getDistanceFromDragStart() > 3)
+            dragged = true;
         if (! isZoomed())
             return;
         setView (dragStartView - (double) (e.position.x - dragStartX) / juce::jmax (1.0f, plotArea().getWidth()) * viewSpan, viewSpan);
     }
 
-    void mouseDoubleClick (const juce::MouseEvent&) override { resetZoom(); }
+    void mouseUp (const juce::MouseEvent& e) override
+    {
+        if (dragged || e.getNumberOfClicks() > 1 || e.mods.isPopupMenu())
+            return;
+
+        if (zoomLabelArea.contains (e.position))           // "Show all" (con zoom)
+        {
+            resetZoom();
+            return;
+        }
+
+        if (! plotArea().contains (e.position))
+            return;
+
+        markerBeforeClick = markerDb;
+        if (isOnMarker (e.position.y))
+            setMarkerDb (std::nullopt);                     // clic sobre la línea fija: la saca
+        else
+            setMarkerDb (dbAtY (e.position.y));              // clic: deja la línea fija ahí
+    }
+
+    void mouseDoubleClick (const juce::MouseEvent& e) override
+    {
+        if (! plotArea().contains (e.position))
+            return;
+        if (! markerDb.has_value())                          // el primer clic la había sacado: vuelve
+            markerDb = markerBeforeClick.has_value() ? markerBeforeClick : std::optional<float> (dbAtY (e.position.y));
+        showMarkerEditor();
+    }
+
+    // Escribir el valor exacto (ej. -6, -6.5 dB).
+    void showMarkerEditor()
+    {
+        if (! markerDb.has_value())
+            return;
+
+        markerEditor = std::make_unique<juce::TextEditor>();
+        auto& ed = *markerEditor;
+        ed.setFont (Theme::font (12.0f, 500));
+        ed.setJustification (juce::Justification::centred);
+        ed.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff1b1e23));
+        ed.setColour (juce::TextEditor::textColourId, markerColour);
+        ed.setColour (juce::TextEditor::outlineColourId, markerColour.withAlpha (0.6f));
+        ed.setColour (juce::TextEditor::focusedOutlineColourId, markerColour);
+        ed.setText (juce::String (*markerDb, 1), false);
+        ed.selectAll();
+        ed.onReturnKey = [this] { commitMarkerEditor (true); };
+        ed.onEscapeKey = [this] { commitMarkerEditor (false); };
+        ed.onFocusLost = [this] { commitMarkerEditor (true); };
+        addAndMakeVisible (ed);
+        ed.setBounds (markerTagArea().toNearestInt().expanded (6, 3));
+        ed.grabKeyboardFocus();
+        repaint();
+    }
+
+    bool isShowAllAt (juce::Point<float> p) const { return zoomLabelArea.contains (p); }
+    void typeMarkerForTests (const juce::String& text)
+    {
+        if (markerEditor != nullptr) { markerEditor->setText (text); commitMarkerEditor (true); }
+    }
+
+    void commitMarkerEditor (bool apply)
+    {
+        if (markerEditor == nullptr)
+            return;
+        const auto text = markerEditor->getText();
+        juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<ScopeView> (this)]
+                                         { if (safe != nullptr) safe->markerEditor.reset(); });
+        markerEditor->setVisible (false);
+        if (apply)
+        {
+            const auto number = text.retainCharacters ("-.,0123456789").replaceCharacter (',', '.');
+            if (number.containsAnyOf ("0123456789"))
+                setMarkerDb (number.getFloatValue());
+        }
+        repaint();
+    }
 
     void mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w) override
     {
@@ -254,6 +365,8 @@ public:
             }
         }
 
+        drawLevelRuler (g, plot);
+
         // Estado (la leyenda ahora son los botones PRE FX / POST FX de arriba)
         g.setFont (Theme::font (11.0f, 400));
 
@@ -264,6 +377,7 @@ public:
         }
 
         // Con zoom: qué parte del loop se ve (barrita abajo) y cuánto zoom hay.
+        zoomLabelArea = {};
         if (isZoomed())
         {
             const auto track = juce::Rectangle<float> (plot.getX(), plot.getBottom() - 4.0f, plot.getWidth(), 3.0f);
@@ -274,10 +388,14 @@ public:
                                          .withWidth (juce::jmax (4.0f, (float) viewSpan * track.getWidth())), 1.5f);
 
             const double factor = 1.0 / viewSpan;
-            const auto text = "Zoom x" + (factor < 10.0 ? juce::String (factor, 1) : juce::String (juce::roundToInt (factor))) + juce::String::fromUTF8 ("  \xc2\xb7  double-click: show all");
+            const auto text = "Zoom x" + (factor < 10.0 ? juce::String (factor, 1) : juce::String (juce::roundToInt (factor))) + juce::String::fromUTF8 ("  \xc2\xb7  ");
+            const auto area = juce::Rectangle<float> (plot.getX() + 8.0f, plot.getBottom() - 24.0f, 280.0f, 16.0f);
             g.setColour (juce::Colour (0xffe8e6e3).withAlpha (0.75f));
-            g.drawText (text, juce::Rectangle<float> (plot.getX() + 8.0f, plot.getBottom() - 22.0f, 260.0f, 14.0f).toNearestInt(),
-                        juce::Justification::centredLeft);
+            g.drawText (text, area.toNearestInt(), juce::Justification::centredLeft);
+            const float w = juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), text);
+            zoomLabelArea = area.withTrimmedLeft (w).withWidth (70.0f);
+            g.setColour (Theme::accentBright);
+            g.drawText ("Show all", zoomLabelArea.toNearestInt(), juce::Justification::centredLeft);   // clic: ver todo
         }
 
         if (frozen)
@@ -370,6 +488,95 @@ private:
             dst[(size_t) i] = src[(size_t) i].load (std::memory_order_relaxed);
     }
 
+    // Franja (suma, o L arriba / R abajo) que corresponde a una altura.
+    juce::Rectangle<float> laneArea (int lane) const
+    {
+        const auto plot = plotArea();
+        if (channels != Channels::split)
+            return plot;
+        return lane == 0 ? plot.withHeight (plot.getHeight() * 0.5f - 4.0f)
+                         : plot.withTrimmedTop (plot.getHeight() * 0.5f + 4.0f);
+    }
+    juce::Rectangle<float> laneAt (float y) const
+    {
+        return channels == Channels::split && y > plotArea().getCentreY() ? laneArea (1) : laneArea (0);
+    }
+
+    // Alturas (arriba y abajo de -∞, en cada franja) de un nivel en dB.
+    std::vector<float> yForDb (float db) const
+    {
+        std::vector<float> ys;
+        const float v = juce::Decibels::decibelsToGain (db);
+        for (int lane = 0; lane < (channels == Channels::split ? 2 : 1); ++lane)
+        {
+            const auto a = laneArea (lane);
+            ys.push_back (a.getCentreY() - v * a.getHeight() * 0.5f);
+            ys.push_back (a.getCentreY() + v * a.getHeight() * 0.5f);
+        }
+        return ys;
+    }
+
+    bool isOnMarker (float y) const
+    {
+        if (! markerDb.has_value())
+            return false;
+        for (float my : yForDb (*markerDb))
+            if (std::abs (my - y) <= 5.0f)
+                return true;
+        return false;
+    }
+
+    // Dónde va el cartelito con el valor de la línea fija (a la derecha, sobre la línea de arriba).
+    juce::Rectangle<float> markerTagArea() const
+    {
+        const auto plot = plotArea();
+        const float y = markerDb.has_value() ? yForDb (*markerDb).front() : plot.getY();
+        return { plot.getRight() - 78.0f, y - 9.0f, 72.0f, 18.0f };
+    }
+
+    static juce::String dbText (float db)
+    {
+        return db <= -119.0f ? juce::String::fromUTF8 ("-\xe2\x88\x9e dB") : juce::String (db, 1) + " dB";
+    }
+
+    // Línea del mouse y línea fija, con su valor.
+    void drawLevelRuler (juce::Graphics& g, juce::Rectangle<float> plot)
+    {
+        juce::Graphics::ScopedSaveState save (g);
+        g.reduceClipRegion (plot.expanded (0.0f, 1.0f).toNearestInt());
+        g.setFont (Theme::font (11.0f, 600));
+
+        auto tag = [&] (float y, const juce::String& text, juce::Colour fill, juce::Colour ink)
+        {
+            const auto r = juce::Rectangle<float> (plot.getRight() - 78.0f, y - 9.0f, 72.0f, 18.0f)
+                               .withY (juce::jlimit (plot.getY(), plot.getBottom() - 18.0f, y - 9.0f));
+            g.setColour (fill);
+            g.fillRoundedRectangle (r, 4.0f);
+            g.setColour (ink);
+            g.drawText (text, r.toNearestInt(), juce::Justification::centred);
+        };
+
+        if (markerDb.has_value())
+        {
+            const auto ys = yForDb (*markerDb);
+            g.setColour (markerColour.withAlpha (0.9f));         // amarillo: se distingue de las ondas
+            for (float y : ys)
+                g.fillRect (plot.getX(), y - 0.5f, plot.getWidth(), 1.2f);
+            if (markerEditor == nullptr || ! markerEditor->isVisible())
+                tag (ys.front(), dbText (*markerDb), markerColour, juce::Colour (0xff0b0c0e));
+        }
+
+        if (hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY))
+        {
+            const float db = dbAtY (hoverY);
+            g.setColour (juce::Colours::white.withAlpha (0.45f));
+            const float dash[] = { 4.0f, 3.0f };
+            g.drawDashedLine (juce::Line<float> (plot.getX(), hoverY, plot.getRight(), hoverY), dash, 2, 1.0f);
+            tag (hoverY, dbText (db), juce::Colour (0xff2a2e35), juce::Colour (0xffe8e6e3));
+        }
+    }
+
+public:
     // Dónde se dibuja la onda (sin los márgenes de las escalas).
     juce::Rectangle<float> plotArea() const
     {
@@ -1024,6 +1231,12 @@ private:
     double viewStart = 0.0, viewSpan = 1.0;             // zoom: qué parte del loop se ve
     double dragStartView = 0.0;
     float dragStartX = 0.0f;
+    bool dragged = false;
+    float hoverY = -1.0f;                               // regla: altura del mouse (-1 = afuera)
+    std::optional<float> markerDb, markerBeforeClick;   // regla: línea fija (en dB)
+    std::unique_ptr<juce::TextEditor> markerEditor;
+    static inline const juce::Colour markerColour { 0xffffc24a };
+    juce::Rectangle<float> zoomLabelArea;               // "Show all" (con zoom)
     Channels channels = Channels::sum;
     Flags showPreAt {};
     bool linked = true;
