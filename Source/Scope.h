@@ -567,7 +567,7 @@ private:
         if (markerDb.has_value())
         {
             const auto ys = yForDb (*markerDb);
-            g.setColour (markerColour.withAlpha (0.9f));         // amarillo: se distingue de las ondas
+            g.setColour (markerColour.withAlpha (0.9f));         // gris claro (lleno; la de Gain es punteada)
             for (float y : ys)
                 g.fillRect (plot.getX(), y - 0.5f, plot.getWidth(), 1.2f);
             if (markerEditor == nullptr || ! markerEditor->isVisible())
@@ -1070,7 +1070,7 @@ private:
     float hoverY = -1.0f;                               // regla: altura del mouse (-1 = afuera)
     std::optional<float> markerDb, markerBeforeClick;   // regla: línea fija (en dB)
     std::unique_ptr<juce::TextEditor> markerEditor;
-    static inline const juce::Colour markerColour { 0xffffc24a };
+    static inline const juce::Colour markerColour { 0xffd3d6db };   // gris claro
     std::optional<float> gainLineDb;                    // línea de la ganancia aplicada
     static inline const juce::Colour gainColour { 0xffeceef1 };   // blanco
     juce::Rectangle<float> zoomLabelArea;               // "Show all" (con zoom)
