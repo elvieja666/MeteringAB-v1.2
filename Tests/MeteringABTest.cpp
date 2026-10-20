@@ -1260,6 +1260,30 @@ int main (int argc, char** argv)
         const float mid3 = up3[103], expect3 = 0.5f * (h3[100] + h3[106]);
         check (std::abs (mid3 - expect3) < 1.0e-4f, "Outline: entre dos puntas, línea recta de una a otra (sin escalón)", mid3);
 
+        // Puntas a distinto nivel (más de 1,5 dB): escalón vertical, no rampa.
+        {
+            V h5 (200, 0.0f), l5 (200, 0.0f);
+            for (int c = 20; c < 100; c += 6) h5[(size_t) c] = 0.3f;
+            for (int c = 100; c < 180; c += 6) h5[(size_t) c] = 0.8f;
+            const auto [up5, down5] = ScopeView::holdEdges (h5, l5, H (200, 1), 4);
+            check (std::abs (up5[97] - 0.3f) < 1.0e-4f && std::abs (up5[100] - 0.8f) < 1.0e-4f,
+                   "Outline: un cambio de nivel es un escalón recto (ángulo recto, sin rampa)", up5[97]);
+        }
+
+        // El ciclo del grave: un bajo de 40 Hz dura 25 ms; un agudo solo, ventana mínima.
+        {
+            auto measure = [] (double freq)
+            {
+                BassPeriod bp; bp.prepare (48000.0); float last = 0.0f;
+                for (int i = 0; i < 48000; ++i)
+                    last = bp.process (0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * freq * i / 48000.0));
+                return last;
+            };
+            const float bass = measure (40.0), sub = measure (20.0), treble = measure (2000.0);
+            check (std::abs (bass - 0.025f) < 0.001f && std::abs (sub - 0.05f) < 0.002f && treble <= (float) BassPeriod::minPeriod + 1.0e-6f,
+                   "Ciclo del grave: 40 Hz = 25 ms, 20 Hz = 50 ms, un agudo = ventana mínima", bass);
+        }
+
         // Dos notas con silencio digital en el medio: no se unen.
         V h4 (400, 0.0f), l4 (400, 0.0f);
         for (int c = 20; c < 100; c += 6) h4[(size_t) c] = 0.5f;
