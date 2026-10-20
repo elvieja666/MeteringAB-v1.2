@@ -498,6 +498,10 @@ int main (int argc, char** argv)
                 std::unique_ptr<juce::AudioProcessorEditor> ed3 (a->createEditor());
                 panelOf (ed3)->refreshNow();
                 save (*ed3, "/receive-abre.png");
+                setParam (*a, ParamIDs::matchBypass, 1);
+                panelOf (ed3)->refreshNow();
+                save (*ed3, "/receive-bypass.png");
+                setParam (*a, ParamIDs::matchBypass, 0);
                 MeteringABPanel::scopeOpenOnStart = true;
             }
 
@@ -880,6 +884,31 @@ int main (int argc, char** argv)
         setParam (c.recv, ParamIDs::windowSync, 2);
         c.run (8.0);
         check (std::abs (c.recv.displayGain.load() - 6.0f) < 0.1f, "Sync: FX -6 dB -> ganancia ~ +6 dB", c.recv.displayGain.load());
+    }
+    {
+        // Match Gain Bypass: POST FX suena con su nivel real; la ganancia se sigue midiendo.
+        Chain c (19, -6.0f, 0);
+        c.run (6.0);
+        auto matched = c.run (0.5);
+        setParam (c.recv, ParamIDs::matchBypass, 1);
+        auto raw = c.run (0.5);
+        auto rmsOf = [] (const juce::AudioBuffer<float>& b) { return b.getRMSLevel (0, 0, b.getNumSamples()); };
+        const float diffDb = juce::Decibels::gainToDecibels (rmsOf (matched)) - juce::Decibels::gainToDecibels (rmsOf (raw));
+        check (std::abs (diffDb - 6.0f) < 0.6f && std::abs (c.recv.displayGain.load() - 6.0f) < 0.3f,
+               "Match Gain Bypass: POST suena 6 dB más bajo (su nivel real) y la ganancia se sigue mostrando", diffDb);
+        setParam (c.recv, ParamIDs::matchBypass, 0);
+        auto back = c.run (0.5);
+        check (std::abs (juce::Decibels::gainToDecibels (rmsOf (back)) - juce::Decibels::gainToDecibels (rmsOf (matched))) < 0.6f,
+               "Match Gain Bypass apagado: vuelve a sonar nivelado", juce::Decibels::gainToDecibels (rmsOf (back)));
+
+        std::unique_ptr<juce::AudioProcessorEditor> ed (c.recv.createEditor());
+        auto* p = panelOf (ed);
+        p->getMatchBypassButtonForTests().onClick();
+        check (c.recv.apvts.getRawParameterValue (ParamIDs::matchBypass)->load() > 0.5f && p->getMatchBypassButtonForTests().getToggleState()
+                   && p->getMatchBypassButtonForTests().isVisible(),
+               "Botón Match Gain Bypass: prende el bypass", 1);
+        p->getMatchBypassButtonForTests().onClick();
+        check (c.recv.apvts.getRawParameterValue (ParamIDs::matchBypass)->load() < 0.5f, "Botón Match Gain Bypass: otro clic lo apaga", 1);
     }
     {
         // Abrir un proyecto guardado no convierte nada: respeta lo guardado.

@@ -24,6 +24,7 @@ namespace Theme
     const juce::Colour accent     { 0xff2f74d0 };     // azul sobre fondo claro
     const juce::Colour good       { 0xff2f74d0 };
     const juce::Colour bad        { 0xffd04848 };
+    const juce::Colour warn       { 0xffe0782f };     // naranja: algo desactivado a propósito (bypass)
     const juce::Colour preInk     { 0xff6b7078 };     // botón grande en PRE FX (gris)
 
     // Osciloscopio (oscuro)

@@ -87,6 +87,7 @@ Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al vo
   - *Color PRE FX* / *Color POST FX* (cada uno en su menú): Gris, Gris oscuro, Gris claro, Blanco, Azul, Rosa, Rojo, Violeta o Lima, o **Elegir otro color…** con un selector. Cambiar uno no toca el otro. Los botones PRE FX / POST FX toman los mismos colores.
   - *Mostrar grilla*: prende o apaga las líneas de fondo (las de cada compás quedan siempre).
   - Todo se guarda con el proyecto.
+- **Match Gain Bypass** (arriba a la derecha del botón grande de escucha): prendido (naranja), POST FX suena con su nivel real, sin la ganancia de matcheo. La ganancia se sigue midiendo y se ve en gris; abajo dice "Match gain bypassed". Se puede automatizar y se guarda con el proyecto.
 - **Regla de nivel**: al pasar el mouse por el osciloscopio aparece una línea horizontal con su valor en dB. **Clic** = la línea queda fija (gris claro, arriba y abajo de -∞); clic sobre ella la saca; con el mouse sobre su cartelito de dB no aparece la línea del mouse; **doble clic** = escribir el valor exacto (por ejemplo -6 o -12.5) y Enter.
 - **Gain** (el segundo de la barra, después de Overlay): dibuja una línea blanca punteada (sin cartel) al nivel de la **ganancia aplicada**, en dB. Sirve para ver hasta dónde llega lo procesado después de nivelarlo. Otro clic la saca; se guarda con el proyecto.
 - **Freeze** (botón arriba del osciloscopio): lo congela; otro clic lo descongela.

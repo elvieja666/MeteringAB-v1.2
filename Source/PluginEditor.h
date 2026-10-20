@@ -118,6 +118,7 @@ public:
     bool isSendLayout() const                   { return isSendMode; }
     bool isScopeOpenForTests() const            { return scopeOpen; }
     juce::TextButton& getABButtonForTests()      { return abButton; }
+    juce::TextButton& getMatchBypassButtonForTests() { return matchBypassButton; }
     juce::Rectangle<int> getMeterAreaForTests() const { return meterArea(); }
     static inline bool scopeOpenOnStart = false;   // pruebas: abrir con el osciloscopio a la vista
     juce::TextButton& getScopeToggleForTests()  { return scopeToggleButton; }
@@ -146,6 +147,7 @@ private:
     PreciseSlider linkSlider, windowSlider, windowSyncSlider;
     juce::Label linkLabel, windowLabel, latencyLabel;
     juce::TextButton abButton, measureButton;
+    juce::TextButton matchBypassButton { "Match Gain Bypass" };   // POST sin la ganancia de matcheo
     juce::Label listenLabel, latencyInfoLabel, matchInfoLabel;
     juce::Label latencyMsLabel;                       // "= 1,33 ms" debajo del valor medido
     juce::TextButton syncButtons[2];                  // [0] = ms, [1] = Sync
@@ -164,6 +166,7 @@ private:
     // Apagado, el osciloscopio sigue a la escucha. Clic derecho: colores, canales y grilla.
     ChipButton compareButton { "Overlay" };
     bool compareOn = false;
+    bool matchBypassShown = false;                    // Match Gain Bypass prendido (ganancia en gris)
     void setCompare (bool on);
     juce::TextButton optionsButton { "Options" };     // menú: canales (L / R / suma) y grilla
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)

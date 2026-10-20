@@ -15,6 +15,7 @@ namespace ParamIDs
     inline constexpr auto windowSync = "windowSync"; // ventana en compases
     inline constexpr auto latency  = "latency";   // compensación (muestras, con decimales)
     inline constexpr auto hold     = "hold";      // congelar el auto gain
+    inline constexpr auto matchBypass = "matchBypass";   // escuchar POST sin la ganancia de matcheo
 }
 
 // Valores musicales del modo Sync, en compases.
@@ -165,6 +166,7 @@ private:
     std::atomic<float>* pMode    = nullptr;
     std::atomic<float>* pLink    = nullptr;
     std::atomic<float>* pPre     = nullptr;
+    std::atomic<float>* pMatchBypass = nullptr;
     std::atomic<float>* pWindowMs   = nullptr;
     std::atomic<float>* pSync       = nullptr;
     std::atomic<float>* pWindowSync = nullptr;

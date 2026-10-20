@@ -19,6 +19,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout MeteringABProcessor::createL
                                                       AudioParameterBoolAttributes()
                                                           .withStringFromValueFunction ([] (bool on, int) { return on ? String ("PRE FX") : String ("POST FX"); })));
 
+    // Match Gain Bypass: POST FX suena con su nivel real (sin la ganancia de matcheo).
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::matchBypass, 1 }, "Match Gain Bypass", false,
+                                                      AudioParameterBoolAttributes()
+                                                          .withStringFromValueFunction ([] (bool on, int) { return on ? String ("Bypassed") : String ("Matched"); })));
+
 
 
     // Ventana en ms: acepta "1850", "1850 ms" o "1,85 s".
@@ -77,6 +82,7 @@ MeteringABProcessor::MeteringABProcessor()
     pMode    = apvts.getRawParameterValue (ParamIDs::mode);
     pLink    = apvts.getRawParameterValue (ParamIDs::link);
     pPre     = apvts.getRawParameterValue (ParamIDs::pre);
+    pMatchBypass = apvts.getRawParameterValue (ParamIDs::matchBypass);
     pWindowMs   = apvts.getRawParameterValue (ParamIDs::windowMs);
     pSync       = apvts.getRawParameterValue (ParamIDs::sync);
     pWindowSync = apvts.getRawParameterValue (ParamIDs::windowSync);
@@ -500,7 +506,8 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     }
 
     const float targetDb = autoGainDb;
-    gainSmoother.setTargetValue (juce::Decibels::decibelsToGain (targetDb));
+    const bool matchBypassed = pMatchBypass->load() > 0.5f;           // bypass: POST sin nivelar
+    gainSmoother.setTargetValue (matchBypassed ? 1.0f : juce::Decibels::decibelsToGain (targetDb));
 
     // 3) Aplicar según lo que quieras escuchar: PRE FX u POST FX.
     const bool pre = pPre->load() > 0.5f;

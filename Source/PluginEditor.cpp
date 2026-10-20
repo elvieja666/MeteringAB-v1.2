@@ -91,6 +91,9 @@ juce::Font MeteringABLookAndFeel::getTextButtonFont (juce::TextButton& button, i
     if (button.getProperties().contains ("big"))
         return Theme::font (22.0f, 600, 0.05f);
 
+    if (button.getProperties()["kind"].toString() == "bypass")
+        return Theme::font (11.5f, 500);
+
     if (button.getProperties()["kind"].toString() == "plain")
         return Theme::font (button.getProperties().contains ("small") ? 12.0f
                             : button.getProperties().contains ("open") ? 14.0f : 16.0f, button.getProperties().contains ("small") ? 400 : 300);
@@ -149,6 +152,16 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
         return;
     }
 
+    if (kind == "bypass")                            // Match Gain Bypass: pastilla; prendido = naranja
+    {
+        r = r.reduced (0.5f);
+        const float radius = r.getHeight() * 0.5f;
+        const bool on = button.getToggleState();
+        g.setColour (on ? Theme::warn : Theme::pill.brighter (over ? 0.03f : 0.0f));
+        g.fillRoundedRectangle (r, radius);
+        return;
+    }
+
     if (kind == "segment")                           // ms | Sync: la elegida en relieve
     {
         if (button.getToggleState())
@@ -180,6 +193,10 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
     else if (kind == "segment")
     {
         colour = button.getToggleState() ? Theme::accent : Theme::inkDim;
+    }
+    else if (kind == "bypass")
+    {
+        colour = button.getToggleState() ? juce::Colours::white : Theme::inkDim;
     }
     else if (kind == "plain" && button.getProperties().contains ("open"))
     {
@@ -469,6 +486,16 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     matchInfoLabel.setColour (juce::Label::textColourId, Colours::dim);
     matchInfoLabel.setFont (Theme::font (11.0f, 300));
     addAndMakeVisible (matchInfoLabel);
+
+    // Match Gain Bypass: escuchar POST FX con su nivel real (sin nivelar).
+    matchBypassButton.getProperties().set ("kind", "bypass");
+    matchBypassButton.setClickingTogglesState (false);
+    matchBypassButton.onClick = [this]
+    {
+        setBoolParam (ParamIDs::matchBypass, processor.apvts.getRawParameterValue (ParamIDs::matchBypass)->load() < 0.5f);
+        refreshNow();
+    };
+    addAndMakeVisible (matchBypassButton);
 
     listenLabel.setText ("Listen  ·  click to switch"_u, juce::dontSendNotification);
     listenLabel.setColour (juce::Label::textColourId, Colours::dim);
@@ -926,12 +953,21 @@ void MeteringABPanel::timerCallback()
 
         for (juce::Component* c : std::initializer_list<juce::Component*> {
                  &windowSlider, &windowLabel, &latencyLabel, &latencyMsLabel,
-                 &abButton, &listenLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel,
+                 &abButton, &listenLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel, &matchBypassButton,
 
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
             c->setVisible (! isSendMode);
 
         updateScopeSection();
+    }
+
+    // Match Gain Bypass
+    {
+        const bool bypassed = processor.apvts.getRawParameterValue (ParamIDs::matchBypass)->load() > 0.5f;
+        matchBypassButton.setToggleState (bypassed, juce::dontSendNotification);
+        matchInfoLabel.setText (bypassed ? "Match gain bypassed (real level)"_u : "Level-matched in LUFS (K-weighted)"_u, juce::dontSendNotification);
+        matchInfoLabel.setColour (juce::Label::textColourId, bypassed ? Theme::warn : Colours::dim);
+        if (bypassed != matchBypassShown) { matchBypassShown = bypassed; repaint(); }
     }
 
     // Ventana: ms o Sync
@@ -1100,7 +1136,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
     // Puntito de color al lado del estado
     {
         const auto lb = statusLabel.getBounds().toFloat();
-        const float dotY = isSendMode ? lb.getY() + 8.5f : lb.getCentreY();   // en Send, a la altura del primer renglón
+        const float dotY = lb.getCentreY();
         g.setColour (statusLabel.findColour (juce::Label::textColourId));
         g.fillEllipse (lb.getX() - 13.0f, dotY - 3.5f, 7.0f, 7.0f);
     }
@@ -1120,7 +1156,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
         { "Original (Send)",   level (shownPre),  "LUFS", Theme::inkStrong },
         { "Processed",         level (shownPost), "LUFS", Theme::inkStrong },
         { "Applied gain", gainShown ? (shownGain >= 0 ? "+" : "") + juce::String (shownGain, 2) : juce::String ("—"_u),
-                               gainShown ? "dB" : "", Theme::accent },
+                               gainShown ? "dB" : "", matchBypassShown ? Theme::inkFaint : Theme::accent },
     };
 
     auto rows = meters.reduced (16, 4);
@@ -1241,8 +1277,10 @@ void MeteringABPanel::resized()
 
     // Escuchar: el botón grande PRE FX / POST FX y, al pie, cómo se nivela y Scope.
     {
-        listenLabel.setBounds (k.removeFromTop (20));
-        k.removeFromTop (6);
+        auto head = k.removeFromTop (22);
+        matchBypassButton.setBounds (head.removeFromRight (128));
+        listenLabel.setBounds (head);
+        k.removeFromTop (4);
         abButton.setBounds (k.removeFromTop (60).expanded (4, 0));
         k.removeFromTop (14);
         auto row = k.removeFromTop (34);
