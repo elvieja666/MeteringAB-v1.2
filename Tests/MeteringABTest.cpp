@@ -705,12 +705,12 @@ int main (int argc, char** argv)
         auto* editor = panelOf (ed);
         auto pump = [editor] { editor->refreshNow(); };     // lo mismo que hace el timer de la interfaz
         pump();
-        const bool bothAtStart = (bool) a.apvts.state.getProperty ("scopeShowPre", true) && (bool) a.apvts.state.getProperty ("scopeShowPost", true);
+        const bool postAtStart = ! (bool) a.apvts.state.getProperty ("scopeShowPre", true) && (bool) a.apvts.state.getProperty ("scopeShowPost", false);
         setParam (a, ParamIDs::pre, 1); pump();
         const bool onlyPre = (bool) a.apvts.state.getProperty ("scopeShowPre", false) && ! (bool) a.apvts.state.getProperty ("scopeShowPost", true);
         setParam (a, ParamIDs::pre, 0); pump();
         const bool onlyPost = ! (bool) a.apvts.state.getProperty ("scopeShowPre", true) && (bool) a.apvts.state.getProperty ("scopeShowPost", false);
-        check (bothAtStart && onlyPre && onlyPost, "LINK prendido: el osciloscopio sigue a la escucha", 1);
+        check (postAtStart && onlyPre && onlyPost, "LINK prendido: el osciloscopio sigue a la escucha (desde que se abre)", 1);
 
         // Sin botón LINK: aunque un proyecto viejo lo tenga apagado, siempre sigue a la escucha.
         MeteringABProcessor c; setParam (c, ParamIDs::mode, 1); setParam (c, ParamIDs::pre, 0);
@@ -886,6 +886,20 @@ int main (int argc, char** argv)
         check (std::abs (c.recv.displayGain.load() - 6.0f) < 0.1f, "Sync: FX -6 dB -> ganancia ~ +6 dB", c.recv.displayGain.load());
     }
     {
+        // Al abrir el Receive (sin Overlay guardado): una sola onda, la que suena, y Overlay apagado.
+        {
+            MeteringABProcessor fresh; setParam (fresh, ParamIDs::mode, 1); setParam (fresh, ParamIDs::pre, 0);
+            std::unique_ptr<juce::AudioProcessorEditor> fe (fresh.createEditor());
+            auto* fp = panelOf (fe);
+            const auto& fs = fp->getScopeForTests();
+            check (! fp->isCompareOnForTests() && ! fp->getCompareButtonForTests().getToggleState()
+                       && ! fs.getShowPre() && fs.getShowPost() && fp->isScopeLinkedForTests(),
+                   "Al abrir: sin Overlay, se ve solo la onda que suena (POST)", (double) fs.getShowPre());
+            setParam (fresh, ParamIDs::pre, 1);
+            std::unique_ptr<juce::AudioProcessorEditor> fe2 (fresh.createEditor());
+            const auto& fs2 = panelOf (fe2)->getScopeForTests();
+            check (fs2.getShowPre() && ! fs2.getShowPost(), "Al abrir escuchando PRE: se ve solo PRE", (double) fs2.getShowPost());
+        }
         // Match Gain Bypass: POST FX suena con su nivel real; la ganancia se sigue midiendo.
         Chain c (19, -6.0f, 0);
         c.run (6.0);

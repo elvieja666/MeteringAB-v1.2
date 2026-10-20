@@ -589,10 +589,11 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     // grande (alterna lo que suena) y el osciloscopio lo sigue.
     // LINK: prendido, el osciloscopio sigue a la escucha (muestra solo la onda
     // que suena); apagado, muestra lo que dejes con PRE FX / POST FX.
-    scopeLinked = true;                               // siempre sigue a la escucha...
-    scope.setLinked (scopeLinked);
+    // Al abrir: sigue a la escucha y muestra solo la onda que suena (antes quedaban
+    // las dos a la vista, como en Overlay, con el botón apagado)...
+    setScopeLinked (true);
     if ((bool) apvts.state.getProperty ("scopeCompare", false))
-        setCompare (true);                            // ...salvo con PRE + POST prendido
+        setCompare (true);                            // ...salvo con Overlay prendido
 
     updateWaveButtons();
 

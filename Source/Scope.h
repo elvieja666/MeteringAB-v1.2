@@ -407,7 +407,7 @@ public:
             g.drawText ("Show all", zoomLabelArea.toNearestInt(), juce::Justification::centredLeft);   // clic: ver todo
         }
 
-        if (showPre && showPost)
+        if (showPre && showPost && ! linked)          // solo con Overlay
             drawOverlayLegend (g, plot);
 
         if (frozen)
