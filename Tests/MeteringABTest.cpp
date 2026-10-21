@@ -764,6 +764,28 @@ int main (int argc, char** argv)
         MeteringABPanel::scopeOpenOnStart = true;
     }
     {
+        // Las 20 bandas se calculan solo con el osciloscopio a la vista.
+        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
+        MeteringABPanel::scopeOpenOnStart = false;
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+            auto* p = panelOf (ed);
+            const int closed = a.scopeBandMask.load();
+            p->getScopeToggleForTests().onClick();                       // abrir
+            const int open = a.scopeBandMask.load();
+            a.apvts.state.setProperty ("scopeChannels", 3, nullptr);     // L and R split
+            p->applyStyleMenuResult (503);
+            const int split = a.scopeBandMask.load();
+            p->getScopeToggleForTests().onClick();                       // cerrar
+            const int closedAgain = a.scopeBandMask.load();
+            p->getScopeToggleForTests().onClick();                       // abrir otra vez
+            check (closed == 0 && open == 1 && split == 2 && closedAgain == 0,
+                   "Bandas: solo con el Scope abierto (cerrado no calcula; L/R solo si se ven)", closed * 100 + open * 10 + split);
+        }
+        check (a.scopeBandMask.load() == 0, "Bandas: al cerrar la ventana del plugin deja de calcular", a.scopeBandMask.load());
+        MeteringABPanel::scopeOpenOnStart = true;
+    }
+    {
         // Columna gris a la izquierda y el osciloscopio a la derecha (aunque un
         // proyecto viejo tenga guardado otro modo).
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
