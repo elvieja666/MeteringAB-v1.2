@@ -219,20 +219,19 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
     if (raised)
         r = raisedShape (r.toFloat()).toNearestInt().translated (0, button.isDown() ? 1 : 0);
 
-    // Con ícono (ojo = Overlay, parlante = escucha): ícono + texto centrados juntos.
+    // Con ícono (parlante = escucha): ícono + texto centrados juntos.
     const auto icon = button.getProperties()["icon"].toString();
     if (icon.isNotEmpty())
     {
         const auto font = getTextButtonFont (button, button.getHeight());
         const float textW = juce::GlyphArrangement::getStringWidth (font, button.getButtonText());
         const float iconH = button.getProperties().contains ("big") ? 24.0f : 14.0f;
-        const float iconW = icon == "eye" ? iconH : iconH * 0.95f;
+        const float iconW = iconH * 0.95f;
         const float gap = button.getProperties().contains ("big") ? 12.0f : 6.0f;
         const auto rf = r.toFloat();
         const float x0 = rf.getCentreX() - (iconW + gap + textW) * 0.5f;
         const auto iconBox = juce::Rectangle<float> (x0, rf.getCentreY() - iconH * 0.5f, iconW, iconH);
-        if (icon == "eye") Theme::drawEye (g, iconBox, colour);
-        else               Theme::drawSpeaker (g, iconBox, colour);
+        Theme::drawSpeaker (g, iconBox, colour);
         g.setColour (colour);
         g.drawText (button.getButtonText(), juce::Rectangle<float> (x0 + iconW + gap, rf.getY(), textW + 4.0f, rf.getHeight()),
                     juce::Justification::centredLeft, false);
@@ -533,11 +532,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     };
     addAndMakeVisible (zoomBox);
 
-    // Botones para mostrar u ocultar cada onda (se guardan con el proyecto).
-    scope.setShowPre  ((bool) apvts.state.getProperty ("scopeShowPre",  true));
-    scope.setShowPost ((bool) apvts.state.getProperty ("scopeShowPost", true));
-
-    for (juce::TextButton* b : { (juce::TextButton*) &compareButton, &freezeButton, &gainLineButton, &optionsButton })
+    for (juce::TextButton* b : { &freezeButton, &gainLineButton, &optionsButton })
         b->getProperties().set ("kind", "chip");
 
     // Freeze: congela lo que se ve (para mirarlo y hacerle zoom tranquilo).
@@ -579,23 +574,8 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     zoomBox.getProperties().set ("kind", "chip");
 
-    // Overlay: las dos ondas juntas para comparar, solo a la vista (se guarda con el proyecto).
-    compareButton.setClickingTogglesState (false);
-    compareButton.getProperties().set ("icon", "eye");          // ojo: solo cambia lo que se ve
-    compareButton.onClick = [this] { setCompare (! compareOn); };
-    addAndMakeVisible (compareButton);
-
-    // Botón ⇄ linkeado a la escucha: hace lo mismo que el botón PRE/POST FX
-    // grande (alterna lo que suena) y el osciloscopio lo sigue.
-    // LINK: prendido, el osciloscopio sigue a la escucha (muestra solo la onda
-    // que suena); apagado, muestra lo que dejes con PRE FX / POST FX.
-    // Al abrir: sigue a la escucha y muestra solo la onda que suena (antes quedaban
-    // las dos a la vista, como en Overlay, con el botón apagado)...
-    setScopeLinked (true);
-    if ((bool) apvts.state.getProperty ("scopeCompare", false))
-        setCompare (true);                            // ...salvo con Overlay prendido
-
-    updateWaveButtons();
+    // El osciloscopio sigue a la escucha: muestra solo la onda que suena.
+    syncWavesToListen();
 
     // Columna gris: títulos a la izquierda.
     for (auto* l : { &listenLabel, &windowLabel, &latencyLabel })
@@ -622,7 +602,6 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
 MeteringABPanel::~MeteringABPanel()
 {
-    processor.scopeBandMask.store (0);               // sin interfaz no hace falta el borde por bandas
     stopTimer();
     setLookAndFeel (nullptr);
 }
@@ -640,10 +619,6 @@ void MeteringABPanel::setupKnob (PreciseSlider& s, juce::Label& label, const juc
 void MeteringABPanel::applyScopeLook()
 {
     auto& state = processor.apvts.state;
-    // Forma de PRE y de POST por separado (si no hay, toman la forma general de antes).
-    // PRE + POST: PRE en Outline y POST en Lines only. Siguiendo la escucha: Detallado (picos).
-    scope.setStyles (ScopeView::Style::contour, ScopeView::Style::lines);
-    scope.setLinkStyle (ScopeView::Style::detailed);
     scope.setShowGrid ((bool) state.getProperty ("scopeGrid", true));
     scope.setTripletGrid ((bool) state.getProperty ("scopeGridTriplets", false));
     scope.setChannels ((ScopeView::Channels) juce::jlimit (0, 3, (int) state.getProperty ("scopeChannels", 0)));
@@ -656,20 +631,6 @@ void MeteringABPanel::applyScopeLook()
     else
         scope.setColours (juce::Colour (ScopeView::palettes[(size_t) palette].pre),
                           juce::Colour (ScopeView::palettes[(size_t) palette].post));
-
-    updateWaveButtons();
-    updateBandMask();
-}
-
-// El borde por bandas (Outline / Lines only) se calcula solo con el osciloscopio a la
-// vista, y solo de las ondas que se dibujan así (con Overlay; siguiendo la escucha es
-// Detallado y no hace falta). L only / R only: solo ese canal.
-void MeteringABPanel::updateBandMask()
-{
-    const bool showScope = ! isSendMode && scopeOpen;
-    const int wanted = showScope ? scope.bandTracesNeeded() : 0;
-    if (processor.scopeBandMask.load (std::memory_order_relaxed) != wanted)
-        processor.scopeBandMask.store (wanted);
 }
 
 // Colores para elegir por onda (los de las paletas, sin repetir).
@@ -791,8 +752,6 @@ void MeteringABPanel::updateScopeSection()
 
     for (auto* c : scopeParts)
         c->setVisible (showScope);
-    updateBandMask();
-
     scopeLabel.setVisible (showScope);
 
     const int width  = isSendMode ? sendWidth : scopeOpen ? receiveWidth : sideWidth;
@@ -812,51 +771,6 @@ void MeteringABPanel::setWaves (bool pre, bool post)
     scope.setShowPost (post);
     processor.apvts.state.setProperty ("scopeShowPre",  pre,  nullptr);
     processor.apvts.state.setProperty ("scopeShowPost", post, nullptr);
-    updateWaveButtons();
-}
-
-// Encendido: relleno con el color de su onda. Apagado: gris.
-void MeteringABPanel::updateWaveButtons()
-{
-    auto style = [] (juce::TextButton& b, bool on, juce::Colour colour)
-    {
-        b.getProperties().set ("chipColour", (juce::int64) colour.getARGB());
-        b.setToggleState (on, juce::dontSendNotification);
-        b.repaint();
-    };
-
-    style (compareButton, compareOn, Theme::accentBright);
-
-}
-
-void MeteringABPanel::setCompare (bool on)
-{
-    compareOn = on;
-    processor.apvts.state.setProperty ("scopeCompare", on, nullptr);
-
-    if (on)
-    {
-        setScopeLinked (false);       // deja de seguir la escucha...
-        setWaves (true, true);        // ...y muestra las dos (PRE Outline, POST Lines only)
-    }
-    else
-    {
-        setScopeLinked (true);        // vuelve a seguir la escucha (Detallado)
-    }
-    updateBandMask();
-}
-
-void MeteringABPanel::setScopeLinked (bool linked)
-{
-    scopeLinked = linked;
-    scope.setLinked (linked);
-    processor.apvts.state.setProperty ("scopeLink", linked, nullptr);
-
-    if (linked)
-        syncWavesToListen();          // al prenderlo, mostrar enseguida lo que suena
-    else
-        updateWaveButtons();
-    updateBandMask();
 }
 
 void MeteringABPanel::syncWavesToListen()
@@ -894,7 +808,6 @@ void MeteringABPanel::setSync (bool on)
 
 void MeteringABPanel::timerCallback()
 {
-    updateBandMask();                 // por las dudas: siempre al día con lo que se ve
 
     // Movimiento suave de los números en pantalla.
     // Si Logic deja de mandar audio (pausa), los medidores quedan en -∞ y se
@@ -954,17 +867,7 @@ void MeteringABPanel::timerCallback()
         const int listenPre = processor.apvts.getRawParameterValue (ParamIDs::pre)->load() > 0.5f ? 1 : 0;
 
         if (lastListenPre >= 0 && listenPre != lastListenPre)
-        {
-            if (compareOn)
-                updateWaveButtons();      // PRE + POST: siguen las dos a la vista
-            else if (scopeLinked)
-                setWaves (listenPre == 1, listenPre == 0);
-            else
-                setScopeLinked (true);    // vuelve a seguir la escucha (y muestra la que suena)
-        }
-
-        if (listenPre != lastListenPre)
-            scope.repaint();          // Overlay: el parlante de la leyenda sigue a la escucha
+            setWaves (listenPre == 1, listenPre == 0);
         lastListenPre = listenPre;
     }
 
@@ -1317,14 +1220,12 @@ void MeteringABPanel::resized()
     auto scopeHeader = section.removeFromTop (scopeHeaderHeight).withSizeKeepingCentre (section.getWidth(), 28);
     zoomBox.setBounds (scopeHeader.removeFromRight (96));
     scopeHeader.removeFromRight (8);
-    // De izquierda a derecha: Overlay, Gain, Freeze, Options (y el largo).
+    // De izquierda a derecha: Gain, Freeze, Options (y el largo).
     optionsButton.setBounds (scopeHeader.removeFromRight (74));
     scopeHeader.removeFromRight (6);
     freezeButton.setBounds (scopeHeader.removeFromRight (64));
     scopeHeader.removeFromRight (6);
     gainLineButton.setBounds (scopeHeader.removeFromRight (58));
-    scopeHeader.removeFromRight (6);
-    compareButton.setBounds (scopeHeader.removeFromRight (104));
     scopeLabel.setBounds (scopeHeader);
 
     scope.setBounds (section.withTrimmedBottom (16));

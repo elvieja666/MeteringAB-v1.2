@@ -17,45 +17,6 @@ public:
     void mouseDown (const juce::MouseEvent& e) override;
 };
 
-// Pastilla del osciloscopio que además abre un menú con clic derecho
-// (o Ctrl + clic); ese clic no cuenta como clic normal.
-class ChipButton : public juce::TextButton
-{
-public:
-    using juce::TextButton::TextButton;
-    std::function<void()> onRightClick;
-    juce::ModifierKeys lastClickMods;                 // teclas del último clic (Cmd + clic = sumar)
-
-    void clicked (const juce::ModifierKeys& mods) override
-    {
-        lastClickMods = mods;
-        juce::TextButton::clicked (mods);
-    }
-
-    void mouseDown (const juce::MouseEvent& e) override
-    {
-        if (e.mods.isPopupMenu())
-        {
-            if (onRightClick != nullptr)
-                onRightClick();
-            return;
-        }
-        juce::TextButton::mouseDown (e);
-    }
-
-    void mouseUp (const juce::MouseEvent& e) override
-    {
-        if (! e.mods.isPopupMenu())
-            juce::TextButton::mouseUp (e);
-    }
-
-    void mouseDrag (const juce::MouseEvent& e) override
-    {
-        if (! e.mods.isPopupMenu())
-            juce::TextButton::mouseDrag (e);
-    }
-};
-
 // Estilo de los controles. Cada botón dice qué tipo es con la propiedad "kind":
 //   raised  = en relieve sobre el gris (Medir, el botón grande)
 //   segment = mitad de ms | Sync (la elegida queda en relieve)
@@ -113,9 +74,6 @@ public:
     juce::TextButton& getOptionsButtonForTests() { return optionsButton; }
     juce::ValueTree& getProcessorStateForTests() { return processor.apvts.state; }
     juce::TextButton& getGainLineButtonForTests() { return gainLineButton; }
-    ChipButton& getCompareButtonForTests()      { return compareButton; }
-    bool isCompareOnForTests() const            { return compareOn; }
-    bool isScopeLinkedForTests() const          { return scopeLinked; }
     bool isSendLayout() const                   { return isSendMode; }
     bool isScopeOpenForTests() const            { return scopeOpen; }
     juce::TextButton& getABButtonForTests()      { return abButton; }
@@ -163,12 +121,7 @@ private:
     ScopeView scope { processor };
     juce::Label scopeLabel;
     juce::ComboBox zoomBox;
-    // PRE + POST: las dos ondas juntas (PRE en Outline, POST en Lines only).
-    // Apagado, el osciloscopio sigue a la escucha. Clic derecho: colores, canales y grilla.
-    ChipButton compareButton { "Overlay" };
-    bool compareOn = false;
     bool matchBypassShown = false;                    // Match Gain Bypass prendido (ganancia en gris)
-    void setCompare (bool on);
     juce::TextButton optionsButton { "Options" };     // menú: canales (L / R / suma) y grilla
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)
     juce::TextButton gainLineButton { "Gain" };       // línea con el valor de la ganancia aplicada
@@ -176,11 +129,7 @@ private:
     juce::TextButton scopeToggleButton { "Scope" };   // abrir / cerrar el osciloscopio (al pie de la columna gris)
     bool scopeOpen = true;
     void setScopeOpen (bool open);
-    void updateBandMask();
-    bool scopeLinked = true;                          // el osciloscopio sigue a la escucha (siempre, salvo
-                                                      // que elijas una onda a mano hasta el próximo cambio)
-    void setScopeLinked (bool linked);
-    void syncWavesToListen();
+    void syncWavesToListen();                         // el osciloscopio muestra la onda que suena
     void showStyleMenu (juce::Component& anchor);     // menú de opciones gráficas (botón Options)
 public:
     juce::PopupMenu buildStyleMenu() const;          // canales y grilla
@@ -192,11 +141,10 @@ private:
     void pickCustomColour (bool forPre);
     void updateScopeSection();
 
-    juce::Component* scopeParts[6] = { &scope, &zoomBox, &compareButton, &freezeButton, &gainLineButton, &optionsButton };
+    juce::Component* scopeParts[5] = { &scope, &zoomBox, &freezeButton, &gainLineButton, &optionsButton };
 
     static constexpr int scopeHeaderHeight = 52;      // barra "Osciloscopio" arriba del gráfico
     void setWaves (bool pre, bool post);
-    void updateWaveButtons();
 
     std::unique_ptr<ComboAttachment>  modeAtt;
     std::unique_ptr<SliderAttachment> linkAtt, windowAtt, windowSyncAtt;

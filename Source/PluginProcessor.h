@@ -3,7 +3,6 @@
 #include "LoudnessMeter.h"
 #include "SharedBus.h"
 #include "LatencyMeasurer.h"
-#include "BandEnvelope.h"
 
 // IDs de los parámetros (así los encuentra Logic para automatizar y guardar).
 namespace ParamIDs
@@ -106,12 +105,7 @@ public:
     // medida que avanza la canción, así cada compás reemplaza al anterior.
     static constexpr int scopeBins = 2048;            // resolución horizontal (columnas por loop)
     // Una "traza" por señal y canal: mínimo, máximo y suma de cuadrados (RMS).
-    // envUp / envDown: el borde de Outline / Lines only de cada columna (ver BandEnvelope;
-    // positivos; -1 = no calculado, por ejemplo con el osciloscopio cerrado).
-    struct ScopeTrace { std::array<std::atomic<float>, scopeBins> min, max, sq, envUp, envDown; };
-    // Borde por bandas (Outline / Lines only): solo de lo que se ve. La interfaz dice
-    // qué ondas: un bit por traza (1 << preSum, 1 << postSum, ...).
-    std::atomic<int> scopeBandMask { 0 };
+    struct ScopeTrace { std::array<std::atomic<float>, scopeBins> min, max, sq; };
 
     enum ScopeTraceIndex { preSum = 0, postSum, preLeft, postLeft, preRight, postRight, numScopeTraces };
     std::array<ScopeTrace, numScopeTraces> scopeTraces;                  // L+R (promedio), solo L, solo R
@@ -137,14 +131,6 @@ public:
     static float rawHi (std::uint32_t p) { return (float) (std::int16_t) (std::uint16_t) (p >> 16) / 32767.0f; }
     std::array<std::unique_ptr<std::atomic<std::uint32_t>[]>, 6> scopeRaw;   // una por traza (mismo orden)
     std::atomic<int> scopeRawSlots { 1 };             // casilleros en uso (según tempo y largo)
-
-    // El borde por bandas también con detalle de muestra (para el zoom: así la pantalla
-    // no lo recalcula). Mismo casillero que scopeRaw: packRaw (abajo, arriba), positivos.
-    // Es válido en una columna si scopeEnvGen == scopeGen (calculado en esta pasada) y,
-    // en la columna que se está escribiendo, hasta scopeEnvSlot.
-    std::array<std::unique_ptr<std::atomic<std::uint32_t>[]>, 6> scopeEnvRaw;
-    std::array<std::atomic<std::uint32_t>, scopeBins> scopeGen, scopeEnvGen;
-    std::atomic<int> scopeEnvBin { -1 }, scopeEnvSlot { -1 };
 
     // Atajos a la suma L+R (los usan las pruebas).
     std::array<std::atomic<float>, scopeBins>& scopePreMin  = scopeTraces[preSum].min;
@@ -197,14 +183,6 @@ private:
     juce::int64 hostBarCount = 0;
     double scopePhaseQuarters = 0.0;                  // dónde va el barrido (en negras)
     int    lastScopeBin = -1, lastScopeLength = -1, lastRawSlot = -1;
-    // Borde por bandas (Outline / Lines only): qué ondas calcular (lo dice la interfaz).
-    std::array<BandEnvelope, numScopeTraces> bandEnvelopes;
-    int activeBandMask = 0;
-    // Columna, casillero y pasada de cada muestra (para el atraso de las bandas).
-    struct EnvSpot { int bin = -1, slot = -1; std::uint32_t gen = 0; };
-    std::vector<EnvSpot> bandHistory;
-    int bandBinPos = 0, lastEnvBin = -1, lastEnvSlot = -1;
-    std::uint32_t scopeGenCounter = 0;
     bool   scopeWasPlaying = false;                   // para detectar cuándo se da play
     bool   scopeGateOpen = true;                      // false solo durante el tramo previo al play
     double scopeLastBlockPpq = 0.0;                   // para detectar saltos hacia atrás (ciclo)

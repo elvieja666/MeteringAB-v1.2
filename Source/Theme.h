@@ -116,18 +116,4 @@ namespace Theme
         waves.addCentredArc (x + 0.48f * s, y + 0.5f * s, 0.38f * s, 0.38f * s, 0.0f, 0.72f, 2.42f, true);
         g.strokePath (waves, juce::PathStrokeType (juce::jmax (1.2f, 0.09f * s), juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
-
-    inline void drawEye (juce::Graphics& g, juce::Rectangle<float> r, juce::Colour c)
-    {
-        const float s = r.getHeight();
-        const float cx = r.getCentreX(), cy = r.getCentreY(), w = s * 1.0f, h = s * 0.62f;
-        juce::Path lid;
-        lid.startNewSubPath (cx - w * 0.5f, cy);
-        lid.quadraticTo (cx, cy - h, cx + w * 0.5f, cy);
-        lid.quadraticTo (cx, cy + h, cx - w * 0.5f, cy);
-        lid.closeSubPath();
-        g.setColour (c);
-        g.strokePath (lid, juce::PathStrokeType (juce::jmax (1.1f, 0.085f * s), juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-        g.drawEllipse (juce::Rectangle<float> (s * 0.3f, s * 0.3f).withCentre ({ cx, cy }), juce::jmax (1.1f, 0.085f * s));
-    }
 }

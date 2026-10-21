@@ -270,26 +270,13 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     preMeter.prepare (sampleRate);
     postMeter.prepare (sampleRate);
 
-    for (auto& b : bandEnvelopes)                    // borde por bandas (Outline / Lines only)
-        b.prepare (sampleRate);
-    bandHistory.assign ((size_t) bandEnvelopes[0].getLatency(), EnvSpot {});   // exacto: el borde llega con ese atraso
-    bandBinPos = 0;
-    activeBandMask = 0;
-    for (auto& trace : scopeTraces)
-        for (int b = 0; b < scopeBins; ++b)
+    for (auto& raw : scopeRaw)                       // zoom del osciloscopio (una sola vez)
+        if (raw == nullptr)
         {
-            trace.envUp[(size_t) b].store (-1.0f, std::memory_order_relaxed);
-            trace.envDown[(size_t) b].store (-1.0f, std::memory_order_relaxed);
+            raw.reset (new std::atomic<std::uint32_t>[(size_t) scopeRawCapacity]);
+            for (int i = 0; i < scopeRawCapacity; ++i)
+                raw[(size_t) i].store (0, std::memory_order_relaxed);
         }
-
-    for (auto* store : { &scopeRaw, &scopeEnvRaw })  // zoom del osciloscopio (una sola vez)
-        for (auto& raw : *store)
-            if (raw == nullptr)
-            {
-                raw.reset (new std::atomic<std::uint32_t>[(size_t) scopeRawCapacity]);
-                for (int i = 0; i < scopeRawCapacity; ++i)
-                    raw[(size_t) i].store (0, std::memory_order_relaxed);
-            }
     dryBuffer.setSize (2, juce::jmax (samplesPerBlock, 4096));
     dryMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
     postMono.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
@@ -580,18 +567,6 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     scopeLastBlockPpq = hostHasPpq ? hostPpq : 0.0;
     double songQuarters = hostHasPpq ? hostPpq : scopePlayStartQuarters;   // posición del audio que llega
 
-    // Borde por bandas: prender / apagar según lo que se ve (al prender, desde cero).
-    {
-        const int wanted = scopeBandMask.load (std::memory_order_relaxed);
-        for (int t = 0; t < numScopeTraces; ++t)
-        {
-            const int bit = 1 << t;
-            if ((wanted & bit) != 0 && (activeBandMask & bit) == 0)
-                bandEnvelopes[(size_t) t].reset();
-        }
-        activeBandMask = wanted;
-    }
-
     for (int i = 0; i < n; ++i)
     {
         const float g = gainSmoother.getNextValue();
@@ -628,58 +603,11 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         const int bin = drawing ? juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins)) : -1;
         const bool newBin = drawing && bin != lastScopeBin;   // columna nueva: reemplaza la del loop anterior
         const int rawSlot = drawing && rawReady ? juce::jlimit (0, rawSlots - 1, (int) (scopeQuarters / loopQuarters * rawSlots)) : -1;
-        if (newBin)
-            scopeGen[(size_t) bin].store (++scopeGenCounter, std::memory_order_relaxed);   // pasada nueva de esta columna
-
-        // Borde por bandas: llega atrasado (getLatency), así que va a la columna (y al
-        // casillero) de la muestra de hace ese tiempo.
-        EnvSpot env { bin, rawSlot, drawing ? scopeGen[(size_t) juce::jmax (0, bin)].load (std::memory_order_relaxed) : 0u };
-        if (! bandHistory.empty())
-        {
-            std::swap (env, bandHistory[(size_t) bandBinPos]);
-            if (++bandBinPos >= (int) bandHistory.size()) bandBinPos = 0;
-        }
-        const int envBin = env.bin;
-        const bool newEnvBin = envBin >= 0 && envBin != lastEnvBin;
-        const bool newEnvSlot = env.slot >= 0 && env.slot != lastEnvSlot;
-        // En pausa no se calcula (CPU), salvo para terminar de escribir lo que venía atrasado.
-        const bool bandsBusy = activeBandMask != 0 && (drawing || envBin >= 0);
 
         for (int t = 0; t < numScopeTraces; ++t)
         {
             auto& trace = scopeTraces[(size_t) t];
             const float v = values[t];
-
-            if (bandsBusy && ((1 << t) & activeBandMask) != 0)
-            {
-                float up = 0.0f, down = 0.0f;
-                bandEnvelopes[(size_t) t].process (v, up, down);
-                if (env.slot >= 0)                       // con detalle de muestra (zoom)
-                {
-                    auto& cell = scopeEnvRaw[(size_t) t][(size_t) env.slot];
-                    if (! newEnvSlot)
-                    {
-                        const auto old = cell.load (std::memory_order_relaxed);
-                        down = juce::jmax (down, rawLo (old));
-                        up = juce::jmax (up, rawHi (old));
-                    }
-                    cell.store (packRaw (down, up), std::memory_order_relaxed);
-                }
-                if (envBin >= 0)
-                {
-                    const auto k = (size_t) envBin;
-                    if (newEnvBin || trace.envUp[k].load (std::memory_order_relaxed) < 0.0f)
-                    {
-                        trace.envUp[k].store (up, std::memory_order_relaxed);
-                        trace.envDown[k].store (down, std::memory_order_relaxed);
-                    }
-                    else
-                    {
-                        if (up > trace.envUp[k].load (std::memory_order_relaxed)) trace.envUp[k].store (up, std::memory_order_relaxed);
-                        if (down > trace.envDown[k].load (std::memory_order_relaxed)) trace.envDown[k].store (down, std::memory_order_relaxed);
-                    }
-                }
-            }
 
             if (drawing)
             {
@@ -698,22 +626,6 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
                     trace.sq[k].store (trace.sq[k].load (std::memory_order_relaxed) + v * v, std::memory_order_relaxed);
                 }
             }
-        }
-
-        if (envBin >= 0)
-        {
-            lastEnvBin = envBin;
-            if (bandsBusy)
-            {
-                scopeEnvGen[(size_t) envBin].store (env.gen, std::memory_order_relaxed);
-                scopeEnvBin.store (envBin, std::memory_order_relaxed);
-            }
-        }
-        if (env.slot >= 0)
-        {
-            lastEnvSlot = env.slot;
-            if (bandsBusy)
-                scopeEnvSlot.store (env.slot, std::memory_order_relaxed);
         }
 
         // Detalle de muestra (zoom): mínimo y máximo de cada casillero.
@@ -804,8 +716,6 @@ void MeteringABProcessor::clearScope()
             trace.min[(size_t) b] = 0.0f;
             trace.max[(size_t) b] = 0.0f;
             trace.sq[(size_t) b] = 0.0f;
-            trace.envUp[(size_t) b] = -1.0f;
-            trace.envDown[(size_t) b] = -1.0f;
         }
 
         scopeCount[(size_t) b] = 0;
@@ -814,16 +724,6 @@ void MeteringABProcessor::clearScope()
 
     lastScopeBin = -1;
     lastRawSlot = -1;
-    lastEnvBin = -1;
-    lastEnvSlot = -1;
-    std::fill (bandHistory.begin(), bandHistory.end(), EnvSpot {});
-    for (int b = 0; b < scopeBins; ++b)
-        scopeEnvGen[(size_t) b].store (0, std::memory_order_relaxed);   // nada calculado todavía
-    scopeEnvBin.store (-1, std::memory_order_relaxed);
-    scopeEnvSlot.store (-1, std::memory_order_relaxed);
-    for (int t = 0; t < numScopeTraces; ++t)           // solo las prendidas (las otras se limpian al prender)
-        if (((t < 2 ? 1 : 2) & activeBandMask) != 0)
-            bandEnvelopes[(size_t) t].reset();
 
     // El detalle de muestra (zoom) NO se borra acá: eran hasta 3 millones de valores en
     // el audio, en cada play. La pantalla ignora los casilleros de columnas sin datos

@@ -268,51 +268,6 @@ int main (int argc, char** argv)
     juce::ScopedJuceInitialiser_GUI init;
     MeteringABPanel::scopeOpenOnStart = true;   // casi todas las pruebas miran el osciloscopio
 
-    if (std::getenv ("BENCHAUDIO") != nullptr)
-    {
-        // Costo en el audio del borde por bandas (por segundo de audio, % de un núcleo).
-        for (const int m : { 0, 3, 60, 63 })
-        {
-            Chain c (34, -3.0f, 0); c.pulsing = true;
-            c.recv.scopeBandMask.store (m);
-            c.run (1.0);
-            const double t0 = juce::Time::getMillisecondCounterHiRes();
-            c.run (20.0);
-            const double ms = juce::Time::getMillisecondCounterHiRes() - t0;
-            std::printf ("BENCHAUDIO mask %2d: %.2f%% de un núcleo (toda la cadena)\n", m, ms / 20000.0 * 100.0);
-            c.recv.setPlayHead (nullptr); c.send.setPlayHead (nullptr);
-        }
-        return 0;
-    }
-    if (std::getenv ("BENCH") != nullptr)
-    {
-        // Costo de la pantalla: Overlay (Outline / Lines only), con zoom, tocando.
-        Chain c (33, -3.0f, 0); c.pulsing = true;
-        c.recv.scopeLengthIndex = std::atoi (std::getenv ("BENCH"));
-        MeteringABPanel::scopeOpenOnStart = true;
-        std::unique_ptr<juce::AudioProcessorEditor> ed (c.recv.createEditor());
-        auto* panel = panelOf (ed);
-        panel->getCompareButtonForTests().onClick();
-        c.run (9.0);
-        auto& sc = panel->getScopeForTests();
-        for (const double span : { 1.0, 0.5, 0.25, 0.1, 0.03, 0.01 })
-        {
-            double total = 0.0; const int frames = 10;
-            for (int f = 0; f < frames; ++f)
-            {
-                c.run (1.0 / 30.0);   // llega audio nuevo (tocando)
-                const double ph = c.recv.scopeCurrentBin.load() / (double) MeteringABProcessor::scopeBins;
-                sc.setView (juce::jlimit (0.0, 1.0 - span, ph - span * 0.5), span);   // el cabezal a la vista
-                const double t0 = juce::Time::getMillisecondCounterHiRes();
-                juce::Image img (juce::Image::ARGB, sc.getWidth(), sc.getHeight(), true);
-                juce::Graphics g (img); sc.paintEntireComponent (g, true);
-                total += juce::Time::getMillisecondCounterHiRes() - t0;
-            }
-            std::printf ("BENCH span %.2f: %.1f ms por cuadro (CPU audio aparte)\n", span, total / frames);
-        }
-        c.recv.setPlayHead (nullptr); c.send.setPlayHead (nullptr);
-        return 0;
-    }
     if (argc > 2) // MeteringABTests <carpeta> <audio.raw>: tu audio (estéreo, float, 48 kHz) por el plugin real, 2 bars a 70 BPM
     {
         juce::MemoryBlock data;
@@ -338,7 +293,6 @@ int main (int argc, char** argv)
             }
         } head;
 
-        for (int style = 0; style < 3; ++style)
         {
             MeteringABProcessor send, recv; juce::MidiBuffer m;
             setParam (send, ParamIDs::link, 15); setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 15);
@@ -346,11 +300,8 @@ int main (int argc, char** argv)
             recv.apvts.state.setProperty ("scopeOpen", true, nullptr);
             recv.apvts.state.setProperty ("scopeLength", 3, nullptr); recv.scopeLengthIndex = 3;     // 2 bars
             recv.apvts.state.setProperty ("scopeShowPre", false, nullptr);
-            recv.apvts.state.setProperty ("scopeLink", false, nullptr);
-            recv.apvts.state.setProperty ("scopeStylePost", style == 0 ? 0 : style == 1 ? 2 : 1, nullptr);
             send.setPlayHead (&head); recv.setPlayHead (&head);
             send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
-            recv.scopeBandMask.store (3);              // como con el osciloscopio abierto (PRE y POST)
             head.ppq = 0.0;
             juce::AudioBuffer<float> b (2, 512);
 
@@ -380,24 +331,21 @@ int main (int argc, char** argv)
                 const_cast<ScopeView&> (scope).setSize (parts[0].getIntValue(), parts[1].getIntValue());
             }
             auto img = const_cast<ScopeView&> (scope).createComponentSnapshot (scope.getLocalBounds(), true, 2.0f);
-            const char* names[] = { "/audio-contorno.png", "/audio-lineas.png", "/audio-detallado.png" };
-            juce::File f (juce::String (argv[1]) + names[style]);
+            juce::File f (juce::String (argv[1]) + "/audio-detallado.png");
             f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
 
             // Freeze + zoom (x8 y x40) sobre la misma parte.
             auto& sc = panelOf (ed)->getScopeForTests();
             panelOf (ed)->getFreezeButtonForTests().onClick();
-            const char* base[] = { "/audio-contorno", "/audio-lineas", "/audio-detallado" };
             const double zooms[][2] = { { 0.36, 0.125 }, { 0.392, 0.025 }, { 0.3995, 0.0 } };   // x8, x40 y el máximo
             for (int z = 0; z < 3; ++z)
             {
                 sc.setView (zooms[z][0], zooms[z][1]);
                 auto zimg = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
-                juce::File zf (juce::String (argv[1]) + base[style] + (z == 0 ? "-zoom8.png" : z == 1 ? "-zoom40.png" : "-zoommax.png"));
+                juce::File zf (juce::String (argv[1]) + "/audio-detallado" + (z == 0 ? "-zoom8.png" : z == 1 ? "-zoom40.png" : "-zoommax.png"));
                 zf.deleteFile(); juce::FileOutputStream zos (zf); juce::PNGImageFormat().writeImageToStream (zimg, zos);
             }
-            if (style == 2)                             // regla de nivel: línea fija en -6 dB y el mouse en -14 dB
-            {
+            {                                           // regla de nivel: línea fija en -6 dB y el mouse en -14 dB
                 sc.resetZoom();
                 sc.setMarkerDb (-6.0f);
                 const auto pl = sc.plotArea();
@@ -412,26 +360,14 @@ int main (int argc, char** argv)
                 rf.deleteFile(); juce::FileOutputStream ros (rf); juce::PNGImageFormat().writeImageToStream (rimg, ros);
                 sc.setMarkerDb (std::nullopt);
             }
-            if (style == 0)                             // la interfaz entera, con Freeze y zoom
-            {
+            {                                           // la interfaz entera, con Freeze y zoom
                 sc.setView (0.36, 0.125);
                 auto* panel = panelOf (ed);
                 auto pimg = panel->createComponentSnapshot (panel->getLocalBounds(), true, 2.0f);
                 juce::File pf (juce::String (argv[1]) + "/audio-panel-freeze.png");
                 pf.deleteFile(); juce::FileOutputStream pos (pf); juce::PNGImageFormat().writeImageToStream (pimg, pos);
 
-                // PRE + POST: las dos juntas (PRE Outline, POST Lines only).
                 sc.resetZoom();
-                panel->getCompareButtonForTests().onClick();
-                auto cimg = panel->createComponentSnapshot (panel->getLocalBounds(), true, 2.0f);
-                juce::File cf (juce::String (argv[1]) + "/audio-compare.png");
-                cf.deleteFile(); juce::FileOutputStream cos (cf); juce::PNGImageFormat().writeImageToStream (cimg, cos);
-                {
-                    sc.setView (0.0, 0.5);                 // un compás, como se ve en Logic
-                    auto bc = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
-                    juce::File bf (juce::String (argv[1]) + "/audio-compare-1bar.png");
-                    bf.deleteFile(); juce::FileOutputStream bos (bf); juce::PNGImageFormat().writeImageToStream (bc, bos);
-                }
                 if (std::getenv ("MENU_SHOT"))          // cómo se ve el menú de Options (dibujado con el estilo del plugin)
                 {
                     auto& lf = panel->getLookAndFeel();
@@ -495,15 +431,7 @@ int main (int argc, char** argv)
                     tf3.deleteFile(); juce::FileOutputStream tos3 (tf3); juce::PNGImageFormat().writeImageToStream (t3, tos3);
                     sc.setTripletGrid (false);
                 }
-                for (int z = 0; z < 2; ++z)             // ...y con zoom (x8 y x40)
-                {
-                    sc.setView (zooms[z][0], zooms[z][1]);
-                    auto zc = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
-                    juce::File zf (juce::String (argv[1]) + (z == 0 ? "/audio-compare-zoom8.png" : "/audio-compare-zoom40.png"));
-                    zf.deleteFile(); juce::FileOutputStream zos (zf); juce::PNGImageFormat().writeImageToStream (zc, zos);
-                }
                 sc.resetZoom();
-                panel->getCompareButtonForTests().onClick();
             }
             send.setPlayHead (nullptr); recv.setPlayHead (nullptr);
         }
@@ -513,7 +441,7 @@ int main (int argc, char** argv)
     if (argc > 1) // Metering A/BTests <carpeta>: guarda capturas de la interfaz
     {
         const char* names[] = { "/send.png", "/receive.png", "/receive-long.png", "/receive-closed.png",
-                                "/estilo-detallado.png", "/estilo-lineas.png", "/estilo-contorno.png", "/link-cambio.png" };
+                                "/paleta-greys.png", "/paleta-blue-pink.png", "/canales-split.png", "/link-cambio.png" };
 
         for (int shot = 0; shot < 8; ++shot)
         {
@@ -538,14 +466,11 @@ int main (int argc, char** argv)
                 a->apvts.state.setProperty ("scopeLength", shot == 2 ? 3 : 2, nullptr);   // 1 bar / 2 bars
                 a->scopeLengthIndex = shot == 2 ? 3 : 2;
                 if (shot == 2) a->apvts.state.setProperty ("scopeShowPre", false, nullptr);   // captura con solo POST
-                if (shot >= 4)   // estilos, en 1/2 bar para ver el detalle
+                if (shot >= 4)   // paletas y canales, en 1/2 bar para ver el detalle
                 {
                     a->apvts.state.setProperty ("scopeLength", 1, nullptr); a->scopeLengthIndex = 1;
-                    a->apvts.state.setProperty ("scopeStyle", shot == 4 ? 1 : shot == 5 ? 2 : 0, nullptr);
                     a->apvts.state.setProperty ("scopePalette", shot == 4 ? 1 : shot == 5 ? 2 : 0, nullptr);
-                    if (shot == 5) a->apvts.state.setProperty ("scopeLink", false, nullptr);   // LINK apagado en la captura
                     if (shot == 6) a->apvts.state.setProperty ("scopeChannels", 3, nullptr);   // L y R separados
-                    if (shot == 6) a->apvts.state.setProperty ("scopeStylePost", 2, nullptr);  // PRE contorno, POST solo líneas
                 }
                 if (shot == 7)   // LINK: escuchando POST, cambio a PRE en la mitad del compás
                 {
@@ -583,14 +508,6 @@ int main (int argc, char** argv)
                     f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
                 }
                 outer->setUiScale (1.0f);
-            }
-
-            if (shot == 7)   // LINK con su propia forma (Solo líneas), PRE/POST siguen en Contorno
-            {
-                a->apvts.state.setProperty ("scopeStyleLink", 2, nullptr);
-                std::unique_ptr<juce::AudioProcessorEditor> ed2 (a->createEditor());
-                panelOf (ed2)->refreshNow();
-                save (*ed2, "/link-forma.png");
             }
 
             if (shot == 3)   // ventana en modo Sync (compases)
@@ -810,34 +727,6 @@ int main (int argc, char** argv)
         MeteringABPanel::scopeOpenOnStart = true;
     }
     {
-        // Las 20 bandas se calculan solo con el osciloscopio a la vista.
-        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
-        MeteringABPanel::scopeOpenOnStart = false;
-        {
-            std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-            auto* p = panelOf (ed);
-            const int closed = a.scopeBandMask.load();
-            p->getScopeToggleForTests().onClick();                       // abrir
-            const int following = a.scopeBandMask.load();                // siguiendo la escucha: Detallado
-            p->getCompareButtonForTests().onClick();                     // Overlay
-            const int overlay = a.scopeBandMask.load();
-            p->applyStyleMenuResult (501);                               // L only
-            const int leftOnly = a.scopeBandMask.load();
-            p->applyStyleMenuResult (503);                               // L and R split
-            const int split = a.scopeBandMask.load();
-            p->getScopeToggleForTests().onClick();                       // cerrar
-            const int closedAgain = a.scopeBandMask.load();
-            p->getScopeToggleForTests().onClick();                       // abrir otra vez
-            using P = MeteringABProcessor;
-            check (closed == 0 && following == 0 && overlay == ((1 << P::preSum) | (1 << P::postSum))
-                       && leftOnly == ((1 << P::preLeft) | (1 << P::postLeft)) && split == 60 && closedAgain == 0,
-                   "Bandas: solo con Scope abierto y Overlay, y solo las ondas que se ven (L only = solo L)",
-                   closed * 1000 + following * 100 + overlay);
-        }
-        check (a.scopeBandMask.load() == 0, "Bandas: al cerrar la ventana del plugin deja de calcular", a.scopeBandMask.load());
-        MeteringABPanel::scopeOpenOnStart = true;
-    }
-    {
         // Columna gris a la izquierda y el osciloscopio a la derecha (aunque un
         // proyecto viejo tenga guardado otro modo).
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
@@ -870,17 +759,7 @@ int main (int argc, char** argv)
         auto* e2 = panelOf (ed2);
         e2->refreshNow(); setParam (c, ParamIDs::pre, 1); e2->refreshNow();
         const bool followsPre = (bool) c.apvts.state.getProperty ("scopeShowPre", false) && ! (bool) c.apvts.state.getProperty ("scopeShowPost", true);
-        check (e2->isScopeLinkedForTests() && followsPre, "Siempre sigue a la escucha (aunque el proyecto tuviera LINK apagado)", 1);
-    }
-    {
-        // Forma separada para PRE y POST; un proyecto viejo con una sola forma la usa para las dos.
-        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
-        a.apvts.state.setProperty ("scopeStyle", 1, nullptr);
-        a.apvts.state.setProperty ("scopeStylePost", 2, nullptr);
-        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        auto* e = panelOf (ed);
-        check (e->getScopeForTests().getStylePre() == ScopeView::Style::contour && e->getScopeForTests().getStylePost() == ScopeView::Style::lines,
-               "Formas fijas: PRE Outline y POST Lines only (aunque el proyecto tuviera otras)", 1);
+        check (followsPre, "Siempre sigue a la escucha (aunque el proyecto tuviera LINK apagado)", 1);
     }
     {
         // Al dar play de nuevo el detalle de muestra ya no se borra en el audio (era pesado):
@@ -900,21 +779,6 @@ int main (int argc, char** argv)
         check (hadData && stillInProcessor && sc.rawCopyForTests (1, late) == 0u && earlyShown,
                "Play de nuevo: lo no redibujado se ve vacío (sin borrar 3 M valores en el audio)", late);
         c.recv.setPlayHead (nullptr); c.send.setPlayHead (nullptr);
-    }
-    {
-        // Ya no hay forma aparte para LINK: cada onda usa la suya.
-        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
-        a.apvts.state.setProperty ("scopeStylePre", 0, nullptr);
-        a.apvts.state.setProperty ("scopeStylePost", 0, nullptr);
-        {
-            std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-            check (panelOf (ed)->getScopeForTests().getLinkStyle() == ScopeView::Style::detailed, "Siguiendo la escucha: Detallado por defecto", 1);
-        }
-        a.apvts.state.setProperty ("scopeStyleLink", 2, nullptr);   // de un proyecto viejo: ya no se usa
-        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
-        const auto& sc = panelOf (ed)->getScopeForTests();
-        check (sc.getLinkStyle() == ScopeView::Style::detailed && sc.getStylePre() == ScopeView::Style::contour,
-               "Siguiendo la escucha: siempre Detallado; PRE / POST a mano con su forma", 1);
     }
     {
         MeteringABProcessor fresh;
@@ -1056,15 +920,15 @@ int main (int argc, char** argv)
         check (std::abs (c.recv.displayGain.load() - 6.0f) < 0.1f, "Sync: FX -6 dB -> ganancia ~ +6 dB", c.recv.displayGain.load());
     }
     {
-        // Al abrir el Receive (sin Overlay guardado): una sola onda, la que suena, y Overlay apagado.
+        // Al abrir el Receive: una sola onda, la que suena (aunque un proyecto viejo tuviera Overlay).
         {
             MeteringABProcessor fresh; setParam (fresh, ParamIDs::mode, 1); setParam (fresh, ParamIDs::pre, 0);
+            fresh.apvts.state.setProperty ("scopeCompare", true, nullptr);   // de un proyecto viejo: ya no existe
             std::unique_ptr<juce::AudioProcessorEditor> fe (fresh.createEditor());
             auto* fp = panelOf (fe);
             const auto& fs = fp->getScopeForTests();
-            check (! fp->isCompareOnForTests() && ! fp->getCompareButtonForTests().getToggleState()
-                       && ! fs.getShowPre() && fs.getShowPost() && fp->isScopeLinkedForTests(),
-                   "Al abrir: sin Overlay, se ve solo la onda que suena (POST)", (double) fs.getShowPre());
+            check (! fs.getShowPre() && fs.getShowPost(),
+                   "Al abrir: se ve solo la onda que suena (POST), aunque el proyecto tuviera Overlay", (double) fs.getShowPre());
             setParam (fresh, ParamIDs::pre, 1);
             std::unique_ptr<juce::AudioProcessorEditor> fe2 (fresh.createEditor());
             const auto& fs2 = panelOf (fe2)->getScopeForTests();
@@ -1410,111 +1274,6 @@ int main (int argc, char** argv)
     }
 
     {
-        // Outline / Lines only: borde por bandas (20 bandas, cada una con su muestreo, alineadas).
-        auto runEnv = [] (const std::vector<float>& x, std::vector<float>& up, std::vector<float>& down)
-        { ScopeView::bandEdgesOf (x, 48000.0, up, down); };
-        constexpr double tau = 2.0 * juce::MathConstants<double>::pi;
-
-        // Un bajo de 40 Hz parejo: el borde queda plano (no se ven los ciclos) y a su nivel.
-        {
-            std::vector<float> x (48000), up, down;
-            for (int i = 0; i < 48000; ++i) x[(size_t) i] = 0.5f * (float) std::sin (tau * 40.0 * i / 48000.0);
-            runEnv (x, up, down);
-            float lo = 1.0f, hi = 0.0f;
-            for (int i = 12000; i < 36000; ++i) { lo = juce::jmin (lo, up[(size_t) i]); hi = juce::jmax (hi, up[(size_t) i]); }
-            check (hi - lo < 0.06f && hi <= 0.5001f && hi > 0.4f, "Bandas: un bajo de 40 Hz da un borde plano (sin ciclos), a su nivel", hi - lo);
-        }
-
-        // Golpes alineados: un agudo y un grave que empiezan juntos, el borde sube en el mismo lugar.
-        {
-            auto onset = [&] (double freq)
-            {
-                std::vector<float> x (48000, 0.0f), up, down;
-                for (int i = 24000; i < 48000; ++i) x[(size_t) i] = 0.5f * (float) std::sin (tau * freq * (i - 24000) / 48000.0);
-                runEnv (x, up, down);
-                for (int i = 0; i < 48000; ++i) if (up[(size_t) i] > 0.2f) return i - 24000;
-                return 99999;
-            };
-            const int high = onset (3000.0), mid = onset (400.0), low = onset (60.0);
-            check (high >= 0 && high < 48 && mid >= 0 && mid < 96 && low >= 0 && low < 200,
-                   "Bandas: agudos, medios y graves que empiezan juntos suben juntos, sin adelantarse (compensación del atraso)", (double) low);
-        }
-
-        // Nunca pasa el pico real (aunque se sumen 20 bandas).
-        {
-            juce::Random rng (3);
-            std::vector<float> x (48000), up, down;
-            for (auto& v : x) v = 0.4f * (rng.nextFloat() * 2.0f - 1.0f);
-            runEnv (x, up, down);
-            float over = 0.0f;
-            for (int i = 2000; i < 46000; ++i)
-            {
-                float peak = 0.0f;
-                for (int j = i - 1400; j <= i + 1400; j += 7) peak = juce::jmax (peak, std::abs (x[(size_t) j]));
-                over = juce::jmax (over, up[(size_t) i] - juce::jmax (peak, 0.4f));
-            }
-            check (over <= 1.0e-4f, "Bandas: el borde nunca pasa el pico real", over);
-        }
-
-        // De punta a punta: el audio guarda el borde por bandas por columna (solo si se ve).
-        {
-            Chain c (23, -3.0f, 0);
-            c.recv.scopeBandMask.store (3);
-            c.run (2.5);
-            const auto& t = c.recv.scopeTraces[MeteringABProcessor::postSum];
-            int computed = 0, untouched = 0;
-            for (int k = 100; k < 1500; ++k)
-            {
-                if (t.envUp[(size_t) k].load() >= 0.0f) ++computed;
-                if (c.recv.scopeTraces[MeteringABProcessor::postLeft].envUp[(size_t) k].load() >= 0.0f) ++untouched;
-            }
-            check (computed > 1300 && untouched == 0, "Bandas: el audio calcula el borde de lo que se ve (y no de L / R)", computed);
-            {
-                // El audio guarda el borde con detalle de muestra (para el zoom): igual al
-                // que recalcularía la pantalla, y la pantalla lo usa en vez de recalcular.
-                using P = MeteringABProcessor;
-                Chain z (25, -3.0f, 0); z.pulsing = true;
-                z.recv.scopeBandMask.store ((1 << P::preSum) | (1 << P::postSum));
-                z.run (2.9);                                            // 1 compás = 2 s: va por 0,45 de la segunda pasada
-                const int slots = z.recv.scopeRawSlots.load();
-                const int a0 = slots / 10, a1 = slots * 35 / 100;
-                std::vector<float> wave ((size_t) slots);
-                for (int i = 0; i < slots; ++i)
-                {
-                    const auto r = z.recv.scopeRaw[P::postSum][(size_t) i].load();
-                    wave[(size_t) i] = 0.5f * (P::rawLo (r) + P::rawHi (r));
-                }
-                std::vector<float> ru, rd;
-                ScopeView::bandEdgesOf (wave, 48000.0, ru, rd);
-                float worst = 0.0f; int worstAt = 0;
-                for (int i = a0; i < a1; ++i)
-                {
-                    const auto e = z.recv.scopeEnvRaw[P::postSum][(size_t) i].load();
-                    const float d = juce::jmax (std::abs (P::rawHi (e) - ru[(size_t) i]), std::abs (P::rawLo (e) - rd[(size_t) i]));
-                    if (d > worst) { worst = d; worstAt = i; }
-                }
-                // (La pantalla arranca de cero 150 ms antes; el audio viene de antes: el grave
-                // puede diferir un poco. El del audio es el más exacto.)
-                check (worst < 0.03f, "Bandas: el borde guardado por el audio = el que recalcularía la pantalla (<3%)", worst);
-
-                std::unique_ptr<juce::AudioProcessorEditor> ed (z.recv.createEditor());
-                auto& sc = panelOf (ed)->getScopeForTests();
-                sc.setFrozen (true);
-                const int playSlot = (int) ((long long) z.recv.scopeCurrentBin.load() * slots / P::scopeBins);
-                int stored = 0, missingNearHead = 0;
-                for (int i = a0; i < a1; ++i) stored += sc.envCopyForTests (P::postSum, i) != ScopeView::noEnvForTests() ? 1 : 0;
-                for (int i = playSlot - 1000; i < playSlot - 10; ++i) missingNearHead += sc.envCopyForTests (P::postSum, i) == ScopeView::noEnvForTests() ? 1 : 0;
-                check (stored == a1 - a0 && missingNearHead > 900,
-                       "Zoom: usa el borde guardado; solo falta lo recién tocado (lo recalcula la pantalla)", stored);
-                z.recv.setPlayHead (nullptr); z.send.setPlayHead (nullptr);
-            }
-            Chain off (24, -3.0f, 0);
-            off.run (1.0);
-            check (off.recv.scopeTraces[MeteringABProcessor::postSum].envUp[300].load() < 0.0f,
-                   "Bandas: sin osciloscopio a la vista no se calcula (no gasta)", 1);
-        }
-    }
-    {
         // Zoom: el audio guarda la onda muestra a muestra (120 BPM, 1 compás = 2 s = 96000 muestras).
         Chain c (21, -6.0f, 0);
         c.run (1.5);
@@ -1635,33 +1394,10 @@ int main (int argc, char** argv)
         panel->getGainLineButtonForTests().onClick();
         check (! sc.getGainLine().has_value(), "Gain: otro clic la saca", 1);
 
-        // PRE + POST: un solo botón que muestra las dos ondas juntas.
-        auto& cmp = panel->getCompareButtonForTests();
-        setParam (r, ParamIDs::pre, 1); panel->refreshNow();
-        setParam (r, ParamIDs::pre, 0); panel->refreshNow();
-        check (panel->isScopeLinkedForTests() && ! cmp.getToggleState() && ! sc.getShowPre() && sc.getShowPost(),
-               "Sin PRE + POST: sigue a la escucha (solo POST, apagado)", cmp.getToggleState());
-        cmp.onClick();
-        check (panel->isCompareOnForTests() && cmp.getToggleState() && sc.getShowPre() && sc.getShowPost() && ! panel->isScopeLinkedForTests()
-                   && sc.getStylePre() == ScopeView::Style::contour && sc.getStylePost() == ScopeView::Style::lines,
-               "PRE + POST: las dos juntas, PRE en Outline y POST en Lines only", 1);
-        check (cmp.getButtonText() == "Overlay" && cmp.getProperties()["icon"].toString() == "eye"
-                   && panel->getABButtonForTests().getProperties()["icon"].toString() == "speaker",
-               "Overlay: se llama Overlay con un ojo (se ve); la escucha lleva el parlante (suena)", 1);
-        setParam (r, ParamIDs::pre, 1); panel->refreshNow();
-        check (sc.getShowPre() && sc.getShowPost(), "PRE + POST: cambiar la escucha no lo apaga", 1);
-        cmp.onClick();
-        check (! panel->isCompareOnForTests() && panel->isScopeLinkedForTests() && sc.getShowPre() && ! sc.getShowPost(),
-               "PRE + POST apagado: vuelve a seguir la escucha", 1);
-
-        // Overlay ya no tiene clic derecho; el menú (colores, canales y grilla) está en Options.
-        const juce::ModifierKeys right (juce::ModifierKeys::rightButtonModifier);
-        juce::MouseEvent rc (juce::Desktop::getInstance().getMainMouseSource(), { 5.0f, 5.0f }, right, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                             &cmp, &cmp, juce::Time::getCurrentTime(), { 5.0f, 5.0f }, juce::Time::getCurrentTime(), 1, false);
-        cmp.mouseDown (rc); cmp.mouseUp (rc);
-        check (panel->getStyleMenuOpenedForTests() == 0 && ! panel->isCompareOnForTests(), "Overlay: el clic derecho no abre ningún menú", panel->getStyleMenuOpenedForTests());
+        check (panel->getABButtonForTests().getProperties()["icon"].toString() == "speaker",
+               "La escucha lleva el parlante (lo que suena)", 1);
         panel->getOptionsButtonForTests().onClick();
-        check (panel->getStyleMenuOpenedForTests() == 1 && ! panel->isCompareOnForTests() && panel->getOptionsButtonForTests().isVisible(),
+        check (panel->getStyleMenuOpenedForTests() == 1 && panel->getOptionsButtonForTests().isVisible(),
                "Options: abre el menú de canales y grilla", panel->getStyleMenuOpenedForTests());
         std::set<int> ids;
         std::function<void (const juce::PopupMenu&)> walk = [&] (const juce::PopupMenu& m)
@@ -1678,7 +1414,7 @@ int main (int argc, char** argv)
     }
     {
         // Casos raros: muestreos de 22 a 192 kHz, mono, bloques de 1 / impares / enormes,
-        // cambios de tempo y de compás tocando, con el borde por bandas prendido.
+        // cambios de tempo y de compás tocando.
         struct MovingHead : juce::AudioPlayHead
         {
             double ppq = 0.0, bpm = 120.0; int num = 4, den = 4; bool playing = true;
@@ -1702,7 +1438,6 @@ int main (int argc, char** argv)
                     setParam (r, ParamIDs::mode, 1); setParam (r, ParamIDs::link, (float) link);
                     s.setPlayHead (&head); r.setPlayHead (&head);
                     s.prepareToPlay (sr, 512); r.prepareToPlay (sr, 512);
-                    r.scopeBandMask = 63;
                     juce::AudioBuffer<float> buf (chans, block); juce::MidiBuffer m;
                     const int total = (int) (sr * (block == 1 ? 0.4 : 2.5));
                     double phase = 0.0;
@@ -1726,7 +1461,7 @@ int main (int argc, char** argv)
                     bool any = false;
                     for (int b = 0; b < MeteringABProcessor::scopeBins; ++b)
                     {
-                        const float u = r.scopeTraces[1].envUp[(size_t) b].load();
+                        const float u = r.scopeTraces[1].max[(size_t) b].load();
                         allFinite = allFinite && std::isfinite (u);
                         any = any || u > 0.1f;
                     }
@@ -1734,7 +1469,7 @@ int main (int argc, char** argv)
                     s.setPlayHead (nullptr); r.setPlayHead (nullptr);
                     ++cases;
                 }
-        check (allFinite && envSeen, "Casos raros (22-192 kHz, mono, bloques 1-6000, tempo/compás/stop): sin NaN y con borde", cases);
+        check (allFinite && envSeen, "Casos raros (22-192 kHz, mono, bloques 1-6000, tempo/compás/stop): sin NaN y dibuja", cases);
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;
