@@ -569,13 +569,13 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     gainLineButton.setToggleState (gainLineOn, juce::dontSendNotification);
     addAndMakeVisible (gainLineButton);
 
-    // Scope: abrir / cerrar el osciloscopio. El plugin siempre se abre con el
-    // osciloscopio cerrado (solo la columna gris).
+    // Scope: abrir / cerrar el osciloscopio. Un plugin nuevo arranca cerrado (solo
+    // la columna gris); después se abre como lo dejaste (se guarda con el proyecto).
     scopeToggleButton.getProperties().set ("kind", "scopetoggle");
     scopeToggleButton.setClickingTogglesState (false);
     scopeToggleButton.onClick = [this] { setScopeOpen (! scopeOpen); };
     addAndMakeVisible (scopeToggleButton);
-    scopeOpen = scopeOpenOnStart;
+    scopeOpen = (bool) apvts.state.getProperty ("scopeOpenNow", scopeOpenOnStart);
 
     zoomBox.getProperties().set ("kind", "chip");
 
@@ -762,6 +762,7 @@ void MeteringABPanel::pickCustomColour (bool forPre)
 void MeteringABPanel::setScopeOpen (bool open)
 {
     scopeOpen = open;
+    processor.apvts.state.setProperty ("scopeOpenNow", open, nullptr);
     updateScopeSection();
 }
 
