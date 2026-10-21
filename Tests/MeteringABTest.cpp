@@ -345,6 +345,23 @@ int main (int argc, char** argv)
                 juce::File zf (juce::String (argv[1]) + "/audio-detallado" + (z == 0 ? "-zoom8.png" : z == 1 ? "-zoom40.png" : "-zoommax.png"));
                 zf.deleteFile(); juce::FileOutputStream zos (zf); juce::PNGImageFormat().writeImageToStream (zimg, zos);
             }
+            {
+                // Con zoom y el mouse sobre "Show all" (manito, subrayado).
+                sc.setView (zooms[0][0], zooms[0][1]);
+                (void) sc.createComponentSnapshot (sc.getLocalBounds(), true, 1.0f);
+                const auto pl = sc.plotArea();
+                for (float x = pl.getX() + 8.0f; x < pl.getX() + 300.0f; x += 2.0f)
+                    if (sc.isShowAllAt ({ x, pl.getBottom() - 16.0f }))
+                    {
+                        const juce::Point<float> p { x + 20.0f, pl.getBottom() - 16.0f };
+                        sc.mouseMove (juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), p, {}, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                                        &sc, &sc, juce::Time::getCurrentTime(), p, juce::Time::getCurrentTime(), 0, false));
+                        break;
+                    }
+                auto himg = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
+                juce::File hf (juce::String (argv[1]) + "/audio-showall-hover.png");
+                hf.deleteFile(); juce::FileOutputStream hos (hf); juce::PNGImageFormat().writeImageToStream (himg, hos);
+            }
             {                                           // regla de nivel: línea fija en -6 dB y el mouse en -14 dB
                 sc.resetZoom();
                 sc.setMarkerDb (-6.0f);
@@ -1336,8 +1353,20 @@ int main (int argc, char** argv)
             juce::Point<float> showAll { 0, 0 };
             for (float x = pl.getX() + 8.0f; x < pl.getX() + 300.0f && showAll.x == 0; x += 2.0f)
                 if (sc.isShowAllAt ({ x, pl.getBottom() - 16.0f })) showAll = { x + 4.0f, pl.getBottom() - 16.0f };
+            {
+                // Con el mouse encima: manito de clic (se entiende que se puede clickear).
+                sc.mouseMove (mouse (showAll.x).withNewPosition (showAll));
+                const bool hand = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                const bool noRuler = ! sc.isHoverLineShownForTests();
+                const juce::Point<float> mid { pl.getCentreX(), pl.getCentreY() - 40.0f };
+                sc.mouseMove (mouse (mid.x).withNewPosition (mid));
+                const bool dragHand = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::DraggingHandCursor);
+                check (hand && noRuler && dragHand, "Show all: con el mouse encima, manito de clic (y sin la regla)", hand);
+                sc.mouseMove (mouse (showAll.x).withNewPosition (showAll));
+            }
             sc.mouseDown (mouse (showAll.x).withNewPosition (showAll)); sc.mouseUp (mouse (showAll.x).withNewPosition (showAll));
             check (! sc.isZoomed(), "Show all: vuelve a ver todo", sc.getViewSpan());
+            check (sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor), "Show all: después vuelve la flecha", 1);
         }
 
         {

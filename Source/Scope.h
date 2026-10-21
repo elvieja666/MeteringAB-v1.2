@@ -84,8 +84,17 @@ public:
     {
         viewSpan = juce::jlimit (minViewSpan(), 1.0, span);
         viewStart = juce::jlimit (0.0, 1.0 - viewSpan, start);
-        setMouseCursor (isZoomed() ? juce::MouseCursor::DraggingHandCursor : juce::MouseCursor::NormalCursor);
+        updateCursor();
         repaint();
+    }
+
+    // Puntero: manito de clic sobre "Show all"; mano para arrastrar con zoom; flecha sin zoom.
+    bool isOverShowAll() const { return isZoomed() && zoomLabelArea.contains (hoverPoint); }
+    void updateCursor()
+    {
+        setMouseCursor (isOverShowAll() ? juce::MouseCursor::PointingHandCursor
+                        : isZoomed()    ? juce::MouseCursor::DraggingHandCursor
+                                        : juce::MouseCursor::NormalCursor);
     }
 
     // Zoom (factor > 1 acerca) dejando quieto el punto que está bajo el mouse.
@@ -135,12 +144,16 @@ public:
     {
         hoverY = plotArea().contains (e.position) ? e.position.y : -1.0f;
         hoverX = e.position.x;
+        hoverPoint = e.position;
+        updateCursor();
         repaint();
     }
 
     void mouseExit (const juce::MouseEvent&) override
     {
         hoverY = -1.0f;
+        hoverPoint = { -1.0f, -1.0f };
+        updateCursor();
         repaint();
     }
 
@@ -218,7 +231,7 @@ public:
     bool isHoverLineShownForTests() const
     {
         const auto plot = plotArea();
-        return hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY) && ! isOnMarkerTag();
+        return hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY) && ! isOnMarkerTag() && ! isOverShowAll();
     }
     juce::Rectangle<float> getMarkerTagAreaForTests() const { return markerTagArea(); }
 
@@ -401,9 +414,16 @@ public:
             g.setColour (juce::Colour (0xffe8e6e3).withAlpha (0.75f));
             g.drawText (text, area.toNearestInt(), juce::Justification::centredLeft);
             const float w = juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), text);
-            zoomLabelArea = area.withTrimmedLeft (w).withWidth (70.0f);
-            g.setColour (Theme::accentBright);
-            g.drawText ("Show all", zoomLabelArea.toNearestInt(), juce::Justification::centredLeft);   // clic: ver todo
+            // "Show all": se puede clickear (manito); con el mouse encima, más claro y subrayado.
+            const juce::String showAll ("Show all");
+            const float sw = juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), showAll);
+            zoomLabelArea = area.withTrimmedLeft (w).withWidth (sw + 2.0f).expanded (4.0f, 4.0f);
+            const bool hot = zoomLabelArea.contains (hoverPoint);
+            const auto textArea = area.withTrimmedLeft (w).withWidth (sw + 4.0f);
+            g.setColour (hot ? Theme::accentBright.brighter (0.4f) : Theme::accentBright);
+            g.drawText (showAll, textArea.toNearestInt(), juce::Justification::centredLeft);   // clic: ver todo
+            if (hot)
+                g.fillRect (textArea.getX(), textArea.getCentreY() + 7.0f, sw, 1.0f);
         }
 
         if (frozen)
@@ -600,7 +620,7 @@ private:
                 tag (ys.front(), dbText (*markerDb), markerColour, juce::Colour (0xff0b0c0e));
         }
 
-        if (hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY) && ! isOnMarkerTag())
+        if (hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY) && ! isOnMarkerTag() && ! isOverShowAll())
         {
             const float db = dbAtY (hoverY);
             g.setColour (juce::Colours::white.withAlpha (0.45f));
@@ -889,6 +909,7 @@ private:
     std::optional<float> gainLineDb;                    // línea de la ganancia aplicada
     static inline const juce::Colour gainColour { 0xffeceef1 };   // blanco
     juce::Rectangle<float> zoomLabelArea;               // "Show all" (con zoom)
+    juce::Point<float> hoverPoint { -1.0f, -1.0f };     // dónde está el mouse (para "Show all")
     Channels channels = Channels::sum;
     Flags showPreAt {};
     juce::Colour preColour { palettes[0].pre }, postColour { palettes[0].post };
