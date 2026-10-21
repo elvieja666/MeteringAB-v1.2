@@ -5,6 +5,7 @@
 #include "PluginProcessor.h"
 #include "Text.h"
 #include "Theme.h"
+#include "ClosedHandCursor.h"
 
 // ---------------------------------------------------------------------------
 //  Osciloscopio sincronizado al tempo del proyecto.
@@ -88,14 +89,19 @@ public:
         repaint();
     }
 
-    // Puntero: manito de clic sobre "Show all"; mano para arrastrar con zoom; flecha sin zoom.
+    // Puntero: manito de clic sobre "Show all"; con zoom, mano abierta para arrastrar
+    // (cerrada mientras agarrás); sin zoom, la flecha.
     bool isOverShowAll() const { return isZoomed() && zoomLabelArea.contains (hoverPoint); }
     void updateCursor()
     {
-        setMouseCursor (isOverShowAll() ? juce::MouseCursor::PointingHandCursor
-                        : isZoomed()    ? juce::MouseCursor::DraggingHandCursor
-                                        : juce::MouseCursor::NormalCursor);
+        if (grabbing && isZoomed())
+            setMouseCursor (closedHandCursor());
+        else
+            setMouseCursor (isOverShowAll() ? juce::MouseCursor::PointingHandCursor
+                            : isZoomed()    ? juce::MouseCursor::DraggingHandCursor
+                                            : juce::MouseCursor::NormalCursor);
     }
+    bool isGrabbingForTests() const { return grabbing; }
 
     // Zoom (factor > 1 acerca) dejando quieto el punto que está bajo el mouse.
     void zoomAt (float x, double factor)
@@ -162,6 +168,9 @@ public:
         dragStartView = viewStart;
         dragStartX = e.position.x;
         dragged = false;
+        hoverPoint = e.position;
+        grabbing = isZoomed() && ! isOverShowAll() && ! e.mods.isPopupMenu();   // agarrar: mano cerrada
+        updateCursor();
     }
 
     void mouseDrag (const juce::MouseEvent& e) override
@@ -175,6 +184,12 @@ public:
 
     void mouseUp (const juce::MouseEvent& e) override
     {
+        if (grabbing)
+        {
+            grabbing = false;                               // soltar: vuelve la mano abierta
+            hoverPoint = e.position;
+            updateCursor();
+        }
         if (dragged || e.getNumberOfClicks() > 1 || e.mods.isPopupMenu())
             return;
 
@@ -910,6 +925,7 @@ private:
     static inline const juce::Colour gainColour { 0xffeceef1 };   // blanco
     juce::Rectangle<float> zoomLabelArea;               // "Show all" (con zoom)
     juce::Point<float> hoverPoint { -1.0f, -1.0f };     // dónde está el mouse (para "Show all")
+    bool grabbing = false;                              // apretado con zoom (mano cerrada)
     Channels channels = Channels::sum;
     Flags showPreAt {};
     juce::Colour preColour { palettes[0].pre }, postColour { palettes[0].post };

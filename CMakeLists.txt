@@ -48,6 +48,9 @@ set_target_properties(MeteringABFonts PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 target_sources(MeteringAB PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp)
+if(APPLE)
+    target_sources(MeteringAB PRIVATE Source/ClosedHandCursor.mm)   # mano cerrada al arrastrar
+endif()
 
 target_include_directories(MeteringAB PRIVATE Source)
 
@@ -76,6 +79,9 @@ if(METERINGAB_TESTS)
         Tests/MeteringABTest.cpp
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp)
+    if(APPLE)
+        target_sources(MeteringABTests PRIVATE Source/ClosedHandCursor.mm)
+    endif()
     target_include_directories(MeteringABTests PRIVATE Source)
     target_compile_definitions(MeteringABTests PRIVATE
         JucePlugin_Name="Metering A/B" JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)

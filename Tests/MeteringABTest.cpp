@@ -1338,6 +1338,7 @@ int main (int argc, char** argv)
         sc.mouseDown (mouse (300.0f));
         sc.mouseDrag (mouse (200.0f));                                     // arrastrar a la izquierda = ir hacia adelante
         check (sc.getViewStart() > before, "Arrastrar: se mueve por el loop", sc.getViewStart() - before);
+        sc.mouseUp (mouse (200.0f));
 
         sc.mouseMagnify (mouse (mx), 1000.0f);
         check (sc.getViewSpan() * slots >= 47.0 && sc.getViewSpan() * slots < 60.0, "Zoom máximo: ~48 muestras a lo ancho", sc.getViewSpan() * slots);
@@ -1362,6 +1363,17 @@ int main (int argc, char** argv)
                 sc.mouseMove (mouse (mid.x).withNewPosition (mid));
                 const bool dragHand = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::DraggingHandCursor);
                 check (hand && noRuler && dragHand, "Show all: con el mouse encima, manito de clic (y sin la regla)", hand);
+                // Agarrar para moverse: mano cerrada mientras está apretado; al soltar, abierta.
+                sc.mouseDown (mouse (mid.x).withNewPosition (mid));
+                const bool closedOnPress = sc.isGrabbingForTests() && sc.getMouseCursor() == closedHandCursor();
+                const juce::Point<float> moved { mid.x - 60.0f, mid.y };
+                sc.mouseDrag (mouse (moved.x).withNewPosition (moved));
+                const bool closedWhileDragging = sc.getMouseCursor() == closedHandCursor();
+                sc.mouseUp (mouse (moved.x).withNewPosition (moved));
+                const bool openAfter = ! sc.isGrabbingForTests()
+                                       && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::DraggingHandCursor);
+                check (closedOnPress && closedWhileDragging && openAfter,
+                       "Zoom: al agarrar y arrastrar, mano cerrada; al soltar, mano abierta", closedOnPress * 100 + closedWhileDragging * 10 + openAfter);
                 sc.mouseMove (mouse (showAll.x).withNewPosition (showAll));
             }
             sc.mouseDown (mouse (showAll.x).withNewPosition (showAll)); sc.mouseUp (mouse (showAll.x).withNewPosition (showAll));
