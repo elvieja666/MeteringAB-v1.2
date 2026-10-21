@@ -1388,7 +1388,15 @@ int main (int argc, char** argv)
                 sc.mouseDown (mouse (showAll.x).withNewPosition (showAll));
                 const bool fingerOnShowAll = ! sc.isGrabbingForTests()
                                              && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                sc.mouseUp (mouse (showAll.x).withNewPosition (showAll));            // Show all: sin zoom
+                sc.setMarkerDb (-6.0f);
+                const auto tag2 = sc.getMarkerTagAreaForTests().getCentre();
+                sc.mouseMove (mouse (tag2.x).withNewPosition (tag2));
+                const bool arrowWithoutZoom = ! sc.isZoomed() && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
+                check (arrowWithoutZoom, "Sin zoom: siempre la flecha (también sobre la cajita de la regla)", arrowWithoutZoom);
                 sc.setMarkerDb (std::nullopt);
+                sc.setView (0.3, 0.1);
+                (void) sc.createComponentSnapshot (sc.getLocalBounds());
                 check (fingerOver && fingerPressed && fingerOnShowAll,
                        "Zoom: el dedo sobre Show all y la cajita de la regla (al pasar y al apretar)", fingerOver * 100 + fingerPressed * 10 + fingerOnShowAll);
                 sc.mouseMove (mouse (showAll.x).withNewPosition (showAll));

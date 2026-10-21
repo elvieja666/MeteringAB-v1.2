@@ -90,11 +90,11 @@ public:
         repaint();
     }
 
-    // Puntero: el dedo sobre lo que se clickea ("Show all" y la cajita con el valor de la
-    // regla), al pasar y al clickear; con zoom, mano abierta para arrastrar (cerrada
-    // mientras está apretado); sin zoom, la flecha.
+    // Puntero, solo con zoom: el dedo sobre lo que se clickea ("Show all" y la cajita con
+    // el valor de la regla), al pasar y al clickear; mano abierta para arrastrar (cerrada
+    // mientras está apretado). Sin zoom, siempre la flecha.
     bool isOverShowAll() const { return isZoomed() && zoomLabelArea.contains (hoverPoint); }
-    bool isOverClickable() const { return isOverShowAll() || isOnMarkerTag(); }
+    bool isOverClickable() const { return isZoomed() && (isOverShowAll() || isOnMarkerTag()); }   // solo con zoom
     void updateCursor()
     {
         if (grabbing && isZoomed())
