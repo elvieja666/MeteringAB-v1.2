@@ -1374,6 +1374,23 @@ int main (int argc, char** argv)
                                        && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::DraggingHandCursor);
                 check (closedOnPress && closedWhileDragging && openAfter,
                        "Zoom: al agarrar y arrastrar, mano cerrada; al soltar, mano abierta", closedOnPress * 100 + closedWhileDragging * 10 + openAfter);
+                // Sobre la cajita de la regla: el dedo, al pasar y al clickear (no la mano cerrada).
+                sc.setMarkerDb (-6.0f);
+                const auto tag = sc.getMarkerTagAreaForTests().getCentre();
+                sc.mouseMove (mouse (tag.x).withNewPosition (tag));
+                const bool fingerOver = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                sc.mouseDown (mouse (tag.x).withNewPosition (tag));
+                const bool fingerPressed = ! sc.isGrabbingForTests()
+                                           && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                sc.mouseUp (mouse (tag.x).withNewPosition (tag));
+                // Sobre "Show all", también al clickear (apretado).
+                sc.mouseMove (mouse (showAll.x).withNewPosition (showAll));
+                sc.mouseDown (mouse (showAll.x).withNewPosition (showAll));
+                const bool fingerOnShowAll = ! sc.isGrabbingForTests()
+                                             && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                sc.setMarkerDb (std::nullopt);
+                check (fingerOver && fingerPressed && fingerOnShowAll,
+                       "Zoom: el dedo sobre Show all y la cajita de la regla (al pasar y al apretar)", fingerOver * 100 + fingerPressed * 10 + fingerOnShowAll);
                 sc.mouseMove (mouse (showAll.x).withNewPosition (showAll));
             }
             sc.mouseDown (mouse (showAll.x).withNewPosition (showAll)); sc.mouseUp (mouse (showAll.x).withNewPosition (showAll));

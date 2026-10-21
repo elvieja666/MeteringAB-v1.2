@@ -90,17 +90,19 @@ public:
         repaint();
     }
 
-    // Puntero: manito de clic sobre "Show all"; con zoom, mano abierta para arrastrar
-    // (cerrada mientras agarrás); sin zoom, la flecha.
+    // Puntero: el dedo sobre lo que se clickea ("Show all" y la cajita con el valor de la
+    // regla), al pasar y al clickear; con zoom, mano abierta para arrastrar (cerrada
+    // mientras está apretado); sin zoom, la flecha.
     bool isOverShowAll() const { return isZoomed() && zoomLabelArea.contains (hoverPoint); }
+    bool isOverClickable() const { return isOverShowAll() || isOnMarkerTag(); }
     void updateCursor()
     {
         if (grabbing && isZoomed())
             setMouseCursor (closedHandCursor());
         else
-            setMouseCursor (isOverShowAll() ? juce::MouseCursor::PointingHandCursor
-                            : isZoomed()    ? juce::MouseCursor::DraggingHandCursor
-                                            : juce::MouseCursor::NormalCursor);
+            setMouseCursor (isOverClickable() ? juce::MouseCursor::PointingHandCursor
+                            : isZoomed()      ? juce::MouseCursor::DraggingHandCursor
+                                              : juce::MouseCursor::NormalCursor);
     }
     bool isGrabbingForTests() const { return grabbing; }
 
@@ -136,6 +138,7 @@ public:
         if (db.has_value())
             db = juce::jlimit (-60.0f, 0.0f, -std::abs (*db));
         markerDb = db;
+        updateCursor();                                 // la cajita apareció o se fue
         repaint();
     }
 
@@ -179,7 +182,9 @@ public:
         dragStartX = e.position.x;
         dragged = false;
         hoverPoint = e.position;
-        grabbing = isZoomed() && ! isOverShowAll() && ! e.mods.isPopupMenu();   // agarrar: mano cerrada
+        hoverX = e.position.x;
+        hoverY = plotArea().contains (e.position) ? e.position.y : -1.0f;
+        grabbing = isZoomed() && ! isOverClickable() && ! e.mods.isPopupMenu();   // agarrar: mano cerrada
         updateCursor();
     }
 
@@ -202,9 +207,11 @@ public:
         if (grabbing)
         {
             grabbing = false;                               // soltar: vuelve la mano abierta
-            hoverPoint = e.position;
-            updateCursor();
         }
+        hoverPoint = e.position;
+        hoverX = e.position.x;
+        hoverY = plotArea().contains (e.position) ? e.position.y : -1.0f;
+        updateCursor();
         if (dragged || e.getNumberOfClicks() > 1 || e.mods.isPopupMenu())
             return;
 
