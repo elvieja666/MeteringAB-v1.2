@@ -81,6 +81,7 @@ struct Chain
     long long sampleCount = 0;
     float lpState[2] = { 0.0f, 0.0f };
 
+    int block = 512;                                           // tamaño de bloque del "host"
     Chain (int link, float gainDb, int latency) : fxLatency (latency), fxGain (juce::Decibels::decibelsToGain (gainDb))
     {
         setParam (send, ParamIDs::mode, 0); setParam (send, ParamIDs::link, (float) link);
@@ -94,12 +95,12 @@ struct Chain
     // Procesa "seconds" de ruido rosado-ish/sinusoide y devuelve el último bloque.
     juce::AudioBuffer<float> run (double seconds, juce::AudioBuffer<float>* lastDry = nullptr)
     {
-        juce::AudioBuffer<float> buf (2, 512), dry (2, 512);
-        const int blocks = (int) (seconds * 48000 / 512);
+        juce::AudioBuffer<float> buf (2, block), dry (2, block);
+        const int blocks = (int) (seconds * 48000 / block);
         size_t w = 0;
         for (int b = 0; b < blocks; ++b)
         {
-            for (int i = 0; i < 512; ++i)
+            for (int i = 0; i < block; ++i)
             {
                 float x = silent ? 0.0f : 0.25f * (float) std::sin (phase) + 0.05f * (rng.nextFloat() * 2 - 1);
                 if (pulsing)   // golpes tipo batería cada 0,5 s
@@ -112,10 +113,10 @@ struct Chain
                 buf.setSample (0, i, x); buf.setSample (1, i, x * 0.8f);
             }
             dry.makeCopyOf (buf);
-            head.ppq = (double) (sampleCount - 512) * 120.0 / 60.0 / 48000.0;
+            head.ppq = (double) (sampleCount - block) * 120.0 / 60.0 / 48000.0;
             send.processBlock (buf, midi);
             // "Efecto": ganancia + latencia
-            for (int i = 0; i < 512; ++i)
+            for (int i = 0; i < block; ++i)
                 for (int ch = 0; ch < 2; ++ch)
                 {
                     auto& d = ch == 0 ? fxDelayL : fxDelayR;
@@ -131,7 +132,7 @@ struct Chain
                     if (saturate) y = std::tanh (3.0f * y) / 3.0f * 2.0f;                      // saturador que aplasta picos
                     buf.setSample (ch, i, y);
                 }
-            fxWrite = (fxWrite + 512) % fxDelayL.size();
+            fxWrite = (fxWrite + block) % fxDelayL.size();
             recv.processBlock (buf, midi);
             if (lastDry) lastDry->makeCopyOf (dry);
         }
@@ -831,6 +832,25 @@ int main (int argc, char** argv)
                "Formas fijas: PRE Outline y POST Lines only (aunque el proyecto tuviera otras)", 1);
     }
     {
+        // Al dar play de nuevo el detalle de muestra ya no se borra en el audio (era pesado):
+        // la pantalla muestra vacío lo que todavía no se volvió a dibujar.
+        Chain c (31, -3.0f, 0);
+        c.run (2.5);                                            // 1 compás a 120 = 2 s: todo dibujado
+        const int slots = c.recv.scopeRawSlots.load();
+        const int late = slots * 3 / 4;                         // a los 3/4 del compás
+        const bool hadData = c.recv.scopeRaw[1][(size_t) late].load() != 0u;
+        c.head.playing = false; c.run (0.3);
+        c.head.playing = true; c.sampleCount = 0; c.run (0.2);   // play desde el principio
+        std::unique_ptr<juce::AudioProcessorEditor> ed (c.recv.createEditor());
+        auto& sc = panelOf (ed)->getScopeForTests();
+        sc.setFrozen (true);
+        const bool stillInProcessor = c.recv.scopeRaw[1][(size_t) late].load() != 0u;
+        const bool earlyShown = sc.rawCopyForTests (1, slots / 40) != 0u;
+        check (hadData && stillInProcessor && sc.rawCopyForTests (1, late) == 0u && earlyShown,
+               "Play de nuevo: lo no redibujado se ve vacío (sin borrar 3 M valores en el audio)", late);
+        c.recv.setPlayHead (nullptr); c.send.setPlayHead (nullptr);
+    }
+    {
         // Ya no hay forma aparte para LINK: cada onda usa la suya.
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         a.apvts.state.setProperty ("scopeStylePre", 0, nullptr);
@@ -1088,6 +1108,13 @@ int main (int argc, char** argv)
         c.run (0.3); c.recv.startLatencyMeasurement(); c.run (3.5); c.recv.processPendingConversion();
         const double got = c.recv.apvts.getRawParameterValue (ParamIDs::latency)->load();
         check (std::abs (got - 777.0) < 0.01, "Medir en la cadena: 777 -> 777 (muestras)", got);
+
+        // Bloques más grandes de lo avisado (8192 > 4096): antes la medición se trababa.
+        Chain big (12, -3.0f, 777);
+        big.block = 8192;
+        big.run (0.5); big.recv.startLatencyMeasurement(); big.run (4.0); big.recv.processPendingConversion();
+        check (big.recv.latencyMeasurer.getState() == State::done && std::abs (plain (big.recv, ParamIDs::latency) - 777.0f) < 0.01f,
+               "Medir con bloques de 8192 muestras: 777 -> 777", plain (big.recv, ParamIDs::latency));
     }
 
     {
@@ -1478,6 +1505,9 @@ int main (int argc, char** argv)
             sc.showMarkerEditor();
             sc.typeMarkerForTests ("-12.5");
             check (sc.getMarkerDb().has_value() && std::abs (*sc.getMarkerDb() + 12.5f) < 0.01f, "Regla: doble clic y escribir -12.5 dB", sc.getMarkerDb().value_or (0));
+            sc.showMarkerEditor();
+            sc.typeAndEscapeMarkerForTests ("-20");
+            check (std::abs (*sc.getMarkerDb() + 12.5f) < 0.01f, "Regla: escribir y Escape no cambia el valor", *sc.getMarkerDb());
             sc.setMarkerDb (8.0f);
             check (std::abs (*sc.getMarkerDb() + 8.0f) < 0.01f, "Regla: un valor positivo se toma como negativo", *sc.getMarkerDb());
             {
@@ -1555,6 +1585,66 @@ int main (int argc, char** argv)
         walk (panel->buildStyleMenu());
         check (ids.count (400) && ids.count (500) && ids.count (503) && ! ids.count (700) && ! ids.count (750) && ! ids.count (300),
                "Options: solo canales y grilla (sin colores)", (double) ids.size());
+    }
+    {
+        // Casos raros: muestreos de 22 a 192 kHz, mono, bloques de 1 / impares / enormes,
+        // cambios de tempo y de compás tocando, con el borde por bandas prendido.
+        struct MovingHead : juce::AudioPlayHead
+        {
+            double ppq = 0.0, bpm = 120.0; int num = 4, den = 4; bool playing = true;
+            juce::Optional<PositionInfo> getPosition() const override
+            {
+                PositionInfo p; p.setBpm (bpm); p.setTimeSignature (TimeSignature { num, den }); p.setIsPlaying (playing);
+                p.setPpqPosition (ppq); p.setPpqPositionOfLastBarStart (std::floor (ppq / (num * 4.0 / den)) * (num * 4.0 / den));
+                return p;
+            }
+        };
+        bool allFinite = true, envSeen = true;
+        int cases = 0;
+        for (const double sr : { 22050.0, 44100.0, 96000.0, 192000.0 })
+            for (const int block : { 1, 37, 1000, 6000 })
+                for (const int chans : { 1, 2 })
+                {
+                    const int link = 40 + (cases % 8);
+                    MovingHead head;
+                    MeteringABProcessor s, r;
+                    setParam (s, ParamIDs::mode, 0); setParam (s, ParamIDs::link, (float) link);
+                    setParam (r, ParamIDs::mode, 1); setParam (r, ParamIDs::link, (float) link);
+                    s.setPlayHead (&head); r.setPlayHead (&head);
+                    s.prepareToPlay (sr, 512); r.prepareToPlay (sr, 512);
+                    r.scopeBandMask = 3;
+                    juce::AudioBuffer<float> buf (chans, block); juce::MidiBuffer m;
+                    const int total = (int) (sr * (block == 1 ? 0.4 : 2.5));
+                    double phase = 0.0;
+                    for (int done = 0; done < total; done += block)
+                    {
+                        const double t = done / sr;
+                        head.bpm = t < 1.0 ? 120.0 : 77.0;                    // cambio de tempo
+                        if (t > 1.6) { head.num = 7; head.den = 8; }          // y de compás
+                        head.playing = ! (t > 1.9 && t < 2.1);                // un stop en el medio
+                        for (int ch = 0; ch < chans; ++ch)
+                            for (int i = 0; i < block; ++i)
+                                buf.setSample (ch, i, 0.5f * (float) std::sin (phase + i * 2.0 * juce::MathConstants<double>::pi * 110.0 / sr));
+                        phase += block * 2.0 * juce::MathConstants<double>::pi * 110.0 / sr;
+                        s.processBlock (buf, m);
+                        r.processBlock (buf, m);
+                        for (int ch = 0; ch < chans; ++ch)
+                            for (int i = 0; i < block; ++i)
+                                allFinite = allFinite && std::isfinite (buf.getSample (ch, i));
+                        if (head.playing) head.ppq += block / sr * head.bpm / 60.0;
+                    }
+                    bool any = false;
+                    for (int b = 0; b < MeteringABProcessor::scopeBins; ++b)
+                    {
+                        const float u = r.scopeTraces[1].envUp[(size_t) b].load();
+                        allFinite = allFinite && std::isfinite (u);
+                        any = any || u > 0.1f;
+                    }
+                    envSeen = envSeen && (block == 1 || any);
+                    s.setPlayHead (nullptr); r.setPlayHead (nullptr);
+                    ++cases;
+                }
+        check (allFinite && envSeen, "Casos raros (22-192 kHz, mono, bloques 1-6000, tempo/compás/stop): sin NaN y con borde", cases);
     }
     std::printf ("\n%s (%d fallas)\n", failures == 0 ? "TODO OK" : "HAY FALLAS", failures);
     return failures;

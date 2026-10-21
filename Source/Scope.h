@@ -240,11 +240,31 @@ public:
         if (markerEditor != nullptr) { markerEditor->setText (text); commitMarkerEditor (true); }
     }
 
+    std::uint32_t rawCopyForTests (int source, int slot) const
+    {
+        const auto& r = rawCopy[(size_t) source];
+        return slot >= 0 && slot < (int) r.size() ? r[(size_t) slot] : 0u;
+    }
+
+    // Escribir y apretar Escape (y lo que pasa después: el cuadro pierde el foco).
+    void typeAndEscapeMarkerForTests (const juce::String& text)
+    {
+        if (markerEditor == nullptr) return;
+        auto* ed = markerEditor.get();
+        ed->setText (text);
+        if (ed->onEscapeKey) ed->onEscapeKey();
+        if (ed->onFocusLost) ed->onFocusLost();
+    }
+
     void commitMarkerEditor (bool apply)
     {
         if (markerEditor == nullptr)
             return;
         const auto text = markerEditor->getText();
+        // Al ocultarlo pierde el foco: sin esto, Escape terminaba aplicando lo escrito.
+        markerEditor->onReturnKey = nullptr;
+        markerEditor->onEscapeKey = nullptr;
+        markerEditor->onFocusLost = nullptr;
         juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<ScopeView> (this)]
                                          { if (safe != nullptr) safe->markerEditor.reset(); });
         markerEditor->setVisible (false);
@@ -496,8 +516,15 @@ private:
             return;
         if ((int) dst.size() < MeteringABProcessor::scopeRawCapacity)
             dst.assign ((size_t) MeteringABProcessor::scopeRawCapacity, 0u);
+        // Casilleros de columnas sin datos (recién dado play, o cambió el largo): vacíos.
+        const int slots = juce::jmax (1, rawSlots);
+        constexpr int bins = MeteringABProcessor::scopeBins;
         for (int i = from; i < to; ++i)
-            dst[(size_t) i] = src[(size_t) i].load (std::memory_order_relaxed);
+        {
+            const int bin = juce::jlimit (0, bins - 1, (int) ((long long) i * bins / slots));
+            dst[(size_t) i] = processor.scopeCount[(size_t) bin].load (std::memory_order_relaxed) > 0
+                                  ? src[(size_t) i].load (std::memory_order_relaxed) : 0u;
+        }
     }
 
     // Franja (suma, o L arriba / R abajo) que corresponde a una altura.
@@ -615,7 +642,9 @@ public:
     // Zoom máximo: que se vean al menos ~48 muestras.
     double minViewSpan() const
     {
-        const int slots = juce::jlimit (1, MeteringABProcessor::scopeRawCapacity, processor.scopeRawSlots.load (std::memory_order_relaxed));
+        // Congelado: lo capturado (si cambia el tempo mientras tanto, no el actual).
+        const int live = processor.scopeRawSlots.load (std::memory_order_relaxed);
+        const int slots = juce::jlimit (1, MeteringABProcessor::scopeRawCapacity, frozen ? rawSlots : live);
         return juce::jlimit (1.0e-5, 1.0, 48.0 / (double) slots);
     }
 
@@ -870,15 +899,17 @@ private:
             struct Cache { const void* source = nullptr; int s0 = -1, s1 = -1; double rate = 0.0; std::uint64_t sum = 0; std::vector<float> up, down; };
             static Cache caches[4];
             std::uint64_t sum = 1469598103934665603ull;
-            for (size_t i = 0; i < samples.size(); i += juce::jmax ((size_t) 1, samples.size() / 512))
-                sum = (sum ^ (std::uint64_t) (std::uint32_t) juce::roundToInt (samples[i] * 1.0e6f)) * 1099511628211ull;
+            // Todas las muestras (antes sólo 1 de cada n/512: tocando, quedaba viejo).
+            for (int i = s0; i < s1; ++i)
+                sum = (sum ^ (std::uint64_t) (*raw)[(size_t) i]) * 1099511628211ull;
             Cache* cache = nullptr;
             for (auto& c : caches)
                 if (c.source == raw && c.s0 == s0 && c.s1 == s1 && juce::exactlyEqual (c.rate, rate) && c.sum == sum) { cache = &c; break; }
             if (cache == nullptr)
             {
-                cache = &caches[0];
+                static int nextSlot = 0;
                 for (auto& c : caches) if (c.source == raw || c.source == nullptr) { cache = &c; break; }
+                if (cache == nullptr) { cache = &caches[nextSlot]; nextSlot = (nextSlot + 1) % 4; }
                 cache->source = raw; cache->s0 = s0; cache->s1 = s1; cache->rate = rate; cache->sum = sum;
                 bandEdgesOf (samples, rate, cache->up, cache->down);
             }

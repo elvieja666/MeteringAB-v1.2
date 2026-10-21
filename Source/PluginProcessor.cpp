@@ -272,7 +272,7 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     for (auto& b : bandEnvelopes)                    // borde por bandas (Outline / Lines only)
         b.prepare (sampleRate);
-    bandBinHistory.assign ((size_t) bandEnvelopes[0].getLatency() + 1, -1);
+    bandBinHistory.assign ((size_t) bandEnvelopes[0].getLatency(), -1);   // exacto: el borde llega con ese atraso
     bandBinPos = 0;
     activeBandMask = 0;
     for (auto& trace : scopeTraces)
@@ -470,11 +470,13 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     const auto start = end - n - latency;
 
     // Medición de latencia: graba el original SIN compensar y lo procesado.
-    if (latencyMeasurer.isMeasuring() && (int) dryMono.size() >= n)
+    // (De a tramos: con un bloque más grande de lo esperado la medición antes se trababa.)
+    for (int done = 0; latencyMeasurer.isMeasuring() && ! dryMono.empty() && done < n;)
     {
-        const auto rawStart = end - n;
+        const int chunk = juce::jmin (n - done, (int) dryMono.size());
+        const auto rawStart = end - n + done;
 
-        for (int i = 0; i < n; ++i)
+        for (int i = 0; i < chunk; ++i)
         {
             const auto pos = rawStart + i;
             float d = 0.0f, p = 0.0f;
@@ -482,15 +484,19 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
             for (int ch = 0; ch < numCh; ++ch)
             {
                 d += pos >= 0 ? slot.ring[(size_t) ch][(size_t) (pos & LinkSlot::ringMask)] : 0.0f;
-                p += buffer.getSample (ch, i);
+                p += buffer.getSample (ch, done + i);
             }
 
             dryMono[(size_t) i]  = d / (float) numCh;
             postMono[(size_t) i] = p / (float) numCh;
         }
 
-        if (latencyMeasurer.push (dryMono.data(), postMono.data(), n))
+        done += chunk;
+        if (latencyMeasurer.push (dryMono.data(), postMono.data(), chunk))
+        {
             triggerAsyncUpdate();                       // el cálculo se hace fuera del audio
+            break;
+        }
     }
 
     for (int ch = 0; ch < numCh; ++ch)
@@ -623,7 +629,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
 
         // Borde por bandas: llega atrasado (getLatency), así que va a la columna de
         // la muestra de hace ese tiempo.
-        int envBin = -1;
+        int envBin = bin;
         if (! bandBinHistory.empty())
         {
             envBin = bandBinHistory[(size_t) bandBinPos];
@@ -631,13 +637,15 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
             bandBinPos = (bandBinPos + 1) % (int) bandBinHistory.size();
         }
         const bool newEnvBin = envBin >= 0 && envBin != lastEnvBin;
+        // En pausa no se calcula (CPU), salvo para terminar de escribir lo que venía atrasado.
+        const bool bandsBusy = drawing || envBin >= 0;
 
         for (int t = 0; t < numScopeTraces; ++t)
         {
             auto& trace = scopeTraces[(size_t) t];
             const float v = values[t];
 
-            if (((t < 2 ? 1 : 2) & activeBandMask) != 0)
+            if (bandsBusy && ((t < 2 ? 1 : 2) & activeBandMask) != 0)
             {
                 float up = 0.0f, down = 0.0f;
                 bandEnvelopes[(size_t) t].process (v, up, down);
@@ -780,15 +788,13 @@ void MeteringABProcessor::clearScope()
     lastRawSlot = -1;
     lastEnvBin = -1;
     std::fill (bandBinHistory.begin(), bandBinHistory.end(), -1);
-    for (auto& b : bandEnvelopes)
-        b.reset();
+    for (int t = 0; t < numScopeTraces; ++t)           // solo las prendidas (las otras se limpian al prender)
+        if (((t < 2 ? 1 : 2) & activeBandMask) != 0)
+            bandEnvelopes[(size_t) t].reset();
 
-    const int rawInUse = juce::jlimit (1, scopeRawCapacity, scopeRawSlots.load (std::memory_order_relaxed));
-    for (auto& raw : scopeRaw)                         // solo los casilleros en uso (rápido)
-        if (raw != nullptr)
-            for (int i = 0; i < rawInUse; ++i)
-                raw[(size_t) i].store (0, std::memory_order_relaxed);
-
+    // El detalle de muestra (zoom) NO se borra acá: eran hasta 3 millones de valores en
+    // el audio, en cada play. La pantalla ignora los casilleros de columnas sin datos
+    // (scopeCount == 0), que es lo mismo que borrarlos.
 }
 
 // Dónde arranca el bloque dentro del loop del osciloscopio (en negras).

@@ -48,7 +48,8 @@ public:
         }
 
         meanSquare = 0.0;
-        std::fill (bins.begin(), bins.end(), 0.0);
+        // Solo lo usado (en pausa se llama en cada bloque: llenar los ~45000 era un gasto).
+        std::fill (bins.begin(), bins.begin() + juce::jmin ((int) bins.size(), binsFilled), 0.0);
         binAccumulator = 0.0;
         binFill = 0;
         binWrite = 0;
