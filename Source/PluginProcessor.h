@@ -110,7 +110,7 @@ public:
     // positivos; -1 = no calculado, por ejemplo con el osciloscopio cerrado).
     struct ScopeTrace { std::array<std::atomic<float>, scopeBins> min, max, sq, envUp, envDown; };
     // Borde por bandas (Outline / Lines only): solo de lo que se ve. La interfaz dice
-    // qué ondas: bit 0 = sumas (PRE y POST), bit 1 = L y R (L only, R only, split).
+    // qué ondas: un bit por traza (1 << preSum, 1 << postSum, ...).
     std::atomic<int> scopeBandMask { 0 };
 
     enum ScopeTraceIndex { preSum = 0, postSum, preLeft, postLeft, preRight, postRight, numScopeTraces };
@@ -137,6 +137,14 @@ public:
     static float rawHi (std::uint32_t p) { return (float) (std::int16_t) (std::uint16_t) (p >> 16) / 32767.0f; }
     std::array<std::unique_ptr<std::atomic<std::uint32_t>[]>, 6> scopeRaw;   // una por traza (mismo orden)
     std::atomic<int> scopeRawSlots { 1 };             // casilleros en uso (según tempo y largo)
+
+    // El borde por bandas también con detalle de muestra (para el zoom: así la pantalla
+    // no lo recalcula). Mismo casillero que scopeRaw: packRaw (abajo, arriba), positivos.
+    // Es válido en una columna si scopeEnvGen == scopeGen (calculado en esta pasada) y,
+    // en la columna que se está escribiendo, hasta scopeEnvSlot.
+    std::array<std::unique_ptr<std::atomic<std::uint32_t>[]>, 6> scopeEnvRaw;
+    std::array<std::atomic<std::uint32_t>, scopeBins> scopeGen, scopeEnvGen;
+    std::atomic<int> scopeEnvBin { -1 }, scopeEnvSlot { -1 };
 
     // Atajos a la suma L+R (los usan las pruebas).
     std::array<std::atomic<float>, scopeBins>& scopePreMin  = scopeTraces[preSum].min;
@@ -192,8 +200,11 @@ private:
     // Borde por bandas (Outline / Lines only): qué ondas calcular (lo dice la interfaz).
     std::array<BandEnvelope, numScopeTraces> bandEnvelopes;
     int activeBandMask = 0;
-    std::vector<int> bandBinHistory;                  // la columna de cada muestra (para el atraso de las bandas)
-    int bandBinPos = 0, lastEnvBin = -1;
+    // Columna, casillero y pasada de cada muestra (para el atraso de las bandas).
+    struct EnvSpot { int bin = -1, slot = -1; std::uint32_t gen = 0; };
+    std::vector<EnvSpot> bandHistory;
+    int bandBinPos = 0, lastEnvBin = -1, lastEnvSlot = -1;
+    std::uint32_t scopeGenCounter = 0;
     bool   scopeWasPlaying = false;                   // para detectar cuándo se da play
     bool   scopeGateOpen = true;                      // false solo durante el tramo previo al play
     double scopeLastBlockPpq = 0.0;                   // para detectar saltos hacia atrás (ciclo)

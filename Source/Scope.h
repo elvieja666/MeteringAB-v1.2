@@ -62,6 +62,33 @@ public:
 
     // LINK: cada columna muestra la onda que sonaba cuando se dibujó.
     void setLinked (bool shouldLink)           { linked = shouldLink; repaint(); }
+
+    // Qué ondas del audio necesitan el borde por bandas (un bit por traza del procesador):
+    // solo las que se ven dibujadas en Outline / Lines only (no las de Detallado).
+    int bandTracesNeeded() const
+    {
+        using P = MeteringABProcessor;
+        const bool followListen = linked && showPre != showPost;
+        const auto preStyle  = followListen ? linkStyle.value_or (stylePre)  : stylePre;
+        const auto postStyle = followListen ? linkStyle.value_or (stylePost) : stylePost;
+        const bool pre  = showPre  && preStyle  != Style::detailed;
+        const bool post = showPost && postStyle != Style::detailed;
+
+        int mask = 0;
+        auto add = [&] (int preIndex, int postIndex)
+        {
+            if (pre)  mask |= 1 << preIndex;
+            if (post) mask |= 1 << postIndex;
+        };
+        switch (channels)
+        {
+            case Channels::sum:   add (P::preSum, P::postSum); break;
+            case Channels::left:  add (P::preLeft, P::postLeft); break;
+            case Channels::right: add (P::preRight, P::postRight); break;
+            case Channels::split: add (P::preLeft, P::postLeft); add (P::preRight, P::postRight); break;
+        }
+        return mask;
+    }
     bool getShowGrid() const                   { return showGrid; }
 
     bool isFrozen() const { return frozen; }
@@ -240,6 +267,13 @@ public:
         if (markerEditor != nullptr) { markerEditor->setText (text); commitMarkerEditor (true); }
     }
 
+    std::uint32_t envCopyForTests (int source, int slot) const
+    {
+        const auto& r = envCopy[(size_t) source];
+        return slot >= 0 && slot < (int) r.size() ? r[(size_t) slot] : noEnv;
+    }
+    static constexpr std::uint32_t noEnvForTests() { return noEnv; }
+
     std::uint32_t rawCopyForTests (int source, int slot) const
     {
         const auto& r = rawCopy[(size_t) source];
@@ -343,7 +377,8 @@ public:
 
                 if (style != Style::detailed)                    // Outline / Lines only: Detallado, unido punta a punta
                 {
-                    drawTips (g, area, t, rawUseful ? &raw : nullptr, rawSlots, view, yFor, colour, style == Style::contour, mask, binSecs);
+                    drawTips (g, area, t, rawUseful ? &raw : nullptr, rawUseful ? &envCopy[(size_t) traceSource[(size_t) index]] : nullptr,
+                              rawSlots, view, yFor, colour, style == Style::contour, mask, binSecs);
                     return;
                 }
 
@@ -510,20 +545,39 @@ private:
 
     void copyRaw (int source, int from, int to)
     {
+        using P = MeteringABProcessor;
         const auto& src = processor.scopeRaw[(size_t) source];
+        const auto& srcEnv = processor.scopeEnvRaw[(size_t) source];
         auto& dst = rawCopy[(size_t) source];
-        if (src == nullptr)
+        auto& dstEnv = envCopy[(size_t) source];
+        if (src == nullptr || srcEnv == nullptr)
             return;
-        if ((int) dst.size() < MeteringABProcessor::scopeRawCapacity)
-            dst.assign ((size_t) MeteringABProcessor::scopeRawCapacity, 0u);
+        if ((int) dst.size() < P::scopeRawCapacity)
+            dst.assign ((size_t) P::scopeRawCapacity, 0u);
+        if ((int) dstEnv.size() < P::scopeRawCapacity)
+            dstEnv.assign ((size_t) P::scopeRawCapacity, noEnv);
+
         // Casilleros de columnas sin datos (recién dado play, o cambió el largo): vacíos.
+        // El borde guardado vale si es de esta pasada de la columna (y, en la columna
+        // que se está escribiendo, hasta donde llegó).
         const int slots = juce::jmax (1, rawSlots);
-        constexpr int bins = MeteringABProcessor::scopeBins;
+        constexpr int bins = P::scopeBins;
+        const int envBin = processor.scopeEnvBin.load (std::memory_order_relaxed);
+        const int envSlot = processor.scopeEnvSlot.load (std::memory_order_relaxed);
+        int lastBin = -1;
+        bool hasData = false, envValid = false;
         for (int i = from; i < to; ++i)
         {
             const int bin = juce::jlimit (0, bins - 1, (int) ((long long) i * bins / slots));
-            dst[(size_t) i] = processor.scopeCount[(size_t) bin].load (std::memory_order_relaxed) > 0
-                                  ? src[(size_t) i].load (std::memory_order_relaxed) : 0u;
+            if (bin != lastBin)
+            {
+                lastBin = bin;
+                hasData = processor.scopeCount[(size_t) bin].load (std::memory_order_relaxed) > 0;
+                const auto gen = processor.scopeEnvGen[(size_t) bin].load (std::memory_order_relaxed);
+                envValid = hasData && gen != 0 && gen == processor.scopeGen[(size_t) bin].load (std::memory_order_relaxed);
+            }
+            dst[(size_t) i] = hasData ? src[(size_t) i].load (std::memory_order_relaxed) : 0u;
+            dstEnv[(size_t) i] = envValid && ! (bin == envBin && i > envSlot) ? srcEnv[(size_t) i].load (std::memory_order_relaxed) : noEnv;
         }
     }
 
@@ -860,8 +914,15 @@ public:
     // samples: la onda; rate: muestras por segundo. Devuelve el borde de cada muestra.
     static void bandEdgesOf (const std::vector<float>& samples, double rate, std::vector<float>& up, std::vector<float>& down)
     {
-        BandEnvelope env;
-        env.prepare (rate);
+        // Preparar las bandas cuesta (~6 ms): se prepara una vez por muestreo y se copia.
+        static BandEnvelope prepared;
+        static double preparedRate = 0.0;
+        if (! juce::exactlyEqual (preparedRate, rate))
+        {
+            prepared.prepare (rate);
+            preparedRate = rate;
+        }
+        BandEnvelope env = prepared;
         const int lat = env.getLatency(), n = (int) samples.size();
         up.assign ((size_t) n, 0.0f); down.assign ((size_t) n, 0.0f);
         for (int i = 0; i < n + lat; ++i)
@@ -874,7 +935,8 @@ public:
 
 private:
     template <typename YFunc>
-    static void drawTips (juce::Graphics& g, juce::Rectangle<float> plot, const TraceCopy& t, const std::vector<std::uint32_t>* raw, int slots,
+    static void drawTips (juce::Graphics& g, juce::Rectangle<float> plot, const TraceCopy& t, const std::vector<std::uint32_t>* raw,
+                          const std::vector<std::uint32_t>* env, int slots,
                           View view, YFunc yFor, juce::Colour colour, bool filled, Mask mask, double binSeconds)
     {
         const int bins = MeteringABProcessor::scopeBins;
@@ -886,46 +948,75 @@ private:
         const bool useRaw = raw != nullptr && (int) raw->size() >= slots;
         if (useRaw)
         {
-            // Con zoom: recalcular desde la onda, con 150 ms de contexto a cada lado.
-            const double loopSeconds = juce::jmax (1.0e-6, binSeconds * bins);
-            const double rate = slots / loopSeconds;
-            const int context = (int) std::ceil (0.15 * rate);
-            const int s0 = juce::jmax (0, (int) std::floor (view.start * slots) - context);
-            const int s1 = juce::jmin (slots, (int) std::ceil ((view.start + view.span) * slots) + context);
-            std::vector<float> samples ((size_t) juce::jmax (0, s1 - s0));
-            for (int i = s0; i < s1; ++i)
-                samples[(size_t) (i - s0)] = 0.5f * (MeteringABProcessor::rawLo ((*raw)[(size_t) i]) + MeteringABProcessor::rawHi ((*raw)[(size_t) i]));
-            // Lo calculado se guarda: mientras la onda no cambie (Freeze), no se recalcula.
-            struct Cache { const void* source = nullptr; int s0 = -1, s1 = -1; double rate = 0.0; std::uint64_t sum = 0; std::vector<float> up, down; };
-            static Cache caches[4];
-            std::uint64_t sum = 1469598103934665603ull;
-            // Todas las muestras (antes sólo 1 de cada n/512: tocando, quedaba viejo).
-            for (int i = s0; i < s1; ++i)
-                sum = (sum ^ (std::uint64_t) (*raw)[(size_t) i]) * 1099511628211ull;
-            Cache* cache = nullptr;
-            for (auto& c : caches)
-                if (c.source == raw && c.s0 == s0 && c.s1 == s1 && juce::exactlyEqual (c.rate, rate) && c.sum == sum) { cache = &c; break; }
-            if (cache == nullptr)
+            // Con zoom: el borde de cada muestra. Lo calcula el audio mientras toca (está
+            // guardado); lo que falta (recién tocado, o el Scope estaba cerrado) se
+            // recalcula acá desde la onda, solo ese tramo, con 150 ms de contexto.
+            const int v0 = juce::jlimit (0, slots - 1, (int) std::floor (view.start * slots));
+            const int v1 = juce::jlimit (v0 + 1, slots, (int) std::ceil ((view.start + view.span) * slots));
+            std::vector<float> su ((size_t) (v1 - v0), 0.0f), sd ((size_t) (v1 - v0), 0.0f);
+            const bool haveEnv = env != nullptr && (int) env->size() >= v1;
+            int missingFrom = v1, missingTo = v0 - 1;
+            for (int i = v0; i < v1; ++i)
             {
-                static int nextSlot = 0;
-                for (auto& c : caches) if (c.source == raw || c.source == nullptr) { cache = &c; break; }
-                if (cache == nullptr) { cache = &caches[nextSlot]; nextSlot = (nextSlot + 1) % 4; }
-                cache->source = raw; cache->s0 = s0; cache->s1 = s1; cache->rate = rate; cache->sum = sum;
-                bandEdgesOf (samples, rate, cache->up, cache->down);
+                const auto e = haveEnv ? (*env)[(size_t) i] : noEnv;
+                if (e != noEnv)
+                {
+                    sd[(size_t) (i - v0)] = MeteringABProcessor::rawLo (e);
+                    su[(size_t) (i - v0)] = MeteringABProcessor::rawHi (e);
+                }
+                else
+                {
+                    missingFrom = juce::jmin (missingFrom, i);
+                    missingTo = i;
+                }
             }
-            const auto& su = cache->up;
-            const auto& sd = cache->down;
+
+            if (missingTo >= missingFrom)
+            {
+                const double loopSeconds = juce::jmax (1.0e-6, binSeconds * bins);
+                const double rate = slots / loopSeconds;
+                const int context = (int) std::ceil (0.15 * rate);
+                const int s0 = juce::jmax (0, missingFrom - context);
+                const int s1 = juce::jmin (slots, missingTo + 1 + context);
+                // Lo calculado se guarda: mientras la onda no cambie (Freeze, o lejos del
+                // cabezal), no se recalcula.
+                struct Cache { const void* source = nullptr; int s0 = -1, s1 = -1; double rate = 0.0; std::uint64_t sum = 0; std::vector<float> up, down; };
+                static Cache caches[4];
+                std::uint64_t sum = 1469598103934665603ull;
+                for (int i = s0; i < s1; ++i)
+                    sum = (sum ^ (std::uint64_t) (*raw)[(size_t) i]) * 1099511628211ull;
+                Cache* cache = nullptr;
+                for (auto& c : caches)
+                    if (c.source == raw && c.s0 == s0 && c.s1 == s1 && juce::exactlyEqual (c.rate, rate) && c.sum == sum) { cache = &c; break; }
+                if (cache == nullptr)
+                {
+                    static int nextSlot = 0;
+                    for (auto& c : caches) if (c.source == raw || c.source == nullptr) { cache = &c; break; }
+                    if (cache == nullptr) { cache = &caches[nextSlot]; nextSlot = (nextSlot + 1) % 4; }
+                    std::vector<float> samples ((size_t) (s1 - s0));
+                    for (int i = s0; i < s1; ++i)
+                        samples[(size_t) (i - s0)] = 0.5f * (MeteringABProcessor::rawLo ((*raw)[(size_t) i]) + MeteringABProcessor::rawHi ((*raw)[(size_t) i]));
+                    cache->source = raw; cache->s0 = s0; cache->s1 = s1; cache->rate = rate; cache->sum = sum;
+                    bandEdgesOf (samples, rate, cache->up, cache->down);
+                }
+                for (int i = missingFrom; i <= missingTo; ++i)
+                    if (! haveEnv || (*env)[(size_t) i] == noEnv)
+                    {
+                        su[(size_t) (i - v0)] = cache->up[(size_t) (i - s0)];
+                        sd[(size_t) (i - v0)] = cache->down[(size_t) (i - s0)];
+                    }
+            }
 
             auto binOf = [&] (int slot) { return juce::jlimit (0, bins - 1, (int) ((long long) slot * bins / slots)); };
             for (int c = 0; c < columns; ++c)
             {
                 const int from = juce::jlimit (0, slots - 1, (int) std::floor ((view.start + view.span * c / columns) * slots));
                 const int to   = juce::jlimit (from + 1, slots, (int) std::ceil ((view.start + view.span * (c + 1) / columns) * slots));
-                for (int i = juce::jmax (from, s0); i < juce::jmin (to, s1); ++i)
+                for (int i = juce::jmax (from, v0); i < juce::jmin (to, v1); ++i)
                 {
                     if (! mask.includes (binOf (i))) continue;
-                    up[(size_t) c] = juce::jmax (up[(size_t) c], su[(size_t) (i - s0)]);
-                    down[(size_t) c] = juce::jmax (down[(size_t) c], sd[(size_t) (i - s0)]);
+                    up[(size_t) c] = juce::jmax (up[(size_t) c], su[(size_t) (i - v0)]);
+                    down[(size_t) c] = juce::jmax (down[(size_t) c], sd[(size_t) (i - v0)]);
                     has[(size_t) c] = 1;
                 }
             }
@@ -1103,7 +1194,9 @@ private:
     MeteringABProcessor& processor;
     std::array<TraceCopy, 4> traces;                  // [PRE, POST] de la franja de arriba, [PRE, POST] de abajo
     std::array<int, 4> traceSource { 0, 1, 0, 1 };      // de qué traza del audio sale cada una
-    std::array<std::vector<std::uint32_t>, 6> rawCopy;  // detalle de muestra (para el zoom)
+    std::array<std::vector<std::uint32_t>, 6> rawCopy;
+    std::array<std::vector<std::uint32_t>, 6> envCopy;  // el borde por bandas guardado (noEnv = falta)
+    static constexpr std::uint32_t noEnv = 0xffffffffu;  // detalle de muestra (para el zoom)
     int rawSlots = 1;
     bool rawLoaded = false;
     double viewStart = 0.0, viewSpan = 1.0;             // zoom: qué parte del loop se ve

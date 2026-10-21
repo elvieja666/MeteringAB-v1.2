@@ -662,12 +662,14 @@ void MeteringABPanel::applyScopeLook()
 }
 
 // El borde por bandas (Outline / Lines only) se calcula solo con el osciloscopio a la
-// vista, y solo de las ondas que se ven (sumas, o L y R).
+// vista, y solo de las ondas que se dibujan así (con Overlay; siguiendo la escucha es
+// Detallado y no hace falta). L only / R only: solo ese canal.
 void MeteringABPanel::updateBandMask()
 {
     const bool showScope = ! isSendMode && scopeOpen;
-    const int channels = (int) processor.apvts.state.getProperty ("scopeChannels", 0);
-    processor.scopeBandMask.store (showScope ? (channels == 0 ? 1 : 2) : 0);
+    const int wanted = showScope ? scope.bandTracesNeeded() : 0;
+    if (processor.scopeBandMask.load (std::memory_order_relaxed) != wanted)
+        processor.scopeBandMask.store (wanted);
 }
 
 // Colores para elegir por onda (los de las paletas, sin repetir).
@@ -841,6 +843,7 @@ void MeteringABPanel::setCompare (bool on)
     {
         setScopeLinked (true);        // vuelve a seguir la escucha (Detallado)
     }
+    updateBandMask();
 }
 
 void MeteringABPanel::setScopeLinked (bool linked)
@@ -853,6 +856,7 @@ void MeteringABPanel::setScopeLinked (bool linked)
         syncWavesToListen();          // al prenderlo, mostrar enseguida lo que suena
     else
         updateWaveButtons();
+    updateBandMask();
 }
 
 void MeteringABPanel::syncWavesToListen()
@@ -890,6 +894,8 @@ void MeteringABPanel::setSync (bool on)
 
 void MeteringABPanel::timerCallback()
 {
+    updateBandMask();                 // por las dudas: siempre al día con lo que se ve
+
     // Movimiento suave de los números en pantalla.
     // Si Logic deja de mandar audio (pausa), los medidores quedan en -∞ y se
     // ponen en cero para cuando vuelva el play.

@@ -268,6 +268,51 @@ int main (int argc, char** argv)
     juce::ScopedJuceInitialiser_GUI init;
     MeteringABPanel::scopeOpenOnStart = true;   // casi todas las pruebas miran el osciloscopio
 
+    if (std::getenv ("BENCHAUDIO") != nullptr)
+    {
+        // Costo en el audio del borde por bandas (por segundo de audio, % de un núcleo).
+        for (const int m : { 0, 3, 60, 63 })
+        {
+            Chain c (34, -3.0f, 0); c.pulsing = true;
+            c.recv.scopeBandMask.store (m);
+            c.run (1.0);
+            const double t0 = juce::Time::getMillisecondCounterHiRes();
+            c.run (20.0);
+            const double ms = juce::Time::getMillisecondCounterHiRes() - t0;
+            std::printf ("BENCHAUDIO mask %2d: %.2f%% de un núcleo (toda la cadena)\n", m, ms / 20000.0 * 100.0);
+            c.recv.setPlayHead (nullptr); c.send.setPlayHead (nullptr);
+        }
+        return 0;
+    }
+    if (std::getenv ("BENCH") != nullptr)
+    {
+        // Costo de la pantalla: Overlay (Outline / Lines only), con zoom, tocando.
+        Chain c (33, -3.0f, 0); c.pulsing = true;
+        c.recv.scopeLengthIndex = std::atoi (std::getenv ("BENCH"));
+        MeteringABPanel::scopeOpenOnStart = true;
+        std::unique_ptr<juce::AudioProcessorEditor> ed (c.recv.createEditor());
+        auto* panel = panelOf (ed);
+        panel->getCompareButtonForTests().onClick();
+        c.run (9.0);
+        auto& sc = panel->getScopeForTests();
+        for (const double span : { 1.0, 0.5, 0.25, 0.1, 0.03, 0.01 })
+        {
+            double total = 0.0; const int frames = 10;
+            for (int f = 0; f < frames; ++f)
+            {
+                c.run (1.0 / 30.0);   // llega audio nuevo (tocando)
+                const double ph = c.recv.scopeCurrentBin.load() / (double) MeteringABProcessor::scopeBins;
+                sc.setView (juce::jlimit (0.0, 1.0 - span, ph - span * 0.5), span);   // el cabezal a la vista
+                const double t0 = juce::Time::getMillisecondCounterHiRes();
+                juce::Image img (juce::Image::ARGB, sc.getWidth(), sc.getHeight(), true);
+                juce::Graphics g (img); sc.paintEntireComponent (g, true);
+                total += juce::Time::getMillisecondCounterHiRes() - t0;
+            }
+            std::printf ("BENCH span %.2f: %.1f ms por cuadro (CPU audio aparte)\n", span, total / frames);
+        }
+        c.recv.setPlayHead (nullptr); c.send.setPlayHead (nullptr);
+        return 0;
+    }
     if (argc > 2) // MeteringABTests <carpeta> <audio.raw>: tu audio (estéreo, float, 48 kHz) por el plugin real, 2 bars a 70 BPM
     {
         juce::MemoryBlock data;
@@ -305,7 +350,7 @@ int main (int argc, char** argv)
             recv.apvts.state.setProperty ("scopeStylePost", style == 0 ? 0 : style == 1 ? 2 : 1, nullptr);
             send.setPlayHead (&head); recv.setPlayHead (&head);
             send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
-            recv.scopeBandMask.store (1);              // como con el osciloscopio abierto
+            recv.scopeBandMask.store (3);              // como con el osciloscopio abierto (PRE y POST)
             head.ppq = 0.0;
             juce::AudioBuffer<float> b (2, 512);
 
@@ -773,15 +818,21 @@ int main (int argc, char** argv)
             auto* p = panelOf (ed);
             const int closed = a.scopeBandMask.load();
             p->getScopeToggleForTests().onClick();                       // abrir
-            const int open = a.scopeBandMask.load();
-            a.apvts.state.setProperty ("scopeChannels", 3, nullptr);     // L and R split
-            p->applyStyleMenuResult (503);
+            const int following = a.scopeBandMask.load();                // siguiendo la escucha: Detallado
+            p->getCompareButtonForTests().onClick();                     // Overlay
+            const int overlay = a.scopeBandMask.load();
+            p->applyStyleMenuResult (501);                               // L only
+            const int leftOnly = a.scopeBandMask.load();
+            p->applyStyleMenuResult (503);                               // L and R split
             const int split = a.scopeBandMask.load();
             p->getScopeToggleForTests().onClick();                       // cerrar
             const int closedAgain = a.scopeBandMask.load();
             p->getScopeToggleForTests().onClick();                       // abrir otra vez
-            check (closed == 0 && open == 1 && split == 2 && closedAgain == 0,
-                   "Bandas: solo con el Scope abierto (cerrado no calcula; L/R solo si se ven)", closed * 100 + open * 10 + split);
+            using P = MeteringABProcessor;
+            check (closed == 0 && following == 0 && overlay == ((1 << P::preSum) | (1 << P::postSum))
+                       && leftOnly == ((1 << P::preLeft) | (1 << P::postLeft)) && split == 60 && closedAgain == 0,
+                   "Bandas: solo con Scope abierto y Overlay, y solo las ondas que se ven (L only = solo L)",
+                   closed * 1000 + following * 100 + overlay);
         }
         check (a.scopeBandMask.load() == 0, "Bandas: al cerrar la ventana del plugin deja de calcular", a.scopeBandMask.load());
         MeteringABPanel::scopeOpenOnStart = true;
@@ -1408,7 +1459,7 @@ int main (int argc, char** argv)
         // De punta a punta: el audio guarda el borde por bandas por columna (solo si se ve).
         {
             Chain c (23, -3.0f, 0);
-            c.recv.scopeBandMask.store (1);
+            c.recv.scopeBandMask.store (3);
             c.run (2.5);
             const auto& t = c.recv.scopeTraces[MeteringABProcessor::postSum];
             int computed = 0, untouched = 0;
@@ -1418,6 +1469,45 @@ int main (int argc, char** argv)
                 if (c.recv.scopeTraces[MeteringABProcessor::postLeft].envUp[(size_t) k].load() >= 0.0f) ++untouched;
             }
             check (computed > 1300 && untouched == 0, "Bandas: el audio calcula el borde de lo que se ve (y no de L / R)", computed);
+            {
+                // El audio guarda el borde con detalle de muestra (para el zoom): igual al
+                // que recalcularía la pantalla, y la pantalla lo usa en vez de recalcular.
+                using P = MeteringABProcessor;
+                Chain z (25, -3.0f, 0); z.pulsing = true;
+                z.recv.scopeBandMask.store ((1 << P::preSum) | (1 << P::postSum));
+                z.run (2.9);                                            // 1 compás = 2 s: va por 0,45 de la segunda pasada
+                const int slots = z.recv.scopeRawSlots.load();
+                const int a0 = slots / 10, a1 = slots * 35 / 100;
+                std::vector<float> wave ((size_t) slots);
+                for (int i = 0; i < slots; ++i)
+                {
+                    const auto r = z.recv.scopeRaw[P::postSum][(size_t) i].load();
+                    wave[(size_t) i] = 0.5f * (P::rawLo (r) + P::rawHi (r));
+                }
+                std::vector<float> ru, rd;
+                ScopeView::bandEdgesOf (wave, 48000.0, ru, rd);
+                float worst = 0.0f; int worstAt = 0;
+                for (int i = a0; i < a1; ++i)
+                {
+                    const auto e = z.recv.scopeEnvRaw[P::postSum][(size_t) i].load();
+                    const float d = juce::jmax (std::abs (P::rawHi (e) - ru[(size_t) i]), std::abs (P::rawLo (e) - rd[(size_t) i]));
+                    if (d > worst) { worst = d; worstAt = i; }
+                }
+                // (La pantalla arranca de cero 150 ms antes; el audio viene de antes: el grave
+                // puede diferir un poco. El del audio es el más exacto.)
+                check (worst < 0.03f, "Bandas: el borde guardado por el audio = el que recalcularía la pantalla (<3%)", worst);
+
+                std::unique_ptr<juce::AudioProcessorEditor> ed (z.recv.createEditor());
+                auto& sc = panelOf (ed)->getScopeForTests();
+                sc.setFrozen (true);
+                const int playSlot = (int) ((long long) z.recv.scopeCurrentBin.load() * slots / P::scopeBins);
+                int stored = 0, missingNearHead = 0;
+                for (int i = a0; i < a1; ++i) stored += sc.envCopyForTests (P::postSum, i) != ScopeView::noEnvForTests() ? 1 : 0;
+                for (int i = playSlot - 1000; i < playSlot - 10; ++i) missingNearHead += sc.envCopyForTests (P::postSum, i) == ScopeView::noEnvForTests() ? 1 : 0;
+                check (stored == a1 - a0 && missingNearHead > 900,
+                       "Zoom: usa el borde guardado; solo falta lo recién tocado (lo recalcula la pantalla)", stored);
+                z.recv.setPlayHead (nullptr); z.send.setPlayHead (nullptr);
+            }
             Chain off (24, -3.0f, 0);
             off.run (1.0);
             check (off.recv.scopeTraces[MeteringABProcessor::postSum].envUp[300].load() < 0.0f,
@@ -1612,7 +1702,7 @@ int main (int argc, char** argv)
                     setParam (r, ParamIDs::mode, 1); setParam (r, ParamIDs::link, (float) link);
                     s.setPlayHead (&head); r.setPlayHead (&head);
                     s.prepareToPlay (sr, 512); r.prepareToPlay (sr, 512);
-                    r.scopeBandMask = 3;
+                    r.scopeBandMask = 63;
                     juce::AudioBuffer<float> buf (chans, block); juce::MidiBuffer m;
                     const int total = (int) (sr * (block == 1 ? 0.4 : 2.5));
                     double phase = 0.0;
