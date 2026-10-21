@@ -1398,6 +1398,18 @@ int main (int argc, char** argv)
             sc.showMarkerEditor();
             sc.typeAndEscapeMarkerForTests ("-20");
             check (std::abs (*sc.getMarkerDb() + 12.5f) < 0.01f, "Regla: escribir y Escape no cambia el valor", *sc.getMarkerDb());
+            {
+                // Caja abierta sin escribir nada: un clic en el gráfico la cierra (y no mueve la regla).
+                sc.showMarkerEditor();
+                const juce::Point<float> other { pl.getCentreX() - 80.0f, pl.getCentreY() - 30.0f };
+                sc.mouseDown (mouse (other.x).withNewPosition (other)); sc.mouseUp (mouse (other.x).withNewPosition (other));
+                const bool closedByPlot = ! sc.isMarkerEditorOpen() && std::abs (*sc.getMarkerDb() + 12.5f) < 0.01f;
+                // ...y un clic en otra parte del plugin (ej. el botón Freeze) también.
+                sc.showMarkerEditor();
+                sc.clickElsewhereForTests (panel->getFreezeButtonForTests());
+                const bool closedByButton = ! sc.isMarkerEditorOpen() && std::abs (*sc.getMarkerDb() + 12.5f) < 0.01f;
+                check (closedByPlot && closedByButton, "Regla: la caja vacía se cierra al hacer clic en otra parte", closedByPlot * 10 + closedByButton);
+            }
             sc.setMarkerDb (8.0f);
             check (std::abs (*sc.getMarkerDb() + 8.0f) < 0.01f, "Regla: un valor positivo se toma como negativo", *sc.getMarkerDb());
             {

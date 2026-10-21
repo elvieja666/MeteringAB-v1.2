@@ -37,6 +37,7 @@ public:
     static constexpr int customPalette = (int) palettes.size();   // "Personalizado"
 
     explicit ScopeView (MeteringABProcessor& p) : processor (p) { capture(); }
+    ~ScopeView() override { juce::Desktop::getInstance().removeGlobalMouseListener (&outsideClick); }
 
     void setColours (juce::Colour pre, juce::Colour post) { preColour = pre; postColour = post; repaint(); }
     juce::Colour getPreColour() const          { return preColour; }
@@ -165,6 +166,15 @@ public:
 
     void mouseDown (const juce::MouseEvent& e) override
     {
+        // Con la caja de la regla abierta, un clic en el gráfico solo la cierra
+        // (aplica lo escrito; vacía o igual, no cambia nada).
+        swallowClick = isMarkerEditorOpen();
+        if (swallowClick)
+        {
+            commitMarkerEditor (true);
+            return;
+        }
+
         dragStartView = viewStart;
         dragStartX = e.position.x;
         dragged = false;
@@ -175,6 +185,8 @@ public:
 
     void mouseDrag (const juce::MouseEvent& e) override
     {
+        if (swallowClick)
+            return;
         if (e.getDistanceFromDragStart() > 3)
             dragged = true;
         if (! isZoomed())
@@ -184,6 +196,9 @@ public:
 
     void mouseUp (const juce::MouseEvent& e) override
     {
+        if (std::exchange (swallowClick, false))
+            return;
+
         if (grabbing)
         {
             grabbing = false;                               // soltar: vuelve la mano abierta
@@ -240,7 +255,17 @@ public:
         addAndMakeVisible (ed);
         ed.setBounds (markerTagArea().toNearestInt().expanded (6, 3));
         ed.grabKeyboardFocus();
+        // Clic en cualquier otro lado (el gráfico, un botón...): se cierra la caja.
+        juce::Desktop::getInstance().addGlobalMouseListener (&outsideClick);
         repaint();
+    }
+
+    bool isMarkerEditorOpen() const { return markerEditor != nullptr && markerEditor->isVisible(); }
+    void clickElsewhereForTests (juce::Component& other)       // clic en otra parte del plugin
+    {
+        const juce::MouseEvent e (juce::Desktop::getInstance().getMainMouseSource(), {}, {}, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                  &other, &other, juce::Time::getCurrentTime(), {}, juce::Time::getCurrentTime(), 1, false);
+        outsideClick.mouseDown (e);
     }
 
     bool isHoverLineShownForTests() const
@@ -281,6 +306,7 @@ public:
         markerEditor->onReturnKey = nullptr;
         markerEditor->onEscapeKey = nullptr;
         markerEditor->onFocusLost = nullptr;
+        juce::Desktop::getInstance().removeGlobalMouseListener (&outsideClick);
         juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<ScopeView> (this)]
                                          { if (safe != nullptr) safe->markerEditor.reset(); });
         markerEditor->setVisible (false);
@@ -926,6 +952,21 @@ private:
     juce::Rectangle<float> zoomLabelArea;               // "Show all" (con zoom)
     juce::Point<float> hoverPoint { -1.0f, -1.0f };     // dónde está el mouse (para "Show all")
     bool grabbing = false;                              // apretado con zoom (mano cerrada)
+    bool swallowClick = false;                          // el clic que cerró la caja de la regla
+
+    // Clic fuera de la caja de la regla (en otra parte del plugin): la cierra.
+    struct OutsideClick : juce::MouseListener
+    {
+        explicit OutsideClick (ScopeView& o) : owner (o) {}
+        void mouseDown (const juce::MouseEvent& e) override
+        {
+            auto* ed = owner.markerEditor.get();
+            if (! owner.isMarkerEditorOpen() || e.eventComponent == ed || (ed != nullptr && ed->isParentOf (e.eventComponent)))
+                return;
+            owner.commitMarkerEditor (true);
+        }
+        ScopeView& owner;
+    } outsideClick { *this };
     Channels channels = Channels::sum;
     Flags showPreAt {};
     juce::Colour preColour { palettes[0].pre }, postColour { palettes[0].post };
