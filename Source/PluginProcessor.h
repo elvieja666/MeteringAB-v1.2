@@ -3,7 +3,6 @@
 #include "LoudnessMeter.h"
 #include "SharedBus.h"
 #include "LatencyMeasurer.h"
-#include "BassPeriod.h"
 
 // IDs de los parámetros (así los encuentra Logic para automatizar y guardar).
 namespace ParamIDs
@@ -106,8 +105,7 @@ public:
     // medida que avanza la canción, así cada compás reemplaza al anterior.
     static constexpr int scopeBins = 2048;            // resolución horizontal (columnas por loop)
     // Una "traza" por señal y canal: mínimo, máximo y suma de cuadrados (RMS).
-    // period: el ciclo del grave en esa columna (segundos; ver BassPeriod).
-    struct ScopeTrace { std::array<std::atomic<float>, scopeBins> min, max, sq, period; };
+    struct ScopeTrace { std::array<std::atomic<float>, scopeBins> min, max, sq; };
 
     enum ScopeTraceIndex { preSum = 0, postSum, preLeft, postLeft, preRight, postRight, numScopeTraces };
     std::array<ScopeTrace, numScopeTraces> scopeTraces;                  // L+R (promedio), solo L, solo R
@@ -185,7 +183,6 @@ private:
     juce::int64 hostBarCount = 0;
     double scopePhaseQuarters = 0.0;                  // dónde va el barrido (en negras)
     int    lastScopeBin = -1, lastScopeLength = -1, lastRawSlot = -1;
-    std::array<BassPeriod, numScopeTraces> bassPeriods;     // ciclo del grave de cada onda (Outline / Lines only)
     bool   scopeWasPlaying = false;                   // para detectar cuándo se da play
     bool   scopeGateOpen = true;                      // false solo durante el tramo previo al play
     double scopeLastBlockPpq = 0.0;                   // para detectar saltos hacia atrás (ciclo)

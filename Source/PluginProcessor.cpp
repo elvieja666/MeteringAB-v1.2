@@ -268,8 +268,6 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
     preMeter.prepare (sampleRate);
-    for (auto& b : bassPeriods)
-        b.prepare (sampleRate);
     postMeter.prepare (sampleRate);
 
     for (auto& raw : scopeRaw)                       // zoom del osciloscopio (una sola vez)
@@ -603,7 +601,6 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         {
             auto& trace = scopeTraces[(size_t) t];
             const float v = values[t];
-            const float period = bassPeriods[(size_t) t].process (v);
 
             if (drawing)
             {
@@ -614,14 +611,12 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
                     trace.min[k].store (v, std::memory_order_relaxed);
                     trace.max[k].store (v, std::memory_order_relaxed);
                     trace.sq[k].store (v * v, std::memory_order_relaxed);
-                    trace.period[k].store (period, std::memory_order_relaxed);
                 }
                 else
                 {
                     if (v < trace.min[k].load (std::memory_order_relaxed)) trace.min[k].store (v, std::memory_order_relaxed);
                     if (v > trace.max[k].load (std::memory_order_relaxed)) trace.max[k].store (v, std::memory_order_relaxed);
                     trace.sq[k].store (trace.sq[k].load (std::memory_order_relaxed) + v * v, std::memory_order_relaxed);
-                    if (period > trace.period[k].load (std::memory_order_relaxed)) trace.period[k].store (period, std::memory_order_relaxed);
                 }
             }
         }
@@ -715,7 +710,6 @@ void MeteringABProcessor::clearScope()
             trace.min[(size_t) b] = 0.0f;
             trace.max[(size_t) b] = 0.0f;
             trace.sq[(size_t) b] = 0.0f;
-            trace.period[(size_t) b] = 0.0f;
         }
 
         scopeCount[(size_t) b] = 0;
@@ -724,8 +718,6 @@ void MeteringABProcessor::clearScope()
 
     lastScopeBin = -1;
     lastRawSlot = -1;
-    for (auto& b : bassPeriods)
-        b.reset();
 
     const int rawInUse = juce::jlimit (1, scopeRawCapacity, scopeRawSlots.load (std::memory_order_relaxed));
     for (auto& raw : scopeRaw)                         // solo los casilleros en uso (rápido)

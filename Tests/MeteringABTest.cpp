@@ -1246,63 +1246,29 @@ int main (int argc, char** argv)
     }
 
     {
-        // Outline / Lines only: Detallado pintado por adentro (contorno de afuera, punta a punta).
+        // Outline / Lines only: definición fija de 1024 muestras (un punto por bloque).
         using V = std::vector<float>;
         using H = std::vector<std::uint8_t>;
-        // Bajo: picos arriba cada 6 columnas (los ciclos) entre las columnas 100 y 200.
-        V hi (300, 0.0f), lo (300, 0.0f);
-        for (int c = 100; c < 200; ++c) { hi[(size_t) c] = (c % 6 == 0) ? 0.5f : -0.3f; lo[(size_t) c] = -0.5f; }
-        const auto [up, down] = ScopeView::holdEdges (hi, lo, H (300, 1), 4);
-        float mn = 1.0f, mx = 0.0f;
-        for (int c = 110; c < 190; ++c) { mn = juce::jmin (mn, up[(size_t) c]); mx = juce::jmax (mx, up[(size_t) c]); }
-        check (mx - mn < 1.0e-5f && std::abs (mx - 0.5f) < 1.0e-5f, "Outline: tapa los ciclos del bajo (plano arriba)", mx - mn);
-        check (up[95] < 1.0e-5f && up[205] < 1.0e-5f, "Outline: los bordes no se ensanchan (el golpe empieza y termina donde está)", up[205]);
-        check (std::abs (down[150] + 0.5f) < 1.0e-5f, "Outline: abajo, lo mismo con los picos negativos", down[150]);
+        const double unit = 1.0 / 48000.0, block = 1024.0 / 48000.0;
+        V hi (4096, 0.1f), lo (4096, -0.1f);
+        hi[1500] = 0.9f; lo[3000] = -0.7f;                   // un pico en el bloque 1 y otro en el 2
+        const auto runs = ScopeView::blockEdges (hi, lo, H (4096, 1), unit, block);
+        check (runs.size() == 1 && runs[0].size() == 4, "Outline 1024: 4096 muestras = 4 puntos", runs.empty() ? 0.0 : (double) runs[0].size());
+        check (std::abs (runs[0][1].hi - 0.9f) < 1.0e-6f && std::abs (runs[0][0].hi - 0.1f) < 1.0e-6f && std::abs (runs[0][2].lo + 0.7f) < 1.0e-6f,
+               "Outline 1024: cada punto es el pico de su bloque (arriba y abajo)", runs[0][1].hi);
+        check (std::abs (runs[0][1].time - 1.5 * block) < 1.0e-9, "Outline 1024: el punto va en el medio del bloque", runs[0][1].time);
 
-        // Un golpe más alto en el medio: escalón nítido, del ancho del golpe.
-        V h2 (300, 0.2f), l2 (300, -0.2f);
-        for (int c = 140; c < 160; ++c) h2[(size_t) c] = 0.8f;
-        const auto [up2, down2] = ScopeView::holdEdges (h2, l2, H (300, 1), 4);
-        check (std::abs (up2[150] - 0.8f) < 1.0e-5f && std::abs (up2[125] - 0.2f) < 1.0e-5f && std::abs (up2[175] - 0.2f) < 1.0e-5f,
-               "Outline: un golpe se ve en su lugar (y al lado vuelve al nivel de antes)", up2[125]);
+        // Un tramo sin onda (LINK) corta el dibujo.
+        H gap (4096, 1);
+        for (int i = 1024; i < 2048; ++i) gap[(size_t) i] = 0;
+        const auto cut = ScopeView::blockEdges (hi, lo, gap, unit, block);
+        check (cut.size() == 2, "Outline 1024: un tramo sin onda corta el dibujo", (double) cut.size());
 
-        // Puntas que bajan de a poco (una caída): el borde va de punta a punta, en rampa (no en escalones).
-        V h3 (300, 0.0f), l3 (300, 0.0f);
-        for (int c = 100; c < 200; c += 6) h3[(size_t) c] = 0.9f - 0.006f * (float) (c - 100);
-        const auto [up3, down3] = ScopeView::holdEdges (h3, l3, H (300, 1), 4);
-        const float mid3 = up3[103], expect3 = 0.5f * (h3[100] + h3[106]);
-        check (std::abs (mid3 - expect3) < 1.0e-4f, "Outline: entre dos puntas, línea recta de una a otra (sin escalón)", mid3);
-
-        // Puntas a distinto nivel (más de 1,5 dB): escalón vertical, no rampa.
-        {
-            V h5 (200, 0.0f), l5 (200, 0.0f);
-            for (int c = 20; c < 100; c += 6) h5[(size_t) c] = 0.3f;
-            for (int c = 100; c < 180; c += 6) h5[(size_t) c] = 0.8f;
-            const auto [up5, down5] = ScopeView::holdEdges (h5, l5, H (200, 1), 4);
-            check (std::abs (up5[97] - 0.3f) < 1.0e-4f && std::abs (up5[100] - 0.8f) < 1.0e-4f,
-                   "Outline: un cambio de nivel es un escalón recto (ángulo recto, sin rampa)", up5[97]);
-        }
-
-        // El ciclo del grave: un bajo de 40 Hz dura 25 ms; un agudo solo, ventana mínima.
-        {
-            auto measure = [] (double freq)
-            {
-                BassPeriod bp; bp.prepare (48000.0); float last = 0.0f;
-                for (int i = 0; i < 48000; ++i)
-                    last = bp.process (0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * freq * i / 48000.0));
-                return last;
-            };
-            const float bass = measure (40.0), sub = measure (20.0), treble = measure (2000.0);
-            check (std::abs (bass - 0.025f) < 0.001f && std::abs (sub - 0.05f) < 0.002f && treble <= (float) BassPeriod::minPeriod + 1.0e-6f,
-                   "Ciclo del grave: 40 Hz = 25 ms, 20 Hz = 50 ms, un agudo = ventana mínima", bass);
-        }
-
-        // Dos notas con silencio digital en el medio: no se unen.
-        V h4 (400, 0.0f), l4 (400, 0.0f);
-        for (int c = 20; c < 100; c += 6) h4[(size_t) c] = 0.5f;
-        for (int c = 300; c < 380; c += 6) h4[(size_t) c] = 0.5f;
-        const auto [up4, down4] = ScopeView::holdEdges (h4, l4, H (400, 1), 4);
-        check (up4[200] < 1.0e-5f, "Outline: no une notas separadas por silencio", up4[200]);
+        // Desde columnas del osciloscopio (más largas que una muestra): igual, bloques de 1024.
+        V chi (100, 0.2f), clo (100, -0.2f);
+        const auto fromBins = ScopeView::blockEdges (chi, clo, H (100, 1), 160.0 / 48000.0, block);
+        check (fromBins.size() == 1 && std::abs ((double) fromBins[0].size() - 100.0 * 160.0 / 1024.0) <= 1.0,
+               "Outline 1024: con columnas largas también da un punto cada 1024 muestras", fromBins.empty() ? 0.0 : (double) fromBins[0].size());
     }
     {
         // Zoom: el audio guarda la onda muestra a muestra (120 BPM, 1 compás = 2 s = 96000 muestras).

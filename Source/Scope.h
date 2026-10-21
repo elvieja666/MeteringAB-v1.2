@@ -321,7 +321,7 @@ public:
 
                 if (style != Style::detailed)                    // Outline / Lines only: Detallado, unido punta a punta
                 {
-                    drawTips (g, area, t, rawUseful ? &raw : nullptr, rawSlots, view, yFor, colour, style == Style::contour, mask, binSecs);
+                    drawTips (g, area, t, rawUseful ? &raw : nullptr, rawSlots, view, yFor, colour, style == Style::contour, mask, binSecs, processor.getCurrentSampleRate());
                     return;
                 }
 
@@ -451,7 +451,6 @@ private:
                 dst.min[(size_t) b] = src.min[(size_t) b].load (std::memory_order_relaxed);
                 dst.max[(size_t) b] = src.max[(size_t) b].load (std::memory_order_relaxed);
                 dst.sq[(size_t) b]  = src.sq[(size_t) b].load (std::memory_order_relaxed) / count;
-                dst.period[(size_t) b] = src.period[(size_t) b].load (std::memory_order_relaxed);
             }
         }
 
@@ -728,7 +727,7 @@ public:
         float x (double loopFraction) const { return left + (float) ((loopFraction - start) / span) * width; }
         double fractionAt (float px) const  { return start + (double) (px - left) / width * span; }
     };
-    struct TraceCopy { Bins min {}, max {}, sq {}, period {}; };
+    struct TraceCopy { Bins min {}, max {}, sq {}; };
 
     // Máscara opcional: con LINK, qué columnas dibujar de cada onda.
     using Flags = std::array<std::uint8_t, MeteringABProcessor::scopeBins>;
@@ -811,222 +810,130 @@ private:
         return lengthBars * quartersPerBar * 60.0 / bpm / MeteringABProcessor::scopeBins;
     }
 
-    // Outline / Lines only: el Detallado "pintado por adentro", sin ciclos y preciso.
-    // Parte de lo mismo que Detallado (cada medio píxel con su pico de arriba y de abajo):
-    //  1) contorno de afuera: sostener cada pico y volver a recortar, en una ventana
-    //     de MEDIO CICLO DEL GRAVE de ese momento (el audio lo mide: un sub de 20 Hz
-    //     tapa ±25 ms, un bajo de 50 Hz ±10 ms; sin grave casi nada). Así no se ven
-    //     los ciclos y los bordes no se ensanchan;
-    //  2) las puntas que tocan ese contorno se unen con una recta solo si están casi
-    //     al mismo nivel (< 1,5 dB); si no, el cambio es un escalón vertical (ángulos
-    //     rectos, ataques y caídas secos);
-    //  3) todo lo de adentro se pinta.
+    // Outline / Lines only: definición fija de 1024 muestras. El loop se corta en
+    // bloques de 1024 muestras (21 ms a 48 kHz); cada bloque da un punto con su pico
+    // de arriba y de abajo, en el medio del bloque, y los puntos se unen con rectas.
+    // Outline pinta lo de adentro; Lines only dibuja solo el borde.
 public:
-    static constexpr double cycleFraction = 0.5;      // ventana: medio ciclo del grave
-    static constexpr double periodHoldMs  = 30.0;     // el ciclo medido vale ±30 ms alrededor
-    static constexpr float  joinDb        = 1.5f;     // puntas más parejas que esto se unen en recta
+    static constexpr int blockSamples = 1024;
 
-    // hi / lo: el pico de cada columna; has: si la columna tiene onda; radius: la
-    // ventana de cada columna (en columnas). Devuelve el borde de arriba y de abajo.
-    static std::pair<std::vector<float>, std::vector<float>> holdEdges (const std::vector<float>& hi, const std::vector<float>& lo,
-                                                                       const std::vector<std::uint8_t>& has, const std::vector<int>& radius)
+    struct BlockPoint { double time; float hi, lo; };   // time: segundos desde el comienzo del loop
+
+    // unitHi / unitLo / unitHas: el pico de cada casillero (columna de 2048 o muestra)
+    // y si se dibuja; unitSeconds: cuánto dura cada casillero. Devuelve los bloques;
+    // un tramo sin onda corta el dibujo (bloque con has = false → se omite).
+    static std::vector<std::vector<BlockPoint>> blockEdges (const std::vector<float>& unitHi, const std::vector<float>& unitLo,
+                                                            const std::vector<std::uint8_t>& unitHas, double unitSeconds,
+                                                            double blockSeconds, int firstUnit = 0)
     {
-        const int n = (int) hi.size();
+        std::vector<std::vector<BlockPoint>> runs;
+        const int n = (int) unitHi.size();
+        if (n == 0 || unitSeconds <= 0.0 || blockSeconds <= 0.0)
+            return runs;
 
-        auto edgeOf = [&] (const std::vector<float>& v, float sign)
+        long long current = -1;
+        float hi = 0.0f, lo = 0.0f;
+        bool any = false, broken = true;
+
+        auto flush = [&]
         {
-            std::vector<float> e ((size_t) n, 0.0f);
-            for (int c = 0; c < n; ++c)
-                e[(size_t) c] = juce::jmax (0.0f, v[(size_t) c] * sign);
-
-            for (int c = 0; c < n;)                         // cada tramo con onda por separado
+            if (current >= 0 && any)
             {
-                if (! has[(size_t) c]) { ++c; continue; }
-                int end = c;
-                while (end < n && has[(size_t) end]) ++end;
-
-                // Sostener y recortar con la ventana de cada columna (tabla de rangos:
-                // rápido aunque la ventana sea grande, por ejemplo con mucho zoom).
-                const int len = end - c;
-                auto rangeTable = [len] (const float* v, bool wantMax)
-                {
-                    std::vector<std::vector<float>> t (1, std::vector<float> (v, v + len));
-                    for (int k = 1; (1 << k) <= len; ++k)
-                    {
-                        const auto& prev = t.back();
-                        std::vector<float> row ((size_t) (len - (1 << k) + 1));
-                        for (size_t i = 0; i < row.size(); ++i)
-                            row[i] = wantMax ? juce::jmax (prev[i], prev[i + (size_t) (1 << (k - 1))])
-                                             : juce::jmin (prev[i], prev[i + (size_t) (1 << (k - 1))]);
-                        t.push_back (std::move (row));
-                    }
-                    return t;
-                };
-                auto query = [] (const std::vector<std::vector<float>>& t, int from, int to, bool wantMax)   // [from, to]
-                {
-                    int k = 0;
-                    while ((2 << k) <= to - from + 1) ++k;
-                    const float x = t[(size_t) k][(size_t) from], y = t[(size_t) k][(size_t) (to - (1 << k) + 1)];
-                    return wantMax ? juce::jmax (x, y) : juce::jmin (x, y);
-                };
-
-                std::vector<float> held ((size_t) len), tight ((size_t) len);
-                {
-                    const auto t = rangeTable (e.data() + c, true);
-                    for (int i = 0; i < len; ++i)
-                    {
-                        const int r = radius[(size_t) (c + i)];
-                        held[(size_t) i] = query (t, juce::jmax (0, i - r), juce::jmin (len - 1, i + r), true);
-                    }
-                }
-                {
-                    const auto t = rangeTable (held.data(), false);
-                    for (int i = 0; i < len; ++i)
-                    {
-                        const int r = radius[(size_t) (c + i)];
-                        tight[(size_t) i] = query (t, juce::jmax (0, i - r), juce::jmin (len - 1, i + r), false);
-                    }
-                }
-
-                // Puntas que tocan el contorno: parejas = recta; distintas = escalón.
-                std::vector<int> tips;
-                for (int i = c; i < end; ++i)
-                {
-                    const float x = e[(size_t) i];
-                    const bool peak = (i == c || x >= e[(size_t) i - 1]) && (i == end - 1 || x >= e[(size_t) i + 1]);
-                    if (x > 0.0f && peak && x >= tight[(size_t) (i - c)] - 1.0e-6f)
-                        tips.push_back (i);
-                }
-
-                std::vector<float> out (tight);
-                const float joinRatio = juce::Decibels::decibelsToGain (joinDb);
-                for (size_t k = 0; k + 1 < tips.size(); ++k)
-                {
-                    const int a = tips[k], b = tips[k + 1];
-                    if (b - a > 4 * juce::jmax (1, juce::jmax (radius[(size_t) a], radius[(size_t) b])))
-                        continue;
-                    const float va = e[(size_t) a], vb = e[(size_t) b];
-                    const bool even = juce::jmax (va, vb) <= juce::jmin (va, vb) * joinRatio;
-                    for (int i = a; i <= b; ++i)
-                    {
-                        auto& o = out[(size_t) (i - c)];
-                        o = even ? va + (vb - va) * (float) (i - a) / (float) juce::jmax (1, b - a)
-                                 : juce::jmax (o, juce::jmin (va, vb));
-                    }
-                }
-                for (int i = c; i < end; ++i)               // nunca por debajo de la onda
-                    e[(size_t) i] = juce::jmax (out[(size_t) (i - c)], e[(size_t) i]);
-                c = end;
+                if (broken || runs.empty()) runs.emplace_back();
+                runs.back().push_back ({ ((double) current + 0.5) * blockSeconds, juce::jmax (0.0f, hi), juce::jmin (0.0f, lo) });
+                broken = false;
             }
-            return e;
+            else if (current >= 0)
+                broken = true;
         };
 
-        auto up = edgeOf (hi, 1.0f);
-        auto down = edgeOf (lo, -1.0f);
-        for (auto& d : down) d = -d;
-        return { std::move (up), std::move (down) };
-    }
-
-    // Misma ventana en todas las columnas (pruebas).
-    static std::pair<std::vector<float>, std::vector<float>> holdEdges (const std::vector<float>& hi, const std::vector<float>& lo,
-                                                                       const std::vector<std::uint8_t>& has, int radius)
-    {
-        return holdEdges (hi, lo, has, std::vector<int> (hi.size(), radius));
+        for (int i = 0; i < n; ++i)
+        {
+            const auto block = (long long) std::floor (((double) (firstUnit + i) + 0.5) * unitSeconds / blockSeconds);
+            if (block != current)
+            {
+                flush();
+                current = block; hi = -1.0f; lo = 1.0f; any = false;
+            }
+            if (! unitHas[(size_t) i])
+            {
+                if (any) { flush(); current = -1; any = false; }
+                broken = true;
+                continue;
+            }
+            hi = juce::jmax (hi, unitHi[(size_t) i]);
+            lo = juce::jmin (lo, unitLo[(size_t) i]);
+            any = true;
+        }
+        flush();
+        return runs;
     }
 
 private:
-
     template <typename YFunc>
     static void drawTips (juce::Graphics& g, juce::Rectangle<float> plot, const TraceCopy& t, const std::vector<std::uint32_t>* raw, int slots,
-                          View view, YFunc yFor, juce::Colour colour, bool filled, Mask mask, double binSeconds)
+                          View view, YFunc yFor, juce::Colour colour, bool filled, Mask mask, double binSeconds, double sampleRate)
     {
+        juce::ignoreUnused (plot);
         const int bins = MeteringABProcessor::scopeBins;
-        const int columns = juce::jmax (1, (int) plot.getWidth() * 2);
-        const float columnWidth = plot.getWidth() / (float) columns;
-        std::vector<float> hi ((size_t) columns, -1.0f), lo ((size_t) columns, 1.0f);
-        std::vector<std::uint8_t> has ((size_t) columns, 0);
-        std::vector<float> period ((size_t) columns, 0.0f);
+        const double loopSeconds = juce::jmax (1.0e-6, binSeconds * bins);
+        const double blockSeconds = blockSamples / juce::jmax (1.0, sampleRate);
+
+        // Lo visible, con un bloque de margen a cada lado (para que la línea llegue a los bordes).
+        const double margin = blockSeconds / loopSeconds;
+        const double from = juce::jmax (0.0, view.start - margin), to = juce::jmin (1.0, view.start + view.span + margin);
 
         const bool useRaw = raw != nullptr && (int) raw->size() >= slots;
-        auto binOf = [&] (int slot) { return juce::jlimit (0, bins - 1, (int) ((long long) slot * bins / slots)); };
         const int units = useRaw ? slots : bins;
+        const int u0 = juce::jlimit (0, units - 1, (int) std::floor (from * units));
+        const int u1 = juce::jlimit (u0 + 1, units, (int) std::ceil (to * units));
+        auto binOf = [&] (int slot) { return juce::jlimit (0, bins - 1, (int) ((long long) slot * bins / slots)); };
 
-        for (int c = 0; c < columns; ++c)
+        std::vector<float> hi ((size_t) (u1 - u0)), lo ((size_t) (u1 - u0));
+        std::vector<std::uint8_t> has ((size_t) (u1 - u0));
+        for (int i = u0; i < u1; ++i)
         {
-            const int from = juce::jlimit (0, units - 1, (int) std::floor ((view.start + view.span * c / columns) * units));
-            const int to   = juce::jlimit (from + 1, units, (int) std::ceil ((view.start + view.span * (c + 1) / columns) * units));
-            for (int i = from; i < to; ++i)
+            const auto k = (size_t) (i - u0);
+            if (useRaw)
             {
-                float l, h;
-                if (useRaw)
-                {
-                    if (! mask.includes (binOf (i))) continue;
-                    l = MeteringABProcessor::rawLo ((*raw)[(size_t) i]); h = MeteringABProcessor::rawHi ((*raw)[(size_t) i]);
-                }
-                else
-                {
-                    if (! mask.includes (i)) continue;
-                    l = t.min[(size_t) i]; h = t.max[(size_t) i];
-                }
-                lo[(size_t) c] = juce::jmin (lo[(size_t) c], l);
-                hi[(size_t) c] = juce::jmax (hi[(size_t) c], h);
-                has[(size_t) c] = 1;
+                has[k] = mask.includes (binOf (i)) ? 1 : 0;
+                lo[k] = MeteringABProcessor::rawLo ((*raw)[(size_t) i]); hi[k] = MeteringABProcessor::rawHi ((*raw)[(size_t) i]);
             }
-
-            // El ciclo del grave de esta columna (lo guarda el audio por columna de 2048).
-            const int b0 = juce::jlimit (0, bins - 1, (int) std::floor ((view.start + view.span * c / columns) * bins));
-            const int b1 = juce::jlimit (b0 + 1, bins, (int) std::ceil ((view.start + view.span * (c + 1) / columns) * bins));
-            for (int b = b0; b < b1; ++b)
-                period[(size_t) c] = juce::jmax (period[(size_t) c], t.period[(size_t) b]);
+            else
+            {
+                has[k] = mask.includes (i) ? 1 : 0;
+                lo[k] = t.min[(size_t) i]; hi[k] = t.max[(size_t) i];
+            }
         }
 
-        const double columnSecs = juce::jmax (1.0e-9, view.span * binSeconds * bins / columns);
-        // Ventana de cada columna: medio ciclo del grave (el mayor a ±30 ms, así no
-        // cambia de golpe entre un ciclo y el siguiente).
-        std::vector<int> radius ((size_t) columns, 0);
-        {
-            const int hold = juce::jmax (0, (int) std::lround (periodHoldMs * 0.001 / columnSecs));
-            std::vector<float> p ((size_t) columns, 0.0f);
-            std::deque<int> q;
-            int next = 0;
-            for (int c = 0; c < columns; ++c)
-            {
-                for (; next < juce::jmin (columns, c + hold + 1); ++next)
-                {
-                    while (! q.empty() && period[(size_t) next] >= period[(size_t) q.back()]) q.pop_back();
-                    q.push_back (next);
-                }
-                while (q.front() < c - hold) q.pop_front();
-                p[(size_t) c] = period[(size_t) q.front()];
-            }
-            for (int c = 0; c < columns; ++c)
-                radius[(size_t) c] = juce::jlimit (0, columns, (int) std::ceil (cycleFraction * p[(size_t) c] / columnSecs));
-        }
-        const auto [up, down] = holdEdges (hi, lo, has, radius);
+        const auto runs = blockEdges (hi, lo, has, loopSeconds / units, blockSeconds, u0);
+
         juce::Path fill, lines;
-        for (int c = 0; c < columns;)
+        for (const auto& run : runs)
         {
-            if (! has[(size_t) c]) { ++c; continue; }
-            int end = c;
-            while (end < columns && has[(size_t) end]) ++end;
-
+            if (run.empty()) continue;
             juce::Path top, bottom;
-            for (int k = c; k < end; ++k)
+            auto xAt = [&] (double time) { return view.x (time / loopSeconds); };
+
+            // Un bloque solo: un tramo cortito del ancho del bloque.
+            const double half = run.size() == 1 ? blockSeconds * 0.5 : 0.0;
+            for (size_t k = 0; k < run.size(); ++k)
             {
-                const float x = plot.getX() + ((float) k + 0.5f) * columnWidth, y = yFor (up[(size_t) k]);
-                if (k == c) { fill.startNewSubPath (x, y); top.startNewSubPath (x, y); }
+                const float x = xAt (run[k].time - (k == 0 ? half : 0.0)), y = yFor (run[k].hi);
+                if (k == 0) { fill.startNewSubPath (x, y); top.startNewSubPath (x, y); }
                 else        { fill.lineTo (x, y); top.lineTo (x, y); }
             }
-            for (int k = end; k-- > c;)
+            if (half > 0.0) { const float x = xAt (run[0].time + half); fill.lineTo (x, yFor (run[0].hi)); top.lineTo (x, yFor (run[0].hi)); }
+            if (half > 0.0) { const float x = xAt (run[0].time + half); fill.lineTo (x, yFor (run[0].lo)); bottom.startNewSubPath (x, yFor (run[0].lo)); }
+            for (size_t k = run.size(); k-- > 0;)
             {
-                const float x = plot.getX() + ((float) k + 0.5f) * columnWidth, y = yFor (down[(size_t) k]);
+                const float x = xAt (run[k].time - (half > 0.0 ? half : 0.0)), y = yFor (run[k].lo);
                 fill.lineTo (x, y);
-                if (k == end - 1) bottom.startNewSubPath (x, y); else bottom.lineTo (x, y);
+                if (half == 0.0 && k == run.size() - 1) bottom.startNewSubPath (x, y); else bottom.lineTo (x, y);
             }
             fill.closeSubPath();
             lines.addPath (top);
             lines.addPath (bottom);
-            c = end;
         }
 
         if (filled)
@@ -1036,7 +943,7 @@ private:
             return;
         }
         g.setColour (colour);
-        g.strokePath (lines, juce::PathStrokeType (1.5f));
+        g.strokePath (lines, juce::PathStrokeType (1.5f, juce::PathStrokeType::mitered));
     }
 
     // Detallado: cada medio píxel muestra el pico real (sin suavizar, se ven
