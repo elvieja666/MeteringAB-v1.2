@@ -1,7 +1,7 @@
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <optional>
-#include <deque>
+#include <map>
 #include "PluginProcessor.h"
 #include "Text.h"
 #include "Theme.h"
@@ -194,7 +194,7 @@ public:
             return;
         if (e.getDistanceFromDragStart() > 3)
             dragged = true;
-        if (! isZoomed())
+        if (! grabbing || ! isZoomed())                     // solo si agarró la onda (no "Show all" ni la cajita)
             return;
         setView (dragStartView - (double) (e.position.x - dragStartX) / juce::jmax (1.0f, plotArea().getWidth()) * viewSpan, viewSpan);
     }
@@ -224,6 +224,12 @@ public:
         if (! plotArea().contains (e.position))
             return;
 
+        if (isOnMarkerTag())                                // clic en la cajita con el valor: escribirlo
+        {
+            showMarkerEditor();
+            return;
+        }
+
         markerBeforeClick = markerDb;
         if (isOnMarker (e.position.y))
             setMarkerDb (std::nullopt);                     // clic sobre la línea fija: la saca
@@ -243,7 +249,7 @@ public:
     // Escribir el valor exacto (ej. -6, -6.5 dB).
     void showMarkerEditor()
     {
-        if (! markerDb.has_value())
+        if (! markerDb.has_value() || isMarkerEditorOpen())
             return;
 
         markerEditor = std::make_unique<juce::TextEditor>();
@@ -746,8 +752,10 @@ public:
                     text = juce::String (num) + "/" + juce::String (den);
             }
 
-            const float textWidth = juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), text);
-            if (wantsLabel && text.isNotEmpty() && x - textWidth * 0.5f - lastLabelX >= 10.0f)
+            if (! wantsLabel || text.isEmpty())
+                continue;
+            const float textWidth = labelWidth (g.getCurrentFont(), text);
+            if (x - textWidth * 0.5f - lastLabelX >= 10.0f)
             {
                 const bool atLeft = x - plot.getX() < 22.0f, atRight = plot.getRight() - x < 22.0f;
                 g.setColour (juce::Colour (0xff8a8f98));
@@ -760,6 +768,16 @@ public:
                 lastLabelX = atLeft ? x + textWidth : x + textWidth * 0.5f;
             }
         }
+    }
+
+    // Ancho de una etiqueta de la grilla (medir texto es caro: se guarda; son pocas y se repiten).
+    float labelWidth (const juce::Font& font, const juce::String& text) const
+    {
+        if (auto it = labelWidths.find (text); it != labelWidths.end())
+            return it->second;
+        if (labelWidths.size() > 512)
+            labelWidths.clear();
+        return labelWidths[text] = juce::GlyphArrangement::getStringWidth (font, text);
     }
 
     // Escala en dB: 0, -6, -12, -18 arriba y abajo, -∞ en el centro.
@@ -957,6 +975,7 @@ private:
     std::optional<float> gainLineDb;                    // línea de la ganancia aplicada
     static inline const juce::Colour gainColour { 0xffeceef1 };   // blanco
     juce::Rectangle<float> zoomLabelArea;               // "Show all" (con zoom)
+    mutable std::map<juce::String, float> labelWidths;  // anchos de las etiquetas de la grilla (misma letra siempre)
     juce::Point<float> hoverPoint { -1.0f, -1.0f };     // dónde está el mouse (para "Show all")
     bool grabbing = false;                              // apretado con zoom (mano cerrada)
     bool swallowClick = false;                          // el clic que cerró la caja de la regla

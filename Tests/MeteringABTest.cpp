@@ -268,6 +268,38 @@ int main (int argc, char** argv)
     juce::ScopedJuceInitialiser_GUI init;
     MeteringABPanel::scopeOpenOnStart = true;   // casi todas las pruebas miran el osciloscopio
 
+    if (std::getenv ("BENCH") != nullptr)
+    {
+        // Costo de la pantalla y del audio: tocando, con zoom (ms por cuadro, % de un núcleo).
+        Chain c (33, -3.0f, 0); c.pulsing = true;
+        c.recv.scopeLengthIndex = std::atoi (std::getenv ("BENCH"));
+        c.recv.apvts.state.setProperty ("scopeChannels", std::getenv ("SPLIT") ? 3 : 0, nullptr);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (c.recv.createEditor());
+        auto& sc = panelOf (ed)->getScopeForTests();
+        c.run (9.0);
+        {
+            const double t0 = juce::Time::getMillisecondCounterHiRes();
+            c.run (20.0);
+            std::printf ("BENCH audio: %.2f%% de un núcleo (Send + Receive)\n", (juce::Time::getMillisecondCounterHiRes() - t0) / 20000.0 * 100.0);
+        }
+        for (const double span : { 1.0, 0.5, 0.25, 0.1, 0.03, 0.01, 0.0 })
+        {
+            double total = 0.0; const int frames = 10;
+            for (int f = 0; f < frames; ++f)
+            {
+                c.run (1.0 / 30.0);
+                const double ph = c.recv.scopeCurrentBin.load() / (double) MeteringABProcessor::scopeBins;
+                sc.setView (juce::jlimit (0.0, 1.0, ph - span * 0.5), span);
+                const double t0 = juce::Time::getMillisecondCounterHiRes();
+                juce::Image img (juce::Image::ARGB, sc.getWidth(), sc.getHeight(), true);
+                juce::Graphics g (img); sc.paintEntireComponent (g, true);
+                total += juce::Time::getMillisecondCounterHiRes() - t0;
+            }
+            std::printf ("BENCH span %.2f: %.1f ms por cuadro\n", sc.getViewSpan(), total / frames);
+        }
+        c.recv.setPlayHead (nullptr); c.send.setPlayHead (nullptr);
+        return 0;
+    }
     if (argc > 2) // MeteringABTests <carpeta> <audio.raw>: tu audio (estéreo, float, 48 kHz) por el plugin real, 2 bars a 70 BPM
     {
         juce::MemoryBlock data;
@@ -1383,6 +1415,9 @@ int main (int argc, char** argv)
                 const bool fingerPressed = ! sc.isGrabbingForTests()
                                            && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
                 sc.mouseUp (mouse (tag.x).withNewPosition (tag));
+                const bool tagOpensBox = sc.isMarkerEditorOpen() && sc.getMarkerDb().has_value();
+                sc.typeAndEscapeMarkerForTests ("");
+                check (tagOpensBox && ! sc.isMarkerEditorOpen(), "Regla: un clic en la cajita abre la caja para escribir el valor", tagOpensBox);
                 // Sobre "Show all", también al clickear (apretado).
                 sc.mouseMove (mouse (showAll.x).withNewPosition (showAll));
                 sc.mouseDown (mouse (showAll.x).withNewPosition (showAll));

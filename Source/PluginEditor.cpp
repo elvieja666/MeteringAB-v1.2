@@ -1002,8 +1002,19 @@ void MeteringABPanel::timerCallback()
     repaint (meterArea());
     repaint (statusLabel.getBounds().withX (0).withWidth (40));   // puntito del estado
 
-    if (! isSendMode && ! scope.isFrozen())
-        scope.repaint();
+    // Osciloscopio: se redibuja tocando; parado, solo si algo cambió (antes 30 veces por
+    // segundo aunque estuviera quieto).
+    if (! isSendMode && ! scope.isFrozen() && scope.isShowing())
+    {
+        const bool running = processor.scopeIsRunning.load (std::memory_order_relaxed);
+        const auto signature = juce::String (processor.scopeCurrentBin.load()) + "|" + juce::String (processor.scopeLengthIndex.load())
+                             + "|" + juce::String (processor.timeSigNum.load()) + "/" + juce::String (processor.timeSigDen.load())
+                             + "|" + juce::String (processor.hostBpm.load(), 3) + "|" + juce::String (processor.scopeRawSlots.load())
+                             + "|" + juce::String ((int) running);
+        if (running || signature != lastScopeSignature)
+            scope.repaint();
+        lastScopeSignature = signature;
+    }
 }
 
 // Número grande (letra fina) con la unidad chica al lado, centrados juntos.

@@ -162,6 +162,7 @@ private:
     void resetMeters();
     bool isSendMode = false;
     int lastListenPre = -1;                           // para seguir al botón de escucha
+    juce::String lastScopeSignature;                  // estado del osciloscopio (para no redibujarlo si no cambió)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MeteringABPanel)
 };
