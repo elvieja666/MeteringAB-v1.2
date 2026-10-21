@@ -385,6 +385,69 @@ int main (int argc, char** argv)
                     juce::File bf (juce::String (argv[1]) + "/audio-compare-1bar.png");
                     bf.deleteFile(); juce::FileOutputStream bos (bf); juce::PNGImageFormat().writeImageToStream (bc, bos);
                 }
+                if (std::getenv ("MENU_SHOT"))          // cómo se ve el menú de Options (dibujado con el estilo del plugin)
+                {
+                    auto& lf = panel->getLookAndFeel();
+                    auto drawMenu = [&] (const juce::PopupMenu& m, int highlight, const char* file)
+                    {
+                        struct Row { juce::String text; bool sep, ticked, sub; };
+                        std::vector<Row> rows;
+                        for (juce::PopupMenu::MenuItemIterator it (m); it.next();)
+                        {
+                            const auto& item = it.getItem();
+                            rows.push_back ({ item.text, item.isSeparator, item.isTicked, item.subMenu != nullptr });
+                        }
+                        int w = 0, h = 4;
+                        std::vector<int> heights;
+                        for (auto& r : rows)
+                        {
+                            int iw = 0, ih = 0;
+                            lf.getIdealPopupMenuItemSize (r.text, r.sep, -1, iw, ih);
+                            w = juce::jmax (w, iw + 30); heights.push_back (ih); h += ih;
+                        }
+                        h += 4;
+                        juce::Image img (juce::Image::ARGB, w * 2, h * 2, true);
+                        juce::Graphics g (img);
+                        g.addTransform (juce::AffineTransform::scale (2.0f));
+                        lf.drawPopupMenuBackground (g, w, h);
+                        int y = 4;
+                        for (size_t i = 0; i < rows.size(); ++i)
+                        {
+                            const juce::Rectangle<int> area (0, y, w, heights[i]);
+                            lf.drawPopupMenuItem (g, area, rows[i].sep, true, (int) i == highlight, rows[i].ticked, rows[i].sub,
+                                                  rows[i].text, {}, nullptr, nullptr);
+                            y += heights[i];
+                        }
+                        juce::File mf (juce::String (argv[1]) + file);
+                        mf.deleteFile(); juce::FileOutputStream mos (mf); juce::PNGImageFormat().writeImageToStream (img, mos);
+                    };
+                    sc.setTripletGrid (true);
+                    panel->getProcessorStateForTests().setProperty ("scopeGridTriplets", true, nullptr);
+                    const auto menu = panel->buildStyleMenu();
+                    drawMenu (menu, 2, "/menu-options.png");
+                    for (juce::PopupMenu::MenuItemIterator it (menu); it.next();)
+                        if (it.getItem().subMenu != nullptr)
+                            drawMenu (*it.getItem().subMenu, -1, "/menu-channels.png");
+                    panel->getProcessorStateForTests().setProperty ("scopeGridTriplets", false, nullptr);
+                    sc.setTripletGrid (false);
+                }
+                {
+                    // Grilla en tresillos: todo el loop y un compás.
+                    sc.setTripletGrid (true);
+                    sc.resetZoom();
+                    auto t1 = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
+                    juce::File tf (juce::String (argv[1]) + "/audio-tresillos.png");
+                    tf.deleteFile(); juce::FileOutputStream tos (tf); juce::PNGImageFormat().writeImageToStream (t1, tos);
+                    sc.setView (0.0, 0.5);
+                    auto t2 = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
+                    juce::File tf2 (juce::String (argv[1]) + "/audio-tresillos-1bar.png");
+                    tf2.deleteFile(); juce::FileOutputStream tos2 (tf2); juce::PNGImageFormat().writeImageToStream (t2, tos2);
+                    sc.setView (0.0, 0.125);
+                    auto t3 = sc.createComponentSnapshot (sc.getLocalBounds(), true, 2.0f);
+                    juce::File tf3 (juce::String (argv[1]) + "/audio-tresillos-zoom.png");
+                    tf3.deleteFile(); juce::FileOutputStream tos3 (tf3); juce::PNGImageFormat().writeImageToStream (t3, tos3);
+                    sc.setTripletGrid (false);
+                }
                 for (int z = 0; z < 2; ++z)             // ...y con zoom (x8 y x40)
                 {
                     sc.setView (zooms[z][0], zooms[z][1]);

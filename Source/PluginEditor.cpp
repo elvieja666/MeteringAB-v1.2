@@ -644,6 +644,7 @@ void MeteringABPanel::applyScopeLook()
     scope.setStyles (ScopeView::Style::contour, ScopeView::Style::lines);
     scope.setLinkStyle (ScopeView::Style::detailed);
     scope.setShowGrid ((bool) state.getProperty ("scopeGrid", true));
+    scope.setTripletGrid ((bool) state.getProperty ("scopeGridTriplets", false));
     scope.setChannels ((ScopeView::Channels) juce::jlimit (0, 3, (int) state.getProperty ("scopeChannels", 0)));
 
     const int palette = juce::jlimit (0, ScopeView::customPalette, (int) state.getProperty ("scopePalette", 0));
@@ -677,6 +678,7 @@ juce::PopupMenu MeteringABPanel::buildStyleMenu() const
         channelsMenu.addItem (500 + i, ScopeView::channelNames[i], true, channels == i);
     menu.addSubMenu ("Channels: " + ScopeView::channelNames[juce::jlimit (0, ScopeView::channelNames.size() - 1, channels)], channelsMenu);
     menu.addItem (400, "Show grid", true, scope.getShowGrid());
+    menu.addItem (401, "Triplet grid", true, scope.getTripletGrid());
     return menu;
 }
 
@@ -699,6 +701,7 @@ void MeteringABPanel::applyStyleMenuResult (int result)
     else if (result >= 150 && result < 200) st.setProperty ("scopeStylePost", result - 150, nullptr);
     else if (result == 300 || result == 301) { pickCustomColour (result == 300); return; }
     else if (result == 400)                 st.setProperty ("scopeGrid", ! scope.getShowGrid(), nullptr);
+    else if (result == 401)                 st.setProperty ("scopeGridTriplets", ! scope.getTripletGrid(), nullptr);
     else if (result >= 500 && result < 600) st.setProperty ("scopeChannels", result - 500, nullptr);
     else if (result >= 600 && result < 700) st.setProperty ("scopeStyleLink", result - 601, nullptr);   // 600 = -1 (igual)
     else if (result >= 700 && result < 700 + (int) waveColours.size())

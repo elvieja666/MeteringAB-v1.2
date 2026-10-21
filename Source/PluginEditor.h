@@ -111,6 +111,7 @@ public:
     ScopeView& getScopeForTests()             { return scope; }
     juce::TextButton& getFreezeButtonForTests() { return freezeButton; }
     juce::TextButton& getOptionsButtonForTests() { return optionsButton; }
+    juce::ValueTree& getProcessorStateForTests() { return processor.apvts.state; }
     juce::TextButton& getGainLineButtonForTests() { return gainLineButton; }
     ChipButton& getCompareButtonForTests()      { return compareButton; }
     bool isCompareOnForTests() const            { return compareOn; }

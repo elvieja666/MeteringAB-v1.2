@@ -57,6 +57,8 @@ public:
     Channels getChannels() const               { return channels; }
 
     void setShowGrid (bool shouldShow)         { showGrid = shouldShow; repaint(); }
+    void setTripletGrid (bool on)              { tripletGrid = on; repaint(); }
+    bool getTripletGrid() const                { return tripletGrid; }
 
     // LINK: cada columna muestra la onda que sonaba cuando se dibujó.
     void setLinked (bool shouldLink)           { linked = shouldLink; repaint(); }
@@ -618,9 +620,11 @@ public:
     void drawTimeGrid (juce::Graphics& g, juce::Rectangle<float> plot) const
     {
         const double totalBeats = lengthBars * beatsPerBar;
-        int subdivisions = totalBeats <= 8.0 ? 4 : 1;                   // 16avos si hay lugar
+        // Normal: 16avos (4 por tiempo). Tresillos: 3 por tiempo (corcheas en tresillo).
+        int subdivisions = tripletGrid ? (totalBeats <= 16.0 ? 3 : 1) : (totalBeats <= 8.0 ? 4 : 1);
         const double pixelsPerBeat = plot.getWidth() / (totalBeats * viewSpan);
-        while (subdivisions < 256 && pixelsPerBeat / (subdivisions * 2) >= 14.0 && isZoomed())
+        const int maxSubdivisions = tripletGrid ? 6 : 256;               // tresillos: hasta tresillos de semicorchea
+        while (subdivisions * 2 <= maxSubdivisions && pixelsPerBeat / (subdivisions * 2) >= 14.0 && isZoomed())
             subdivisions *= 2;
 
         const int totalLines = juce::roundToInt (totalBeats * subdivisions);
@@ -655,8 +659,11 @@ public:
             else
             {
                 int num = k, den = beatsPerBar * subdivisions;               // fracción simplificada del compás
-                while (num % 2 == 0 && den % 2 == 0) { num /= 2; den /= 2; }
-                if (den <= beatsPerBar * 4)                                   // hasta semicorcheas (más chico no se lee)
+                for (int f : { 2, 3 })
+                    while (num % f == 0 && den % f == 0) { num /= f; den /= f; }
+                const bool fits = tripletGrid ? (den % 3 == 0 && den <= beatsPerBar * 6)   // solo posiciones de tresillo
+                                              : den <= beatsPerBar * 4;                     // hasta semicorcheas
+                if (fits)
                     text = juce::String (num) + "/" + juce::String (den);
             }
 
@@ -1088,6 +1095,7 @@ private:
     std::optional<Style> linkStyle;
     juce::Colour preColour { palettes[0].pre }, postColour { palettes[0].post };
     bool showGrid = true;
+    bool tripletGrid = false;                           // grilla en tresillos (3 por tiempo)
     int currentBin = 0;
     double lengthBars = 1.0;
     int beatsPerBar = 4;
