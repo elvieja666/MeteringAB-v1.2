@@ -304,6 +304,7 @@ int main (int argc, char** argv)
             recv.apvts.state.setProperty ("scopeStylePost", style == 0 ? 0 : style == 1 ? 2 : 1, nullptr);
             send.setPlayHead (&head); recv.setPlayHead (&head);
             send.prepareToPlay (48000, 512); recv.prepareToPlay (48000, 512);
+            recv.scopeBandMask.store (1);              // como con el osciloscopio abierto
             head.ppq = 0.0;
             juce::AudioBuffer<float> b (2, 512);
 
@@ -1309,29 +1310,70 @@ int main (int argc, char** argv)
     }
 
     {
-        // Outline / Lines only: definición fija de 1024 muestras (un punto por bloque).
-        using V = std::vector<float>;
-        using H = std::vector<std::uint8_t>;
-        const double unit = 1.0 / 48000.0, block = 1024.0 / 48000.0;
-        V hi (4096, 0.1f), lo (4096, -0.1f);
-        hi[1500] = 0.9f; lo[3000] = -0.7f;                   // un pico en el bloque 1 y otro en el 2
-        const auto runs = ScopeView::blockEdges (hi, lo, H (4096, 1), unit, block);
-        check (runs.size() == 1 && runs[0].size() == 4, "Outline 1024: 4096 muestras = 4 puntos", runs.empty() ? 0.0 : (double) runs[0].size());
-        check (std::abs (runs[0][1].hi - 0.9f) < 1.0e-6f && std::abs (runs[0][0].hi - 0.1f) < 1.0e-6f && std::abs (runs[0][2].lo + 0.7f) < 1.0e-6f,
-               "Outline 1024: cada punto es el pico de su bloque (arriba y abajo)", runs[0][1].hi);
-        check (std::abs (runs[0][1].time - 1.5 * block) < 1.0e-9, "Outline 1024: el punto va en el medio del bloque", runs[0][1].time);
+        // Outline / Lines only: borde por bandas (20 bandas, cada una con su muestreo, alineadas).
+        auto runEnv = [] (const std::vector<float>& x, std::vector<float>& up, std::vector<float>& down)
+        { ScopeView::bandEdgesOf (x, 48000.0, up, down); };
+        constexpr double tau = 2.0 * juce::MathConstants<double>::pi;
 
-        // Un tramo sin onda (LINK) corta el dibujo.
-        H gap (4096, 1);
-        for (int i = 1024; i < 2048; ++i) gap[(size_t) i] = 0;
-        const auto cut = ScopeView::blockEdges (hi, lo, gap, unit, block);
-        check (cut.size() == 2, "Outline 1024: un tramo sin onda corta el dibujo", (double) cut.size());
+        // Un bajo de 40 Hz parejo: el borde queda plano (no se ven los ciclos) y a su nivel.
+        {
+            std::vector<float> x (48000), up, down;
+            for (int i = 0; i < 48000; ++i) x[(size_t) i] = 0.5f * (float) std::sin (tau * 40.0 * i / 48000.0);
+            runEnv (x, up, down);
+            float lo = 1.0f, hi = 0.0f;
+            for (int i = 12000; i < 36000; ++i) { lo = juce::jmin (lo, up[(size_t) i]); hi = juce::jmax (hi, up[(size_t) i]); }
+            check (hi - lo < 0.06f && hi <= 0.5001f && hi > 0.4f, "Bandas: un bajo de 40 Hz da un borde plano (sin ciclos), a su nivel", hi - lo);
+        }
 
-        // Desde columnas del osciloscopio (más largas que una muestra): igual, bloques de 1024.
-        V chi (100, 0.2f), clo (100, -0.2f);
-        const auto fromBins = ScopeView::blockEdges (chi, clo, H (100, 1), 160.0 / 48000.0, block);
-        check (fromBins.size() == 1 && std::abs ((double) fromBins[0].size() - 100.0 * 160.0 / 1024.0) <= 1.0,
-               "Outline 1024: con columnas largas también da un punto cada 1024 muestras", fromBins.empty() ? 0.0 : (double) fromBins[0].size());
+        // Golpes alineados: un agudo y un grave que empiezan juntos, el borde sube en el mismo lugar.
+        {
+            auto onset = [&] (double freq)
+            {
+                std::vector<float> x (48000, 0.0f), up, down;
+                for (int i = 24000; i < 48000; ++i) x[(size_t) i] = 0.5f * (float) std::sin (tau * freq * (i - 24000) / 48000.0);
+                runEnv (x, up, down);
+                for (int i = 0; i < 48000; ++i) if (up[(size_t) i] > 0.2f) return i - 24000;
+                return 99999;
+            };
+            const int high = onset (3000.0), mid = onset (400.0), low = onset (60.0);
+            check (high >= 0 && high < 48 && mid >= 0 && mid < 96 && low >= 0 && low < 200,
+                   "Bandas: agudos, medios y graves que empiezan juntos suben juntos, sin adelantarse (compensación del atraso)", (double) low);
+        }
+
+        // Nunca pasa el pico real (aunque se sumen 20 bandas).
+        {
+            juce::Random rng (3);
+            std::vector<float> x (48000), up, down;
+            for (auto& v : x) v = 0.4f * (rng.nextFloat() * 2.0f - 1.0f);
+            runEnv (x, up, down);
+            float over = 0.0f;
+            for (int i = 2000; i < 46000; ++i)
+            {
+                float peak = 0.0f;
+                for (int j = i - 1400; j <= i + 1400; j += 7) peak = juce::jmax (peak, std::abs (x[(size_t) j]));
+                over = juce::jmax (over, up[(size_t) i] - juce::jmax (peak, 0.4f));
+            }
+            check (over <= 1.0e-4f, "Bandas: el borde nunca pasa el pico real", over);
+        }
+
+        // De punta a punta: el audio guarda el borde por bandas por columna (solo si se ve).
+        {
+            Chain c (23, -3.0f, 0);
+            c.recv.scopeBandMask.store (1);
+            c.run (2.5);
+            const auto& t = c.recv.scopeTraces[MeteringABProcessor::postSum];
+            int computed = 0, untouched = 0;
+            for (int k = 100; k < 1500; ++k)
+            {
+                if (t.envUp[(size_t) k].load() >= 0.0f) ++computed;
+                if (c.recv.scopeTraces[MeteringABProcessor::postLeft].envUp[(size_t) k].load() >= 0.0f) ++untouched;
+            }
+            check (computed > 1300 && untouched == 0, "Bandas: el audio calcula el borde de lo que se ve (y no de L / R)", computed);
+            Chain off (24, -3.0f, 0);
+            off.run (1.0);
+            check (off.recv.scopeTraces[MeteringABProcessor::postSum].envUp[300].load() < 0.0f,
+                   "Bandas: sin osciloscopio a la vista no se calcula (no gasta)", 1);
+        }
     }
     {
         // Zoom: el audio guarda la onda muestra a muestra (120 BPM, 1 compás = 2 s = 96000 muestras).

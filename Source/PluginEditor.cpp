@@ -622,6 +622,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
 MeteringABPanel::~MeteringABPanel()
 {
+    processor.scopeBandMask.store (0);               // sin interfaz no hace falta el borde por bandas
     stopTimer();
     setLookAndFeel (nullptr);
 }
@@ -657,6 +658,16 @@ void MeteringABPanel::applyScopeLook()
                           juce::Colour (ScopeView::palettes[(size_t) palette].post));
 
     updateWaveButtons();
+    updateBandMask();
+}
+
+// El borde por bandas (Outline / Lines only) se calcula solo con el osciloscopio a la
+// vista, y solo de las ondas que se ven (sumas, o L y R).
+void MeteringABPanel::updateBandMask()
+{
+    const bool showScope = ! isSendMode && scopeOpen;
+    const int channels = (int) processor.apvts.state.getProperty ("scopeChannels", 0);
+    processor.scopeBandMask.store (showScope ? (channels == 0 ? 1 : 2) : 0);
 }
 
 // Colores para elegir por onda (los de las paletas, sin repetir).
@@ -778,6 +789,7 @@ void MeteringABPanel::updateScopeSection()
 
     for (auto* c : scopeParts)
         c->setVisible (showScope);
+    updateBandMask();
 
     scopeLabel.setVisible (showScope);
 

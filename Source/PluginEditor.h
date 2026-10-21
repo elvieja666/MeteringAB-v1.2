@@ -176,6 +176,7 @@ private:
     juce::TextButton scopeToggleButton { "Scope" };   // abrir / cerrar el osciloscopio (al pie de la columna gris)
     bool scopeOpen = true;
     void setScopeOpen (bool open);
+    void updateBandMask();
     bool scopeLinked = true;                          // el osciloscopio sigue a la escucha (siempre, salvo
                                                       // que elijas una onda a mano hasta el próximo cambio)
     void setScopeLinked (bool linked);

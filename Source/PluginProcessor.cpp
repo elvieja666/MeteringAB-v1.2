@@ -270,6 +270,18 @@ void MeteringABProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     preMeter.prepare (sampleRate);
     postMeter.prepare (sampleRate);
 
+    for (auto& b : bandEnvelopes)                    // borde por bandas (Outline / Lines only)
+        b.prepare (sampleRate);
+    bandBinHistory.assign ((size_t) bandEnvelopes[0].getLatency() + 1, -1);
+    bandBinPos = 0;
+    activeBandMask = 0;
+    for (auto& trace : scopeTraces)
+        for (int b = 0; b < scopeBins; ++b)
+        {
+            trace.envUp[(size_t) b].store (-1.0f, std::memory_order_relaxed);
+            trace.envDown[(size_t) b].store (-1.0f, std::memory_order_relaxed);
+        }
+
     for (auto& raw : scopeRaw)                       // zoom del osciloscopio (una sola vez)
         if (raw == nullptr)
         {
@@ -561,6 +573,18 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     scopeLastBlockPpq = hostHasPpq ? hostPpq : 0.0;
     double songQuarters = hostHasPpq ? hostPpq : scopePlayStartQuarters;   // posición del audio que llega
 
+    // Borde por bandas: prender / apagar según lo que se ve (al prender, desde cero).
+    {
+        const int wanted = scopeBandMask.load (std::memory_order_relaxed);
+        for (int t = 0; t < numScopeTraces; ++t)
+        {
+            const int bit = t < 2 ? 1 : 2;
+            if ((wanted & bit) != 0 && (activeBandMask & bit) == 0)
+                bandEnvelopes[(size_t) t].reset();
+        }
+        activeBandMask = wanted;
+    }
+
     for (int i = 0; i < n; ++i)
     {
         const float g = gainSmoother.getNextValue();
@@ -597,10 +621,41 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         const int bin = drawing ? juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins)) : -1;
         const bool newBin = drawing && bin != lastScopeBin;   // columna nueva: reemplaza la del loop anterior
 
+        // Borde por bandas: llega atrasado (getLatency), así que va a la columna de
+        // la muestra de hace ese tiempo.
+        int envBin = -1;
+        if (! bandBinHistory.empty())
+        {
+            envBin = bandBinHistory[(size_t) bandBinPos];
+            bandBinHistory[(size_t) bandBinPos] = bin;
+            bandBinPos = (bandBinPos + 1) % (int) bandBinHistory.size();
+        }
+        const bool newEnvBin = envBin >= 0 && envBin != lastEnvBin;
+
         for (int t = 0; t < numScopeTraces; ++t)
         {
             auto& trace = scopeTraces[(size_t) t];
             const float v = values[t];
+
+            if (((t < 2 ? 1 : 2) & activeBandMask) != 0)
+            {
+                float up = 0.0f, down = 0.0f;
+                bandEnvelopes[(size_t) t].process (v, up, down);
+                if (envBin >= 0)
+                {
+                    const auto k = (size_t) envBin;
+                    if (newEnvBin || trace.envUp[k].load (std::memory_order_relaxed) < 0.0f)
+                    {
+                        trace.envUp[k].store (up, std::memory_order_relaxed);
+                        trace.envDown[k].store (down, std::memory_order_relaxed);
+                    }
+                    else
+                    {
+                        if (up > trace.envUp[k].load (std::memory_order_relaxed)) trace.envUp[k].store (up, std::memory_order_relaxed);
+                        if (down > trace.envDown[k].load (std::memory_order_relaxed)) trace.envDown[k].store (down, std::memory_order_relaxed);
+                    }
+                }
+            }
 
             if (drawing)
             {
@@ -620,6 +675,9 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
                 }
             }
         }
+
+        if (envBin >= 0)
+            lastEnvBin = envBin;
 
         // Detalle de muestra (zoom): mínimo y máximo de cada casillero.
         if (drawing && rawReady)
@@ -710,6 +768,8 @@ void MeteringABProcessor::clearScope()
             trace.min[(size_t) b] = 0.0f;
             trace.max[(size_t) b] = 0.0f;
             trace.sq[(size_t) b] = 0.0f;
+            trace.envUp[(size_t) b] = -1.0f;
+            trace.envDown[(size_t) b] = -1.0f;
         }
 
         scopeCount[(size_t) b] = 0;
@@ -718,6 +778,10 @@ void MeteringABProcessor::clearScope()
 
     lastScopeBin = -1;
     lastRawSlot = -1;
+    lastEnvBin = -1;
+    std::fill (bandBinHistory.begin(), bandBinHistory.end(), -1);
+    for (auto& b : bandEnvelopes)
+        b.reset();
 
     const int rawInUse = juce::jlimit (1, scopeRawCapacity, scopeRawSlots.load (std::memory_order_relaxed));
     for (auto& raw : scopeRaw)                         // solo los casilleros en uso (rápido)

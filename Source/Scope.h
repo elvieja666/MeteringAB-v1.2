@@ -323,7 +323,7 @@ public:
 
                 if (style != Style::detailed)                    // Outline / Lines only: Detallado, unido punta a punta
                 {
-                    drawTips (g, area, t, rawUseful ? &raw : nullptr, rawSlots, view, yFor, colour, style == Style::contour, mask, binSecs, processor.getCurrentSampleRate());
+                    drawTips (g, area, t, rawUseful ? &raw : nullptr, rawSlots, view, yFor, colour, style == Style::contour, mask, binSecs);
                     return;
                 }
 
@@ -453,6 +453,8 @@ private:
                 dst.min[(size_t) b] = src.min[(size_t) b].load (std::memory_order_relaxed);
                 dst.max[(size_t) b] = src.max[(size_t) b].load (std::memory_order_relaxed);
                 dst.sq[(size_t) b]  = src.sq[(size_t) b].load (std::memory_order_relaxed) / count;
+                dst.envUp[(size_t) b]   = src.envUp[(size_t) b].load (std::memory_order_relaxed);
+                dst.envDown[(size_t) b] = src.envDown[(size_t) b].load (std::memory_order_relaxed);
             }
         }
 
@@ -466,7 +468,9 @@ private:
         const double visibleSlots = viewSpan * rawSlots;
         if (isZoomed() && visibleSlots <= 256.0 * juce::jmax (1.0f, plotArea().getWidth()))
         {
-            const int margin = 2;
+            // Con margen: el borde por bandas necesita contexto (150 ms a cada lado).
+            const double loopSecs = juce::jmax (1.0e-3, binSeconds() * MeteringABProcessor::scopeBins);
+            const int margin = (int) std::ceil (0.16 * rawSlots / loopSecs) + 2;
             const int from = juce::jmax (0, (int) std::floor (viewStart * rawSlots) - margin);
             const int to   = juce::jmin (rawSlots, (int) std::ceil ((viewStart + viewSpan) * rawSlots) + margin);
             for (int t = 0; t < used; ++t)
@@ -734,7 +738,7 @@ public:
         float x (double loopFraction) const { return left + (float) ((loopFraction - start) / span) * width; }
         double fractionAt (float px) const  { return start + (double) (px - left) / width * span; }
     };
-    struct TraceCopy { Bins min {}, max {}, sq {}; };
+    struct TraceCopy { Bins min {}, max {}, sq {}, envUp {}, envDown {}; };
 
     // Máscara opcional: con LINK, qué columnas dibujar de cada onda.
     using Flags = std::array<std::uint8_t, MeteringABProcessor::scopeBins>;
@@ -817,130 +821,125 @@ private:
         return lengthBars * quartersPerBar * 60.0 / bpm / MeteringABProcessor::scopeBins;
     }
 
-    // Outline / Lines only: definición fija de 1024 muestras. El loop se corta en
-    // bloques de 1024 muestras (21 ms a 48 kHz); cada bloque da un punto con su pico
-    // de arriba y de abajo, en el medio del bloque, y los puntos se unen con rectas.
-    // Outline pinta lo de adentro; Lines only dibuja solo el borde.
+    // Outline / Lines only: el borde "por bandas" (ver BandEnvelope): 20 bandas, cada
+    // una con su muestreo, alineadas y sumadas. El audio lo calcula por columna; con
+    // zoom se recalcula desde la onda guardada, así tiene detalle de muestra.
+    // Columnas sin borde calculado (osciloscopio cerrado cuando pasó el cabezal):
+    // se usa el pico de la columna.
 public:
-    static constexpr int blockSamples = 1024;
-
-    struct BlockPoint { double time; float hi, lo; };   // time: segundos desde el comienzo del loop
-
-    // unitHi / unitLo / unitHas: el pico de cada casillero (columna de 2048 o muestra)
-    // y si se dibuja; unitSeconds: cuánto dura cada casillero. Devuelve los bloques;
-    // un tramo sin onda corta el dibujo (bloque con has = false → se omite).
-    static std::vector<std::vector<BlockPoint>> blockEdges (const std::vector<float>& unitHi, const std::vector<float>& unitLo,
-                                                            const std::vector<std::uint8_t>& unitHas, double unitSeconds,
-                                                            double blockSeconds, int firstUnit = 0)
+    // Recalcula el borde por bandas de un tramo (muestras seguidas), con su contexto.
+    // samples: la onda; rate: muestras por segundo. Devuelve el borde de cada muestra.
+    static void bandEdgesOf (const std::vector<float>& samples, double rate, std::vector<float>& up, std::vector<float>& down)
     {
-        std::vector<std::vector<BlockPoint>> runs;
-        const int n = (int) unitHi.size();
-        if (n == 0 || unitSeconds <= 0.0 || blockSeconds <= 0.0)
-            return runs;
-
-        long long current = -1;
-        float hi = 0.0f, lo = 0.0f;
-        bool any = false, broken = true;
-
-        auto flush = [&]
+        BandEnvelope env;
+        env.prepare (rate);
+        const int lat = env.getLatency(), n = (int) samples.size();
+        up.assign ((size_t) n, 0.0f); down.assign ((size_t) n, 0.0f);
+        for (int i = 0; i < n + lat; ++i)
         {
-            if (current >= 0 && any)
-            {
-                if (broken || runs.empty()) runs.emplace_back();
-                runs.back().push_back ({ ((double) current + 0.5) * blockSeconds, juce::jmax (0.0f, hi), juce::jmin (0.0f, lo) });
-                broken = false;
-            }
-            else if (current >= 0)
-                broken = true;
-        };
-
-        for (int i = 0; i < n; ++i)
-        {
-            const auto block = (long long) std::floor (((double) (firstUnit + i) + 0.5) * unitSeconds / blockSeconds);
-            if (block != current)
-            {
-                flush();
-                current = block; hi = -1.0f; lo = 1.0f; any = false;
-            }
-            if (! unitHas[(size_t) i])
-            {
-                if (any) { flush(); current = -1; any = false; }
-                broken = true;
-                continue;
-            }
-            hi = juce::jmax (hi, unitHi[(size_t) i]);
-            lo = juce::jmin (lo, unitLo[(size_t) i]);
-            any = true;
+            float u = 0.0f, d = 0.0f;
+            env.process (i < n ? samples[(size_t) i] : 0.0f, u, d);
+            if (i >= lat) { up[(size_t) (i - lat)] = u; down[(size_t) (i - lat)] = d; }
         }
-        flush();
-        return runs;
     }
 
 private:
     template <typename YFunc>
     static void drawTips (juce::Graphics& g, juce::Rectangle<float> plot, const TraceCopy& t, const std::vector<std::uint32_t>* raw, int slots,
-                          View view, YFunc yFor, juce::Colour colour, bool filled, Mask mask, double binSeconds, double sampleRate)
+                          View view, YFunc yFor, juce::Colour colour, bool filled, Mask mask, double binSeconds)
     {
-        juce::ignoreUnused (plot);
         const int bins = MeteringABProcessor::scopeBins;
-        const double loopSeconds = juce::jmax (1.0e-6, binSeconds * bins);
-        const double blockSeconds = blockSamples / juce::jmax (1.0, sampleRate);
-
-        // Lo visible, con un bloque de margen a cada lado (para que la línea llegue a los bordes).
-        const double margin = blockSeconds / loopSeconds;
-        const double from = juce::jmax (0.0, view.start - margin), to = juce::jmin (1.0, view.start + view.span + margin);
+        const int columns = juce::jmax (1, (int) plot.getWidth() * 2);
+        const float columnWidth = plot.getWidth() / (float) columns;
+        std::vector<float> up ((size_t) columns, 0.0f), down ((size_t) columns, 0.0f);
+        std::vector<std::uint8_t> has ((size_t) columns, 0);
 
         const bool useRaw = raw != nullptr && (int) raw->size() >= slots;
-        const int units = useRaw ? slots : bins;
-        const int u0 = juce::jlimit (0, units - 1, (int) std::floor (from * units));
-        const int u1 = juce::jlimit (u0 + 1, units, (int) std::ceil (to * units));
-        auto binOf = [&] (int slot) { return juce::jlimit (0, bins - 1, (int) ((long long) slot * bins / slots)); };
-
-        std::vector<float> hi ((size_t) (u1 - u0)), lo ((size_t) (u1 - u0));
-        std::vector<std::uint8_t> has ((size_t) (u1 - u0));
-        for (int i = u0; i < u1; ++i)
+        if (useRaw)
         {
-            const auto k = (size_t) (i - u0);
-            if (useRaw)
+            // Con zoom: recalcular desde la onda, con 150 ms de contexto a cada lado.
+            const double loopSeconds = juce::jmax (1.0e-6, binSeconds * bins);
+            const double rate = slots / loopSeconds;
+            const int context = (int) std::ceil (0.15 * rate);
+            const int s0 = juce::jmax (0, (int) std::floor (view.start * slots) - context);
+            const int s1 = juce::jmin (slots, (int) std::ceil ((view.start + view.span) * slots) + context);
+            std::vector<float> samples ((size_t) juce::jmax (0, s1 - s0));
+            for (int i = s0; i < s1; ++i)
+                samples[(size_t) (i - s0)] = 0.5f * (MeteringABProcessor::rawLo ((*raw)[(size_t) i]) + MeteringABProcessor::rawHi ((*raw)[(size_t) i]));
+            // Lo calculado se guarda: mientras la onda no cambie (Freeze), no se recalcula.
+            struct Cache { const void* source = nullptr; int s0 = -1, s1 = -1; double rate = 0.0; std::uint64_t sum = 0; std::vector<float> up, down; };
+            static Cache caches[4];
+            std::uint64_t sum = 1469598103934665603ull;
+            for (size_t i = 0; i < samples.size(); i += juce::jmax ((size_t) 1, samples.size() / 512))
+                sum = (sum ^ (std::uint64_t) (std::uint32_t) juce::roundToInt (samples[i] * 1.0e6f)) * 1099511628211ull;
+            Cache* cache = nullptr;
+            for (auto& c : caches)
+                if (c.source == raw && c.s0 == s0 && c.s1 == s1 && juce::exactlyEqual (c.rate, rate) && c.sum == sum) { cache = &c; break; }
+            if (cache == nullptr)
             {
-                has[k] = mask.includes (binOf (i)) ? 1 : 0;
-                lo[k] = MeteringABProcessor::rawLo ((*raw)[(size_t) i]); hi[k] = MeteringABProcessor::rawHi ((*raw)[(size_t) i]);
+                cache = &caches[0];
+                for (auto& c : caches) if (c.source == raw || c.source == nullptr) { cache = &c; break; }
+                cache->source = raw; cache->s0 = s0; cache->s1 = s1; cache->rate = rate; cache->sum = sum;
+                bandEdgesOf (samples, rate, cache->up, cache->down);
             }
-            else
+            const auto& su = cache->up;
+            const auto& sd = cache->down;
+
+            auto binOf = [&] (int slot) { return juce::jlimit (0, bins - 1, (int) ((long long) slot * bins / slots)); };
+            for (int c = 0; c < columns; ++c)
             {
-                has[k] = mask.includes (i) ? 1 : 0;
-                lo[k] = t.min[(size_t) i]; hi[k] = t.max[(size_t) i];
+                const int from = juce::jlimit (0, slots - 1, (int) std::floor ((view.start + view.span * c / columns) * slots));
+                const int to   = juce::jlimit (from + 1, slots, (int) std::ceil ((view.start + view.span * (c + 1) / columns) * slots));
+                for (int i = juce::jmax (from, s0); i < juce::jmin (to, s1); ++i)
+                {
+                    if (! mask.includes (binOf (i))) continue;
+                    up[(size_t) c] = juce::jmax (up[(size_t) c], su[(size_t) (i - s0)]);
+                    down[(size_t) c] = juce::jmax (down[(size_t) c], sd[(size_t) (i - s0)]);
+                    has[(size_t) c] = 1;
+                }
+            }
+        }
+        else
+        {
+            for (int c = 0; c < columns; ++c)
+            {
+                const int from = juce::jlimit (0, bins - 1, (int) std::floor ((view.start + view.span * c / columns) * bins));
+                const int to   = juce::jlimit (from + 1, bins, (int) std::ceil ((view.start + view.span * (c + 1) / columns) * bins));
+                for (int b = from; b < to; ++b)
+                {
+                    if (! mask.includes (b)) continue;
+                    const bool computed = t.envUp[(size_t) b] >= 0.0f;
+                    up[(size_t) c]   = juce::jmax (up[(size_t) c],   computed ? t.envUp[(size_t) b]   : juce::jmax (0.0f, t.max[(size_t) b]));
+                    down[(size_t) c] = juce::jmax (down[(size_t) c], computed ? t.envDown[(size_t) b] : juce::jmax (0.0f, -t.min[(size_t) b]));
+                    has[(size_t) c] = 1;
+                }
             }
         }
 
-        const auto runs = blockEdges (hi, lo, has, loopSeconds / units, blockSeconds, u0);
-
         juce::Path fill, lines;
-        for (const auto& run : runs)
+        for (int c = 0; c < columns;)
         {
-            if (run.empty()) continue;
-            juce::Path top, bottom;
-            auto xAt = [&] (double time) { return view.x (time / loopSeconds); };
+            if (! has[(size_t) c]) { ++c; continue; }
+            int end = c;
+            while (end < columns && has[(size_t) end]) ++end;
 
-            // Un bloque solo: un tramo cortito del ancho del bloque.
-            const double half = run.size() == 1 ? blockSeconds * 0.5 : 0.0;
-            for (size_t k = 0; k < run.size(); ++k)
+            juce::Path top, bottom;
+            for (int k = c; k < end; ++k)
             {
-                const float x = xAt (run[k].time - (k == 0 ? half : 0.0)), y = yFor (run[k].hi);
-                if (k == 0) { fill.startNewSubPath (x, y); top.startNewSubPath (x, y); }
+                const float x = plot.getX() + ((float) k + 0.5f) * columnWidth, y = yFor (up[(size_t) k]);
+                if (k == c) { fill.startNewSubPath (x, y); top.startNewSubPath (x, y); }
                 else        { fill.lineTo (x, y); top.lineTo (x, y); }
             }
-            if (half > 0.0) { const float x = xAt (run[0].time + half); fill.lineTo (x, yFor (run[0].hi)); top.lineTo (x, yFor (run[0].hi)); }
-            if (half > 0.0) { const float x = xAt (run[0].time + half); fill.lineTo (x, yFor (run[0].lo)); bottom.startNewSubPath (x, yFor (run[0].lo)); }
-            for (size_t k = run.size(); k-- > 0;)
+            for (int k = end; k-- > c;)
             {
-                const float x = xAt (run[k].time - (half > 0.0 ? half : 0.0)), y = yFor (run[k].lo);
+                const float x = plot.getX() + ((float) k + 0.5f) * columnWidth, y = yFor (-down[(size_t) k]);
                 fill.lineTo (x, y);
-                if (half == 0.0 && k == run.size() - 1) bottom.startNewSubPath (x, y); else bottom.lineTo (x, y);
+                if (k == end - 1) bottom.startNewSubPath (x, y); else bottom.lineTo (x, y);
             }
             fill.closeSubPath();
             lines.addPath (top);
             lines.addPath (bottom);
+            c = end;
         }
 
         if (filled)
@@ -950,7 +949,7 @@ private:
             return;
         }
         g.setColour (colour);
-        g.strokePath (lines, juce::PathStrokeType (1.5f, juce::PathStrokeType::mitered));
+        g.strokePath (lines, juce::PathStrokeType (1.5f));
     }
 
     // Detallado: cada medio píxel muestra el pico real (sin suavizar, se ven
