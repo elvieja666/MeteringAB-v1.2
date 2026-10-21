@@ -224,14 +224,9 @@ public:
         if (! plotArea().contains (e.position))
             return;
 
-        if (isOnMarkerTag())                                // clic en la cajita con el valor: escribirlo
-        {
-            showMarkerEditor();
-            return;
-        }
-
         markerBeforeClick = markerDb;
-        if (isOnMarker (e.position.y))
+        if (isOnMarkerTag() || isOnMarker (e.position.y))   // clic sobre la línea o su cajita: la saca
+                                                            // (doble clic: vuelve y abre la caja para el valor)
             setMarkerDb (std::nullopt);                     // clic sobre la línea fija: la saca
         else
             setMarkerDb (dbAtY (e.position.y));              // clic: deja la línea fija ahí

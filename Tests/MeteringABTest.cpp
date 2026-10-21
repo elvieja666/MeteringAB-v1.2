@@ -1415,9 +1415,12 @@ int main (int argc, char** argv)
                 const bool fingerPressed = ! sc.isGrabbingForTests()
                                            && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
                 sc.mouseUp (mouse (tag.x).withNewPosition (tag));
-                const bool tagOpensBox = sc.isMarkerEditorOpen() && sc.getMarkerDb().has_value();
+                const bool tagRemoves = ! sc.isMarkerEditorOpen() && ! sc.getMarkerDb().has_value();
+                sc.mouseDoubleClick (mouse (tag.x).withNewPosition (tag));     // doble clic: vuelve y abre la caja
+                const bool doubleOpens = sc.isMarkerEditorOpen() && sc.getMarkerDb().has_value() && std::abs (*sc.getMarkerDb() + 6.0f) < 0.01f;
                 sc.typeAndEscapeMarkerForTests ("");
-                check (tagOpensBox && ! sc.isMarkerEditorOpen(), "Regla: un clic en la cajita abre la caja para escribir el valor", tagOpensBox);
+                check (tagRemoves && doubleOpens && ! sc.isMarkerEditorOpen(),
+                       "Regla: un clic en la cajita la saca; doble clic abre la caja (con el mismo valor)", tagRemoves * 10 + doubleOpens);
                 // Sobre "Show all", también al clickear (apretado).
                 sc.mouseMove (mouse (showAll.x).withNewPosition (showAll));
                 sc.mouseDown (mouse (showAll.x).withNewPosition (showAll));
