@@ -94,7 +94,15 @@ public:
     // el valor de la regla), al pasar y al clickear; mano abierta para arrastrar (cerrada
     // mientras está apretado). Sin zoom, siempre la flecha.
     bool isOverShowAll() const { return isZoomed() && zoomLabelArea.contains (hoverPoint); }
-    bool isOverClickable() const { return isZoomed() && (isOverShowAll() || isOnMarkerTag()); }   // solo con zoom
+    bool isOverClickable() const { return isZoomed() && (isOverShowAll() || isOnMarkerTag() || isOnHoverTag()); }   // solo con zoom
+
+    // ¿El mouse está sobre la cajita gris oscura que sigue al mouse (la regla en movimiento)?
+    bool isOnHoverTag() const
+    {
+        const auto plot = plotArea();
+        return hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY) && ! isOnMarkerTag() && ! isOverShowAll()
+               && hoverX >= plot.getRight() - 78.0f && hoverX <= plot.getRight() - 6.0f;
+    }
     void updateCursor()
     {
         if (grabbing && isZoomed())
@@ -105,6 +113,11 @@ public:
                                               : juce::MouseCursor::NormalCursor);
     }
     bool isGrabbingForTests() const { return grabbing; }
+    juce::Rectangle<float> getHoverTagAreaForTests (float y) const
+    {
+        const auto plot = plotArea();
+        return { plot.getRight() - 78.0f, y - 9.0f, 72.0f, 18.0f };
+    }
 
     // Zoom (factor > 1 acerca) dejando quieto el punto que está bajo el mouse.
     void zoomAt (float x, double factor)

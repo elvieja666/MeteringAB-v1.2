@@ -1463,6 +1463,21 @@ int main (int argc, char** argv)
                 (void) sc.createComponentSnapshot (sc.getLocalBounds());
                 check (fingerOver && fingerPressed && fingerOnShowAll,
                        "Zoom: el dedo sobre Show all y la cajita de la regla (al pasar y al apretar)", fingerOver * 100 + fingerPressed * 10 + fingerOnShowAll);
+                {
+                    // Sobre la cajita gris oscura que sigue al mouse: también el dedo (al pasar y al apretar).
+                    const juce::Point<float> onHover { sc.getHoverTagAreaForTests (0).getCentreX(), pl.getCentreY() - 60.0f };
+                    sc.mouseMove (mouse (onHover.x).withNewPosition (onHover));
+                    const bool fingerHover = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                    sc.mouseDown (mouse (onHover.x).withNewPosition (onHover));
+                    const bool fingerHoverPressed = ! sc.isGrabbingForTests()
+                                                    && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                    sc.mouseUp (mouse (onHover.x).withNewPosition (onHover));
+                    const bool placed = sc.getMarkerDb().has_value();
+                    sc.setMarkerDb (std::nullopt);
+                    check (fingerHover && fingerHoverPressed && placed,
+                           "Zoom: el dedo sobre la cajita gris que sigue al mouse (y el clic deja la regla)", fingerHover * 10 + fingerHoverPressed);
+                    (void) sc.createComponentSnapshot (sc.getLocalBounds());
+                }
                 sc.mouseMove (mouse (showAll.x).withNewPosition (showAll));
             }
             sc.mouseDown (mouse (showAll.x).withNewPosition (showAll)); sc.mouseUp (mouse (showAll.x).withNewPosition (showAll));
