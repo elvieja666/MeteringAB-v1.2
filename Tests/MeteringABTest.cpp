@@ -268,6 +268,20 @@ int main (int argc, char** argv)
     juce::ScopedJuceInitialiser_GUI init;
     MeteringABPanel::scopeOpenOnStart = true;   // casi todas las pruebas miran el osciloscopio
 
+    if (const char* dir = std::getenv ("CURSOR_SHOT"))   // cómo se ve la mano cerrada (grande, sobre gris y sobre oscuro)
+    {
+        const auto hand = ClosedHand::image (16.0f);
+        juce::Image img (juce::Image::ARGB, hand.getWidth() * 2 + 30, hand.getHeight() + 20, true);
+        juce::Graphics g (img);
+        g.fillAll (juce::Colour (0xffd8dade));
+        g.setColour (juce::Colour (0xff121418)); g.fillRect (hand.getWidth() + 20, 0, hand.getWidth() + 10, img.getHeight());
+        g.drawImageAt (hand, 10, 10); g.drawImageAt (hand, hand.getWidth() + 20, 10);
+        const auto small = ClosedHand::image (3.0f);
+        g.drawImageAt (small, 4, 4);
+        juce::File f (juce::String (dir) + "/mano-cerrada.png");
+        f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+        return 0;
+    }
     if (std::getenv ("BENCH") != nullptr)
     {
         // Costo de la pantalla y del audio: tocando, con zoom (ms por cuadro, % de un núcleo).
@@ -1404,6 +1418,18 @@ int main (int argc, char** argv)
                 sc.mouseUp (mouse (moved.x).withNewPosition (moved));
                 const bool openAfter = ! sc.isGrabbingForTests()
                                        && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::DraggingHandCursor);
+                {
+                    // La mano cerrada tiene que verse (antes, en algunas Mac, quedaba invisible).
+                    const auto hand = ClosedHand::image (3.0f);
+                    int white = 0, black = 0;
+                    for (int y = 0; y < hand.getHeight(); ++y)
+                        for (int x = 0; x < hand.getWidth(); ++x)
+                        {
+                            const auto c = hand.getPixelAt (x, y);
+                            if (c.getAlpha() > 200) (c.getBrightness() > 0.8f ? white : black)++;
+                        }
+                    check (hand.getWidth() == 54 && white > 600 && black > 150, "Mano cerrada: se dibuja (blanca con borde negro)", white);
+                }
                 check (closedOnPress && closedWhileDragging && openAfter,
                        "Zoom: al agarrar y arrastrar, mano cerrada; al soltar, mano abierta", closedOnPress * 100 + closedWhileDragging * 10 + openAfter);
                 // Sobre la cajita de la regla: el dedo, al pasar y al clickear (no la mano cerrada).
