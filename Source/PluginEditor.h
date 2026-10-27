@@ -96,6 +96,10 @@ public:
     juce::TextButton& getABButtonForTests()      { return abButton; }
     juce::TextButton& getMatchBypassButtonForTests() { return matchBypassButton; }
     juce::Rectangle<int> getMeterAreaForTests() const { return meterArea(); }
+    std::pair<juce::Rectangle<int>, juce::Justification> getWindowInfoForTests() const
+    {
+        return { windowInfoLabel.getBounds(), windowInfoLabel.getJustificationType() };
+    }
     juce::Rectangle<int> getWindowKnobForTests()             // dónde se dibuja la perilla de Window (en el panel)
     {
         const auto layout = windowSlider.getLookAndFeel().getSliderLayout (windowSlider);

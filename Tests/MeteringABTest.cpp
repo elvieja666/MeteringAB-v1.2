@@ -728,6 +728,9 @@ int main (int argc, char** argv)
                 const auto knob = panelOf (er)->getWindowKnobForTests();
                 check (knob.getCentreX() == 127 && knob.getCentreY() == (MP::sectionTop (2) + MP::sectionTop (3)) / 2 && knob.getWidth() == 76,
                        "Window: perilla en el medio de su parte, entre el primer y el segundo tercio (x 127)", knob.getCentreX());
+                const auto info = panelOf (er)->getWindowInfoForTests();
+                check (info.first.getRight() == MP::sideWidth - 20 && info.second == juce::Justification::centredRight,
+                       "Window: la equivalencia (ms <-> bars) termina justo donde terminan las burbujas", info.first.getRight());
             }
         }
     }

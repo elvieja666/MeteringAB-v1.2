@@ -599,6 +599,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
         l->setJustificationType (juce::Justification::centredLeft);
     windowLabel.setInterceptsMouseClicks (false, false);        // la perilla pasa por debajo del título
     windowInfoLabel.setInterceptsMouseClicks (false, false);
+    windowInfoLabel.setBorderSize ({});                         // termina justo en el borde derecho de las burbujas
 
     linkLabel.setJustificationType (juce::Justification::centredLeft);
     latencyMsLabel.setJustificationType (juce::Justification::centredLeft);
@@ -1239,6 +1240,7 @@ void MeteringABPanel::resized()
         syncButtons[0].setBounds (pill.removeFromLeft (windowValueWidth / 2));
         syncButtons[1].setBounds (pill);
         windowInfoLabel.setBounds (juce::Rectangle<int> (knobs.getRight() - 170, valueTop + windowValueHeight + 2, 170, infoHeight));
+        windowInfoLabel.setJustificationType (juce::Justification::centredRight);   // termina donde terminan las burbujas
     }
 
     // 4) Latencia (90): número a la izquierda, Medir a la derecha, estado debajo.
