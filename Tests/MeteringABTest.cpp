@@ -937,9 +937,10 @@ int main (int argc, char** argv)
         check (ed != nullptr && ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * MeteringABEditor::defaultScale),
                "Editor Receive: tamaño por defecto (ancho px)", ed->getWidth());
         const auto& scopeBox = panelOf (ed)->getScopeForTests();
-        // (Antes 1,85 : 1; ahora manda el ancho = 3 Receive cerrados y el alto = 5 partes de 135.)
         check (scopeBox.getWidth() == MeteringABPanel::scopeWidth && scopeBox.getHeight() == MeteringABPanel::scopeHeight,
-               "Osciloscopio: 1104 x 607 (3 columnas de ancho, todo el alto)", (double) scopeBox.getWidth() / scopeBox.getHeight());
+               "Osciloscopio: 1014 x 586", (double) scopeBox.getWidth() / scopeBox.getHeight());
+        check (scopeBox.getY() == 38 && scopeBox.getBottom() == panelOf (ed)->getABButtonAreaForTests().getBottom(),
+               "Osciloscopio: de la línea del 1.er cuarto (y 38) a donde termina POST FX", scopeBox.getBottom());
     }
 
 

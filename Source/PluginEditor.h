@@ -54,7 +54,10 @@ public:
     // Receive: columna + osciloscopio. El osciloscopio mantiene la proporción
     // 2,178 : 1 (ancho : alto) de la referencia; su alto = 780 - 52 - 16 = 712.
     static constexpr int receiveHeight = 650;          // 150 + 150 + 100 + 100 + 150 (columna gris)
-    static constexpr int scopeHeight = receiveHeight - 52 - 16;   // = 582
+    // El gráfico del osciloscopio, de arriba abajo: de la línea del 1.er cuarto de la primera
+    // parte (y 37,5) a donde terminan POST FX y Scope (y 624).
+    static constexpr int scopeTop = 38, scopeBottom = 624;
+    static constexpr int scopeHeight = scopeBottom - scopeTop;   // = 586
     static constexpr int sideWidth = 350;             // la columna gris (Receive)
     // La sección del osciloscopio mide lo mismo que 3 Receive cerrados (3 x 350 = 1050).
     static constexpr int scopeSectionWidth = 3 * sideWidth;
@@ -191,7 +194,6 @@ private:
 
     juce::Component* scopeParts[5] = { &scope, &zoomBox, &freezeButton, &gainLineButton, &optionsButton };
 
-    static constexpr int scopeHeaderHeight = 52;      // barra "Osciloscopio" arriba del gráfico
     void setWaves (bool pre, bool post);
 
     std::unique_ptr<ComboAttachment>  modeAtt;

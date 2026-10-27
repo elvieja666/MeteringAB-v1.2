@@ -1359,7 +1359,7 @@ void MeteringABPanel::resized()
 
     // ---- Osciloscopio (a la derecha, siempre) ----
     auto section = getLocalBounds().withTrimmedLeft (sideWidth).reduced (18, 0);
-    auto headerArea = section.removeFromTop (scopeHeaderHeight);
+    auto headerArea = section.withHeight (scopeTop);                 // la barra de arriba (hasta el gráfico)
     scopeLabel.setBounds (headerArea);
     // Gain, Freeze, Options y el largo: del tamaño de la burbuja de Link ID (103 x 24) y
     // en el medio (de arriba abajo) entre el borde de arriba y la línea del 1.er cuarto de la
@@ -1375,10 +1375,12 @@ void MeteringABPanel::resized()
         freezeButton.setBounds (row.removeFromRight (windowValueWidth));
         row.removeFromRight (6);
         gainLineButton.setBounds (row.removeFromRight (windowValueWidth));
-        scopeLabel.setBounds (headerArea.withRight (row.getX()));
+        scopeLabel.setBounds (headerArea.withRight (row.getRight()));   // "Oscilloscope", a la izquierda de los botones
     }
 
-    scope.setBounds (section.withTrimmedBottom (16));
+    // El gráfico: de la línea del 1.er cuarto (y 37,5) a donde terminan POST FX y Scope.
+    jassert (abArea.getBottom() == scopeBottom);
+    scope.setBounds (section.getX(), scopeTop, section.getWidth(), scopeBottom - scopeTop);
 }
 
 // ---------------------------------------------------------------------------
