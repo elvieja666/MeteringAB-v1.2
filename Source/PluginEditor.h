@@ -50,16 +50,16 @@ public:
     // Medidas de la ventana: parte principal + sección del osciloscopio.
     // Receive: columna + osciloscopio. El osciloscopio mantiene la proporción
     // 2,178 : 1 (ancho : alto) de la referencia; su alto = 780 - 52 - 16 = 712.
-    static constexpr int receiveHeight = 663;          // columna gris compacta (más grande en pantalla)
-    static constexpr int scopeHeight = receiveHeight - 52 - 16;   // = 595
+    static constexpr int receiveHeight = 675;          // 5 partes iguales de 135 (columna gris)
+    static constexpr int scopeHeight = receiveHeight - 52 - 16;   // = 607
     static constexpr int sideWidth = 380;             // la columna gris (Receive)
     // La sección del osciloscopio mide lo mismo que 3 Receive cerrados (3 x 380 = 1140).
     static constexpr int scopeWidth = 3 * sideWidth - 18 - 18;   // = 1104 (el recuadro del gráfico)
     static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1520 (al 100%)
     // La columna gris en 5 partes iguales (título/Link ID, números, Window, Latency, escucha).
     static constexpr int numSections = 5;
-    static constexpr int sectionTop (int i) { return (receiveHeight * i + numSections / 2) / numSections; }   // 0, 133, 265, 398, 530, 663
-    static constexpr int sendWidth = sideWidth, sendHeight = (receiveHeight + numSections / 2) / numSections;   // Send: solo la primera parte (= sectionTop (1) = 133)
+    static constexpr int sectionTop (int i) { return (receiveHeight * i + numSections / 2) / numSections; }   // 0, 135, 270, 405, 540, 675
+    static constexpr int sendWidth = sideWidth, sendHeight = (receiveHeight + numSections / 2) / numSections;   // Send: solo la primera parte (= sectionTop (1) = 135)
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
     explicit MeteringABPanel (MeteringABProcessor&);

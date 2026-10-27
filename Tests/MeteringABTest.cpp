@@ -720,10 +720,11 @@ int main (int argc, char** argv)
                    "Send: corta justo donde en el Receive empieza la parte de los números", MeteringABPanel::sendHeight);
             {
                 // La columna en 5 partes iguales (±1 px por redondeo).
-                bool equal = MeteringABPanel::sectionTop (MeteringABPanel::numSections) == MeteringABPanel::receiveHeight;
+                bool equal = MeteringABPanel::sectionTop (MeteringABPanel::numSections) == MeteringABPanel::receiveHeight
+                             && MeteringABPanel::receiveHeight % MeteringABPanel::numSections == 0;          // justas, sin redondeo
                 for (int i = 0; i < MeteringABPanel::numSections; ++i)
-                    equal = equal && std::abs ((MeteringABPanel::sectionTop (i + 1) - MeteringABPanel::sectionTop (i)) * 5 - MeteringABPanel::receiveHeight) <= 5;
-                check (equal, "Receive: 5 partes iguales (título, números, Window, Latency, escucha)", MeteringABPanel::sectionTop (1));
+                    equal = equal && (MeteringABPanel::sectionTop (i + 1) - MeteringABPanel::sectionTop (i)) * 5 == MeteringABPanel::receiveHeight;
+                check (equal, "Receive: 5 partes iguales de 135 px (título, números, Window, Latency, escucha)", MeteringABPanel::sectionTop (1));
             }
         }
     }
@@ -906,8 +907,9 @@ int main (int argc, char** argv)
         check (ed != nullptr && ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * MeteringABEditor::defaultScale),
                "Editor Receive: tamaño por defecto (ancho px)", ed->getWidth());
         const auto& scopeBox = panelOf (ed)->getScopeForTests();
-        check (std::abs ((double) scopeBox.getWidth() / scopeBox.getHeight() - 1.85) < 0.01,
-               "Osciloscopio con proporción 1,85 : 1", (double) scopeBox.getWidth() / scopeBox.getHeight());
+        // (Antes 1,85 : 1; ahora manda el ancho = 3 Receive cerrados y el alto = 5 partes de 135.)
+        check (scopeBox.getWidth() == MeteringABPanel::scopeWidth && scopeBox.getHeight() == MeteringABPanel::scopeHeight,
+               "Osciloscopio: 1104 x 607 (3 columnas de ancho, todo el alto)", (double) scopeBox.getWidth() / scopeBox.getHeight());
     }
 
 
