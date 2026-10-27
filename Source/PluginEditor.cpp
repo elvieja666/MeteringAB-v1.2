@@ -1097,7 +1097,8 @@ void MeteringABPanel::paint (juce::Graphics& g)
     // Título
     g.setColour (juce::Colour (0xff3a3d42));
     g.setFont (Theme::font (14.0f, 600, 0.3f));
-    g.drawText ("METERING A/B", 20, 5, 240, 32, juce::Justification::centredLeft);
+    // En el medio (de arriba abajo) del primer cuarto de la primera parte.
+    g.drawText ("METERING A/B", juce::Rectangle<float> (20.0f, 0.0f, 240.0f, (float) sectionHeights[0] / 4.0f), juce::Justification::centredLeft);
 
     // Pastilla del Link ID (− 1 +)
     {
@@ -1197,24 +1198,27 @@ void MeteringABPanel::resized()
 {
     // ---- Columna gris (de arriba a abajo). En Send queda solo esta parte de arriba. ----
     auto k = juce::Rectangle<int> (20, 0, (isSendMode ? sendWidth : sideWidth) - 40, getHeight());
-    k.removeFromTop (40);                                       // título (se dibuja en paint)
-    modeBox.setBounds (k.removeFromTop (30));
-    k.removeFromTop (6);
+    // La primera parte en 4 cuartos iguales; cada cosa centrada (de arriba abajo) en el suyo:
+    // 1) el título (se dibuja en paint), 2) el modo, 3) Link ID con su burbuja, 4) el estado.
+    auto inQuarter = [&k] (int q, int height)
     {
-        auto row = k.removeFromTop (30);
-        // La burbuja (− valor +) del mismo largo que Measure: su borde izquierdo en la misma
-        // línea que ms|Sync, el valor, Measure, Bypass y Scope.
+        const float centreY = (float) sectionHeights[0] * ((float) q + 0.5f) / 4.0f;
+        return k.withHeight (height).withY (juce::roundToInt (centreY - (float) height * 0.5f));
+    };
+    modeBox.setBounds (inQuarter (1, 30));
+    {
+        // La burbuja (− valor +) del tamaño de la de "3000 ms" (103 x 24): su borde izquierdo
+        // en la misma línea que ms|Sync, el valor, Measure, Bypass y Scope.
+        auto row = inQuarter (2, windowValueHeight);
         linkPlus.setBounds (row.removeFromRight (32));
-        linkValueLabel.setBounds (row.removeFromRight (measureWidth - 2 * 32));
+        linkValueLabel.setBounds (row.removeFromRight (windowValueWidth - 2 * 32));
         linkMinus.setBounds (row.removeFromRight (32));
         linkLabel.setBounds (row);
         linkLabel.setJustificationType (juce::Justification::centredLeft);
     }
-    k.removeFromTop (4);
 
-    // El estado, en un renglón (igual en Send y Receive). El Send termina acá: corta
-    // justo antes de donde en el Receive empiezan los números.
-    statusLabel.setBounds (k.removeFromTop (22).withTrimmedLeft (14));
+    // El estado (igual en Send y Receive). El Send termina en esta parte.
+    statusLabel.setBounds (inQuarter (3, 22).withTrimmedLeft (14));
     statusLabel.setJustificationType (juce::Justification::centredLeft);
     if (isSendMode)
         return;
