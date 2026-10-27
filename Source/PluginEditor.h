@@ -70,7 +70,6 @@ public:
         for (int k = 0; k < i && k < numSections; ++k) y += sectionHeights[(size_t) k];
         return y;
     }
-    static constexpr int windowKnobCentreX = 127;    // donde estaba con la columna de 380 (entre el 1.er y el 2.º tercio)
     static constexpr int windowKnobSize = 76;          // perilla de 68 px (el dibujo deja 4 de margen)
     // ms|Sync, el valor y la equivalencia: tres burbujas iguales, una en el medio de cada
     // tercio (a lo alto) de la parte de Window.
@@ -78,6 +77,8 @@ public:
     // el último tercio del ancho útil (de x 20 a sideWidth - 20): de x 227 a 330.
     static constexpr int contentWidth = sideWidth - 40;
     static constexpr int measureWidth = contentWidth - (2 * contentWidth + 2) / 3;   // = 103
+    // La perilla de Window, centrada en la línea entre el primer y el segundo tercio del ancho útil.
+    static constexpr int windowKnobCentreX = 20 + contentWidth / 3;   // = 123
     static constexpr int windowValueWidth = measureWidth, windowValueHeight = 24;   // igual de largas que Measure
     static constexpr int sendWidth = sideWidth, sendHeight = 150;    // Send: solo la primera parte (= sectionHeights[0])
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
