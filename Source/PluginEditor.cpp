@@ -1125,8 +1125,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
 
     // Líneas finas entre Números | Ventana | Latencia | Escuchar
     g.setColour (juce::Colours::black.withAlpha (0.07f));
-    const int belowMeters = (meters.getBottom() + windowLabel.getY()) / 2;   // a mitad de camino
-    for (int y : { belowMeters, latencyLabel.getY() - 10, listenLabel.getY() - 10 })
+    for (int y : separatorY)
         g.fillRect (20, y, sideWidth - 40, 1);
 }
 
@@ -1184,21 +1183,32 @@ void MeteringABPanel::resized()
 
     metersBounds = { 20, k.getY() + 2, sideWidth - 40, 124 };   // medidores (se dibujan en paint)
     k.removeFromTop (metersBounds.getBottom() - k.getY());
-    k.removeFromTop (12);
 
-    // Ventana: título y ms|Sync, perilla con el valor, equivalencia abajo.
+    // Entre secciones: el mismo espacio, con una línea fina a la mitad.
+    constexpr int sectionGap = 22;
+    int line = 0;
+    auto gapWithLine = [&]
     {
-        auto header = k.removeFromTop (24);
+        separatorY[(size_t) line++] = k.getY() + sectionGap / 2;
+        k.removeFromTop (sectionGap);
+    };
+    gapWithLine();
+
+    // Ventana: igual de alta que la sección de escucha (título y ms|Sync arriba; abajo la
+    // perilla con el valor, y la equivalencia debajo del valor, a la derecha).
+    {
+        auto header = k.removeFromTop (22);
         syncButtons[1].setBounds (header.removeFromRight (46));
         syncButtons[0].setBounds (header.removeFromRight (38));
         windowLabel.setBounds (header);
-        k.removeFromTop (2);
-        const auto knobs = k.removeFromTop (80);
+        k.removeFromTop (4);
+        const auto knobs = k.removeFromTop (60);
         windowSlider.setBounds (knobs);
         windowSyncSlider.setBounds (knobs);
-        windowInfoLabel.setBounds (k.removeFromTop (16));
+        windowInfoLabel.setBounds (knobs.withTrimmedTop (44).removeFromRight (170));
+        windowInfoLabel.setJustificationType (juce::Justification::centredRight);
     }
-    k.removeFromTop (14);
+    gapWithLine();
 
     // Latencia: número a la izquierda, Medir a la derecha, estado debajo.
     {
@@ -1211,7 +1221,7 @@ void MeteringABPanel::resized()
         latencyMsLabel.setBounds (row.removeFromTop (16));
         latencyInfoLabel.setBounds (k.removeFromTop (16));
     }
-    k.removeFromTop (14);
+    gapWithLine();
 
     // Escuchar: el botón grande PRE FX / POST FX y, al pie, cómo se nivela y Scope.
     {
@@ -1220,7 +1230,7 @@ void MeteringABPanel::resized()
         listenLabel.setBounds (head);
         k.removeFromTop (4);
         abButton.setBounds (k.removeFromTop (60).expanded (4, 0));
-        k.removeFromTop (14);
+        k.removeFromTop (sectionGap);
         auto row = k.removeFromTop (34);
         scopeToggleButton.setBounds (row.removeFromRight (116));   // Scope: abrir / cerrar el osciloscopio
         matchInfoLabel.setBounds (row);
