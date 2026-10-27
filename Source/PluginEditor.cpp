@@ -1231,7 +1231,9 @@ void MeteringABPanel::resized()
         // justo entre el primer y el segundo tercio de la columna. A la derecha, del mismo ancho y
         // cada uno en el medio de un tercio del alto: ms|Sync, el valor y la equivalencia (texto).
         const auto area = band (2);
-        windowLabel.setBounds (area.withTrimmedTop (2).withHeight (20).withWidth (64));   // solo el texto (no tapa la perilla)
+        // Solo el texto (no tapa la perilla), a la misma distancia del borde de arriba que
+        // "Latency" y "Listen".
+        windowLabel.setBounds (area.withTrimmedTop ((area.getHeight() - 80) / 2).withHeight (18).withWidth (64));
         const auto knobs = area.reduced (0, 2);
         auto row = [&] (int i)
         {
@@ -1303,7 +1305,11 @@ void MeteringABPanel::resized()
     {
         auto e = band (4).withTrimmedTop (16);
         {
-            auto head = e.removeFromTop (22);
+            // "Listen" a la misma distancia del borde de arriba que "Window" y "Latency"
+            // (el botón grande y lo de abajo quedan donde estaban).
+            const auto head0 = latencyLabel.getBounds().translated (0, sectionTop (4) - sectionTop (3));
+            auto head = juce::Rectangle<int> (e.getX(), head0.getY(), e.getWidth(), head0.getHeight());
+            e.removeFromTop (22);
             const int listenWidth = juce::roundToInt (juce::GlyphArrangement::getStringWidth (listenLabel.getFont(), listenLabel.getText()))
                                     + listenLabel.getBorderSize().getLeft() + 4;
             listenLabel.setBounds (head.removeFromLeft (listenWidth));
