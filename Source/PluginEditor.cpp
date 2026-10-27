@@ -1252,8 +1252,8 @@ void MeteringABPanel::resized()
         latencyLabel.setBounds (l.removeFromTop (18));
         l.removeFromTop (2);
         auto row = l.removeFromTop (46);
-        auto rightSide = row.removeFromRight (126);
-        measureButton.setBounds (rightSide.withSizeKeepingCentre (126, 40).translated (0, -2));
+        auto rightSide = row.removeFromRight (measureWidth);
+        measureButton.setBounds (rightSide.withSizeKeepingCentre (measureWidth, 40).translated (0, -2));
         latencyNumberArea = row.removeFromTop (32);
         latencyMsLabel.setBounds (row.removeFromTop (14));
         latencyInfoLabel.setBounds (l.removeFromTop (14));

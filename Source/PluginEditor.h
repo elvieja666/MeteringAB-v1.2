@@ -73,7 +73,8 @@ public:
     static constexpr int windowKnobSize = 76;          // perilla de 68 px (el dibujo deja 4 de margen)
     // ms|Sync, el valor y la equivalencia: tres burbujas iguales, una en el medio de cada
     // tercio (a lo alto) de la parte de Window.
-    static constexpr int windowValueWidth = 140, windowValueHeight = 24;
+    static constexpr int measureWidth = 126;           // botón Measure
+    static constexpr int windowValueWidth = measureWidth, windowValueHeight = 24;   // igual de largas que Measure
     static constexpr int sendWidth = sideWidth, sendHeight = 135;    // Send: solo la primera parte (= sectionHeights[0])
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
@@ -102,6 +103,7 @@ public:
     {
         return { windowInfoLabel.getBounds(), windowInfoLabel.getJustificationType() };
     }
+    juce::Rectangle<int> getMeasureButtonBoundsForTests() const { return measureButton.getBounds(); }
     juce::Rectangle<int> getWindowKnobForTests()             // dónde se dibuja la perilla de Window (en el panel)
     {
         const auto layout = windowSlider.getLookAndFeel().getSliderLayout (windowSlider);

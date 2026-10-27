@@ -732,7 +732,10 @@ int main (int argc, char** argv)
                 const int third = (MP::sectionTop (3) - MP::sectionTop (2)) / 3;
                 check (info.first.getWidth() == MP::windowValueWidth && info.first.getHeight() == MP::windowValueHeight
                            && info.first.getCentreY() == MP::sectionTop (2) + third * 2 + third / 2,
-                       "Window: la equivalencia, burbuja igual a ms|Sync y al valor, en el medio del último tercio", info.first.getCentreY());
+                       "Window: la equivalencia, del ancho de ms|Sync y del valor, en el medio del último tercio", info.first.getCentreY());
+                const auto measure = panelOf (er)->getMeasureButtonBoundsForTests();
+                check (MP::windowValueWidth == measure.getWidth() && info.first.getRight() == measure.getRight(),
+                       "Window: ms|Sync y el valor igual de largos que Measure (y alineados)", measure.getWidth());
             }
         }
     }
