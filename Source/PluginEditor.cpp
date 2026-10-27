@@ -1199,16 +1199,15 @@ void MeteringABPanel::resized()
     // 3) Ventana (90): título y ms|Sync arriba; abajo la perilla con el valor, y la
     //    equivalencia debajo del valor, a la derecha.
     {
-        auto w = centred (band (2), 80);
-        auto header = w.removeFromTop (22);
+        auto w = centred (band (2), 88);                        // la perilla usa casi todo el alto
+        auto header = w.removeFromTop (20);
         syncButtons[1].setBounds (header.removeFromRight (46));
         syncButtons[0].setBounds (header.removeFromRight (38));
         windowLabel.setBounds (header);
-        w.removeFromTop (2);
-        const auto knobs = w.removeFromTop (56);
+        const auto knobs = w.removeFromTop (68);                // perilla de 60 px (antes 48)
         windowSlider.setBounds (knobs);
         windowSyncSlider.setBounds (knobs);
-        windowInfoLabel.setBounds (knobs.withTrimmedTop (41).removeFromRight (170));
+        windowInfoLabel.setBounds (knobs.withTrimmedTop (50).removeFromRight (170));
         windowInfoLabel.setJustificationType (juce::Justification::centredRight);
     }
 
