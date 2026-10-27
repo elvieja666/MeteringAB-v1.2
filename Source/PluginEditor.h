@@ -147,7 +147,7 @@ private:
     // Lo que se ve de los botones en relieve (Measure y el grande): el componente es un poco
     // más grande para que la sombra quede por fuera de esta medida.
     juce::Rectangle<int> measureArea, abArea;
-    juce::TextButton matchBypassButton { "Match Gain Bypass" };   // POST sin la ganancia de matcheo
+    juce::TextButton matchBypassButton { "Bypass" };   // Match Gain Bypass: POST sin la ganancia de matcheo
     juce::Label listenLabel, latencyInfoLabel, matchInfoLabel;
     juce::Label listenHintLabel;                      // "·  click to switch" (más chico y más claro que "Listen")
     juce::Label latencyMsLabel;                       // "= 1,33 ms" debajo del valor medido

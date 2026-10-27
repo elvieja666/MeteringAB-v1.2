@@ -503,7 +503,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     abButton.onClick = [this] { toggleAB(); };
     addAndMakeVisible (abButton);
 
-    matchInfoLabel.setText ("Level-matched in LUFS (K-weighted)"_u, juce::dontSendNotification);
+    matchInfoLabel.setText ("Level-matched in LUFS"_u, juce::dontSendNotification);
     matchInfoLabel.setJustificationType (juce::Justification::centred);
     matchInfoLabel.setColour (juce::Label::textColourId, Colours::dim);
     matchInfoLabel.setFont (Theme::font (11.0f, 300));
@@ -925,7 +925,7 @@ void MeteringABPanel::timerCallback()
     {
         const bool bypassed = processor.apvts.getRawParameterValue (ParamIDs::matchBypass)->load() > 0.5f;
         matchBypassButton.setToggleState (bypassed, juce::dontSendNotification);
-        matchInfoLabel.setText (bypassed ? "Match gain bypassed (real level)"_u : "Level-matched in LUFS (K-weighted)"_u, juce::dontSendNotification);
+        matchInfoLabel.setText (bypassed ? "Match gain bypassed"_u : "Level-matched in LUFS"_u, juce::dontSendNotification);
         matchInfoLabel.setColour (juce::Label::textColourId, bypassed ? Theme::warn : Colours::dim);
         if (bypassed != matchBypassShown) { matchBypassShown = bypassed; repaint(); }
     }
@@ -1320,26 +1320,22 @@ void MeteringABPanel::resized()
             listenLabel.setBounds (head.removeFromLeft (listenWidth));
             listenHintLabel.setBounds (head);
         }
-        // Debajo de "Listen", en dos mitades: a la izquierda el botón grande y a la derecha,
-        // uno arriba del otro, Match Gain Bypass y Scope (del alto de Measure, 8 entre los dos).
-        // El botón grande mide lo mismo de alto que los dos juntos; la nota de LUFS va debajo
-        // (a la misma distancia que "Measured" de Measure). Todo el bloque, centrado de arriba
-        // abajo entre "Listen" y el borde de abajo.
-        const auto info = latencyInfoLabel.getBounds();
-        const int toInfo = info.getY() - measureArea.getBottom();
-        const int pillHeight = measureArea.getHeight(), pillGap = 8;
+        // Opción C: la nota de LUFS en el renglón de "Listen", a la derecha. Debajo, el botón
+        // grande (2/3 del ancho) y a su derecha una columna angosta con Bypass y Scope, uno
+        // arriba del otro (del alto de Measure, 8 entre los dos); el botón mide lo mismo de alto
+        // que los dos juntos. El bloque, centrado de arriba abajo entre "Listen" y el borde de abajo.
+        listenHintLabel.setBounds (listenHintLabel.getBounds().withRight (all.getCentreX()));
+        matchInfoLabel.setBounds (listenHintLabel.getBounds().withLeft (all.getCentreX()).withRight (all.getRight()));
+        matchInfoLabel.setJustificationType (juce::Justification::centredRight);
+        const int pillHeight = measureArea.getHeight(), pillGap = 8, columnGap = 16;
         const int rowHeight = 2 * pillHeight + pillGap;
-        const int blockHeight = rowHeight + toInfo + info.getHeight();
-        const int top = listenLabel.getBottom() + (all.getBottom() - listenLabel.getBottom() - blockHeight) / 2;
-        const int halfWidth = (all.getWidth() - 20) / 2;
-        abArea = juce::Rectangle<int> (all.getX(), top, halfWidth, rowHeight);
+        const int top = listenLabel.getBottom() + (all.getBottom() - listenLabel.getBottom() - rowHeight) / 2;
+        const int bigWidth = 220;
+        abArea = juce::Rectangle<int> (all.getX(), top, bigWidth, rowHeight);
         abButton.setBounds (raisedBoundsFor (abArea));
-        const int rightX = all.getRight() - halfWidth;
-        matchBypassButton.setBounds (rightX, top, halfWidth, pillHeight);
-        scopeToggleButton.setBounds (juce::Rectangle<int> (measureArea.getWidth(), pillHeight)
-                                         .withPosition (all.getRight() - measureArea.getWidth(), top + pillHeight + pillGap));   // Scope: del largo de Measure, a la derecha
-        matchInfoLabel.setBounds (all.getX(), abArea.getBottom() + toInfo, all.getWidth(), info.getHeight());
-        matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
+        const int columnX = abArea.getRight() + columnGap;
+        matchBypassButton.setBounds (columnX, top, all.getRight() - columnX, pillHeight);
+        scopeToggleButton.setBounds (columnX, top + pillHeight + pillGap, all.getRight() - columnX, pillHeight);   // Scope: abrir / cerrar el osciloscopio
     }
 
     // ---- Osciloscopio (a la derecha, siempre) ----
