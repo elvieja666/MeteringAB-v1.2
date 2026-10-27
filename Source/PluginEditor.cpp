@@ -513,10 +513,17 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     };
     addAndMakeVisible (matchBypassButton);
 
-    listenLabel.setText ("Listen  ·  click to switch"_u, juce::dontSendNotification);
+    listenLabel.setText ("Listen", juce::dontSendNotification);      // igual que Window y Latency
     listenLabel.setColour (juce::Label::textColourId, Colours::dim);
     listenLabel.setFont (Theme::font (12.5f, 300));
     addAndMakeVisible (listenLabel);
+    listenHintLabel.setText ("·  click to switch"_u, juce::dontSendNotification);
+    listenHintLabel.setColour (juce::Label::textColourId, Theme::inkFaint);
+    listenHintLabel.setFont (Theme::font (11.0f, 300));
+    listenHintLabel.setJustificationType (juce::Justification::centredLeft);
+    listenHintLabel.setBorderSize ({});
+    listenHintLabel.setInterceptsMouseClicks (false, false);
+    addAndMakeVisible (listenHintLabel);
 
     // Medir latencia
     measureButton.setButtonText ("Measure");
@@ -900,7 +907,7 @@ void MeteringABPanel::timerCallback()
 
         for (juce::Component* c : std::initializer_list<juce::Component*> {
                  &windowSlider, &windowLabel, &latencyLabel, &latencyMsLabel,
-                 &abButton, &listenLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel, &matchBypassButton,
+                 &abButton, &listenLabel, &listenHintLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel, &matchBypassButton,
 
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
             c->setVisible (! isSendMode);
@@ -1295,7 +1302,13 @@ void MeteringABPanel::resized()
     //    nota de LUFS; una línea fina y, al pie, Match Gain Bypass y Scope lado a lado.
     {
         auto e = band (4).withTrimmedTop (16);
-        listenLabel.setBounds (e.removeFromTop (22));
+        {
+            auto head = e.removeFromTop (22);
+            const int listenWidth = juce::roundToInt (juce::GlyphArrangement::getStringWidth (listenLabel.getFont(), listenLabel.getText()))
+                                    + listenLabel.getBorderSize().getLeft() + 4;
+            listenLabel.setBounds (head.removeFromLeft (listenWidth));
+            listenHintLabel.setBounds (head);
+        }
         e.removeFromTop (4);
         abButton.setBounds (e.removeFromTop (84).expanded (4, 0));
         e.removeFromTop (8);

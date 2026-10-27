@@ -145,6 +145,7 @@ private:
     juce::TextButton abButton, measureButton;
     juce::TextButton matchBypassButton { "Match Gain Bypass" };   // POST sin la ganancia de matcheo
     juce::Label listenLabel, latencyInfoLabel, matchInfoLabel;
+    juce::Label listenHintLabel;                      // "·  click to switch" (más chico y más claro que "Listen")
     juce::Label latencyMsLabel;                       // "= 1,33 ms" debajo del valor medido
     juce::TextButton syncButtons[2];                  // [0] = ms, [1] = Sync
     juce::Label windowInfoLabel;                      // equivalencia ms <-> compases
