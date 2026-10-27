@@ -336,7 +336,8 @@ juce::Slider::SliderLayout MeteringABLookAndFeel::getSliderLayout (juce::Slider&
         const int cx = (int) props["knobCentreX"];
         layout.sliderBounds = juce::Rectangle<int> (size, size).withCentre ({ cx, b.getCentreY() });
         const int tw = s.getTextBoxWidth(), th = s.getTextBoxHeight();
-        layout.textBoxBounds = { b.getRight() - tw, b.getCentreY() - th / 2, tw, th };
+        const int valueCentreY = props.contains ("valueCentreY") ? (int) props["valueCentreY"] : b.getCentreY();
+        layout.textBoxBounds = { b.getRight() - tw, valueCentreY - th / 2, tw, th };
     }
     return layout;
 }
@@ -1218,22 +1219,26 @@ void MeteringABPanel::resized()
     //    equivalencia debajo del valor, a la derecha.
     {
         // La perilla (68 px) en el medio vertical de la parte y, de izquierda a derecha,
-        // justo entre el primer y el segundo tercio de la columna. A su derecha, a la misma
-        // altura y del mismo tamaño: el selector ms|Sync y el valor; la equivalencia debajo.
+        // justo entre el primer y el segundo tercio de la columna. A la derecha, apilados y
+        // del mismo tamaño: el selector ms|Sync, justo arriba del valor; la equivalencia debajo.
         const auto area = band (2);
         windowLabel.setBounds (area.withTrimmedTop (2).withHeight (20).withWidth (64));   // solo el texto (no tapa la perilla)
         const auto knobs = area.reduced (0, 2);
+        constexpr int gap = 4, infoHeight = 14;
+        const int stackHeight = 2 * windowValueHeight + gap + 2 + infoHeight;
+        const int stackTop = knobs.getCentreY() - stackHeight / 2;
+        auto pill = juce::Rectangle<int> (knobs.getRight() - windowValueWidth, stackTop, windowValueWidth, windowValueHeight);
+        const int valueTop = pill.getBottom() + gap;
         for (auto* ws : { &windowSlider, &windowSyncSlider })
         {
             ws->getProperties().set ("knobCentreX", windowKnobCentreX - knobs.getX());
             ws->getProperties().set ("knobSize", windowKnobSize);
+            ws->getProperties().set ("valueCentreY", valueTop + windowValueHeight / 2 - knobs.getY());
             ws->setBounds (knobs);
         }
-        auto pill = juce::Rectangle<int> (windowValueWidth, windowValueHeight)
-                        .withPosition (knobs.getRight() - 2 * windowValueWidth - 8, knobs.getCentreY() - windowValueHeight / 2);
         syncButtons[0].setBounds (pill.removeFromLeft (windowValueWidth / 2));
         syncButtons[1].setBounds (pill);
-        windowInfoLabel.setBounds (juce::Rectangle<int> (knobs.getRight() - 170, knobs.getCentreY() + windowValueHeight / 2 + 3, 170, 16));
+        windowInfoLabel.setBounds (juce::Rectangle<int> (knobs.getRight() - 170, valueTop + windowValueHeight + 2, 170, infoHeight));
     }
 
     // 4) Latencia (90): número a la izquierda, Medir a la derecha, estado debajo.
