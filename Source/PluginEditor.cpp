@@ -1230,7 +1230,7 @@ void MeteringABPanel::resized()
     // 2) Números
     metersBounds = band (1).reduced (0, 10);                    // medidores (se dibujan en paint)
 
-    // 3) Ventana (90): título y ms|Sync arriba; abajo la perilla con el valor, y la
+    // 3) Ventana (100): título y ms|Sync arriba; abajo la perilla con el valor, y la
     //    equivalencia debajo del valor, a la derecha.
     {
         // La perilla (68 px) en el medio vertical de la parte y, de izquierda a derecha,
@@ -1263,7 +1263,7 @@ void MeteringABPanel::resized()
         windowInfoLabel.setJustificationType (juce::Justification::centredRight);
     }
 
-    // 4) Latencia (90): número a la izquierda, Medir a la derecha, estado debajo.
+    // 4) Latencia (100): número a la izquierda, Medir a la derecha, estado debajo.
     {
         auto l = centred (band (3), 80);
         latencyLabel.setBounds (l.removeFromTop (18));
@@ -1307,28 +1307,21 @@ void MeteringABPanel::resized()
         }
     }
 
-    // 5) Escuchar (225), opción C: "Listen" arriba, el botón grande PRE FX / POST FX, la
-    //    nota de LUFS y, al pie, Match Gain Bypass y Scope lado a lado.
+    // 5) Escuchar (150): "Listen" arriba, el botón grande PRE FX / POST FX, la nota de LUFS
+    //    y, al pie, Match Gain Bypass y Scope (ubicación provisoria).
     {
-        auto e = band (4).withTrimmedTop (16);
+        const auto all = band (4);
         {
-            // "Listen" a la misma distancia del borde de arriba que "Window" y "Latency"
-            // (el botón grande y lo de abajo quedan donde estaban).
+            // "Listen" a la misma distancia del borde de arriba que "Window" y "Latency".
             const auto head0 = latencyLabel.getBounds().translated (0, sectionTop (4) - sectionTop (3));
-            auto head = juce::Rectangle<int> (e.getX(), head0.getY(), e.getWidth(), head0.getHeight());
-            e.removeFromTop (22);
+            auto head = juce::Rectangle<int> (all.getX(), head0.getY(), all.getWidth(), head0.getHeight());
             const int listenWidth = juce::roundToInt (juce::GlyphArrangement::getStringWidth (listenLabel.getFont(), listenLabel.getText()))
                                     + listenLabel.getBorderSize().getLeft() + 4;
             listenLabel.setBounds (head.removeFromLeft (listenWidth));
             listenHintLabel.setBounds (head);
         }
-        // La parte en 3 tercios de 75: el botón grande (75 de alto) centrado sobre la línea
-        // entre el tercio de arriba y el del medio.
-        const auto all = band (4);
-        const int third = all.getHeight() / 3;
-        abArea = juce::Rectangle<int> (all.getWidth(), third)
-                     .withCentre ({ all.getCentreX(), all.getY() + third })
-                     .expanded (4, 0);
+        // El botón grande (48 de alto) justo debajo de "Listen".
+        abArea = juce::Rectangle<int> (all.getX(), listenLabel.getBottom() + 6, all.getWidth(), 48).expanded (4, 0);
         abButton.setBounds (raisedBoundsFor (abArea));
         // La nota de LUFS a la misma distancia del botón grande que "Measured" de Measure.
         const auto info = latencyInfoLabel.getBounds();
