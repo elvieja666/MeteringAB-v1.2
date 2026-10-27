@@ -1323,13 +1323,13 @@ void MeteringABPanel::resized()
         // Opción C: la nota de LUFS en el renglón de "Listen", a la derecha. Debajo, el botón
         // grande (2/3 del ancho) y a su derecha una columna angosta con Bypass y Scope, uno
         // arriba del otro (del alto de Measure, 8 entre los dos); el botón mide lo mismo de alto
-        // que los dos juntos. El bloque, centrado de arriba abajo entre "Listen" y el borde de abajo.
+        // que los dos juntos. El bloque, centrado de arriba abajo en la sección.
         listenHintLabel.setBounds (listenHintLabel.getBounds().withRight (all.getCentreX()));
         matchInfoLabel.setBounds (listenHintLabel.getBounds().withLeft (all.getCentreX()).withRight (all.getRight()));
         matchInfoLabel.setJustificationType (juce::Justification::centredRight);
         const int pillHeight = measureArea.getHeight(), pillGap = 8, columnGap = 16;
         const int rowHeight = 2 * pillHeight + pillGap;
-        const int top = listenLabel.getBottom() + (all.getBottom() - listenLabel.getBottom() - rowHeight) / 2;
+        const int top = all.getCentreY() - rowHeight / 2;          // en el medio (de arriba abajo) de la sección
         const int bigWidth = 220;
         abArea = juce::Rectangle<int> (all.getX(), top, bigWidth, rowHeight);
         abButton.setBounds (raisedBoundsFor (abArea));
