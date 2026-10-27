@@ -70,7 +70,9 @@ public:
         for (int k = 0; k < i && k < numSections; ++k) y += sectionHeights[(size_t) k];
         return y;
     }
-    static constexpr int windowKnobSize = 76;          // perilla de 68 px (el dibujo deja 4 de margen)
+    // La perilla (71 px: el dibujo deja 4 de margen) toca arriba la línea de las letras de
+    // "Window" y abajo la de la equivalencia.
+    static constexpr int windowKnobSize = 79;
     // ms|Sync, el valor y la equivalencia: tres burbujas iguales, una en el medio de cada
     // tercio (a lo alto) de la parte de Window.
     // Los botones de la derecha (Link ID, ms|Sync, el valor, Measure, Bypass, Scope) ocupan

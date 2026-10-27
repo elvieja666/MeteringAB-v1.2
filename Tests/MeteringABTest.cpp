@@ -726,7 +726,7 @@ int main (int argc, char** argv)
                                 && MP::sectionTop (4) == 500 && MP::sendHeight == MP::sectionTop (1);
                 check (ok, "Receive: partes de 150, 150, 100, 100 y 150 (título, números, Window, Latency, escucha)", MP::sectionTop (4));
                 const auto knob = panelOf (er)->getWindowKnobForTests();
-                check (knob.getCentreX() == 20 + (MP::sideWidth - 40) / 3 && knob.getCentreY() == (MP::sectionTop (2) + MP::sectionTop (3)) / 2 && knob.getWidth() == 76,
+                check (knob.getCentreX() == 20 + (MP::sideWidth - 40) / 3 && knob.getCentreY() == (MP::sectionTop (2) + MP::sectionTop (3)) / 2 && knob.getWidth() == MP::windowKnobSize,
                        "Window: perilla en el medio de su parte, en la línea entre el 1.er y el 2.º tercio (x 123)", knob.getCentreX());
                 const auto info = panelOf (er)->getWindowInfoForTests();
                 const int third = (MP::sectionTop (3) - MP::sectionTop (2)) / 3;
