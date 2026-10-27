@@ -938,7 +938,7 @@ int main (int argc, char** argv)
                "Editor Receive: tamaño por defecto (ancho px)", ed->getWidth());
         const auto& scopeBox = panelOf (ed)->getScopeForTests();
         check (scopeBox.getWidth() == MeteringABPanel::scopeWidth && scopeBox.getHeight() == MeteringABPanel::scopeHeight,
-               "Osciloscopio: 1014 x 586", (double) scopeBox.getWidth() / scopeBox.getHeight());
+               "Osciloscopio: 1036 x 586 (7 px de margen a cada lado)", (double) scopeBox.getWidth() / scopeBox.getHeight());
         check (scopeBox.getY() == 38 && scopeBox.getBottom() == panelOf (ed)->getABButtonAreaForTests().getBottom(),
                "Osciloscopio: de la línea del 1.er cuarto (y 38) a donde termina POST FX", scopeBox.getBottom());
     }

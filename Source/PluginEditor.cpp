@@ -1359,9 +1359,10 @@ void MeteringABPanel::resized()
 
     // ---- Osciloscopio (a la derecha, siempre) ----
     // Los botones van en el medio entre el borde de arriba y la línea del 1.er cuarto (y 7..31);
-    // los botones y el gráfico, pegados a la derecha con ese mismo margen (7 px).
+    // el gráfico y los botones, con ese mismo margen (7 px) a la derecha y a la izquierda.
     const int pillTop = juce::roundToInt ((float) sectionHeights[0] / 8.0f - (float) windowValueHeight * 0.5f);   // 7
-    auto section = juce::Rectangle<int> (receiveWidth - pillTop - scopeWidth, 0, scopeWidth, getHeight());
+    auto section = juce::Rectangle<int> (sideWidth + scopeMargin, 0, scopeWidth, getHeight());
+    jassert (section.getRight() == receiveWidth - pillTop);       // 7 px a la derecha, como arriba
     auto headerArea = section.withHeight (scopeTop);                 // la barra de arriba (hasta el gráfico)
     scopeLabel.setBounds (headerArea);
     // Gain, Freeze, Options y el largo: del tamaño de la burbuja de Link ID (103 x 24) y
@@ -1378,8 +1379,8 @@ void MeteringABPanel::resized()
         freezeButton.setBounds (row.removeFromRight (windowValueWidth));
         row.removeFromRight (6);
         gainLineButton.setBounds (row.removeFromRight (windowValueWidth));
-        // "Oscilloscope": donde estaba (18 px después de la columna), a la izquierda de los botones.
-        scopeLabel.setBounds (headerArea.withLeft (sideWidth + 18).withRight (row.getRight()));
+        // "Oscilloscope": alineado con el borde izquierdo del gráfico, a la izquierda de los botones.
+        scopeLabel.setBounds (headerArea.withRight (row.getRight()));
     }
 
     // El gráfico: de la línea del 1.er cuarto (y 37,5) a donde terminan POST FX y Scope.
