@@ -36,6 +36,9 @@ public:
     void positionComboBoxText (juce::ComboBox&, juce::Label&) override;
     juce::Font getPopupMenuFont() override;
     juce::Label* createSliderTextBox (juce::Slider&) override;
+    // Perilla con lugar propio (propiedades "knobCentreX" y "knobSize"): la perilla
+    // centrada ahí y el valor contra el borde derecho.
+    juce::Slider::SliderLayout getSliderLayout (juce::Slider&) override;
     void drawLabel (juce::Graphics&, juce::Label&) override;
     juce::Font getLabelFont (juce::Label&) override;
 };
@@ -66,6 +69,8 @@ public:
         for (int k = 0; k < i && k < numSections; ++k) y += sectionHeights[(size_t) k];
         return y;
     }
+    static constexpr int windowKnobCentreX = (sideWidth + 1) / 3;   // entre el primer y el segundo tercio (127)
+    static constexpr int windowKnobSize = 76;          // perilla de 68 px (el dibujo deja 4 de margen)
     static constexpr int sendWidth = sideWidth, sendHeight = 135;    // Send: solo la primera parte (= sectionHeights[0])
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
@@ -90,6 +95,11 @@ public:
     juce::TextButton& getABButtonForTests()      { return abButton; }
     juce::TextButton& getMatchBypassButtonForTests() { return matchBypassButton; }
     juce::Rectangle<int> getMeterAreaForTests() const { return meterArea(); }
+    juce::Rectangle<int> getWindowKnobForTests()             // dónde se dibuja la perilla de Window (en el panel)
+    {
+        const auto layout = windowSlider.getLookAndFeel().getSliderLayout (windowSlider);
+        return layout.sliderBounds + windowSlider.getPosition();
+    }
     static inline bool scopeOpenOnStart = false;   // pruebas: abrir con el osciloscopio a la vista
     juce::TextButton& getScopeToggleForTests()  { return scopeToggleButton; }
 

@@ -725,6 +725,9 @@ int main (int argc, char** argv)
                                 && MP::sectionTop (1) == 135 && MP::sectionTop (2) == 270 && MP::sectionTop (3) == 360
                                 && MP::sectionTop (4) == 450 && MP::sendHeight == MP::sectionTop (1);
                 check (ok, "Receive: partes de 135, 135, 90, 90 y 225 (título, números, Window, Latency, escucha)", MP::sectionTop (4));
+                const auto knob = panelOf (er)->getWindowKnobForTests();
+                check (knob.getCentreX() == 127 && knob.getCentreY() == (MP::sectionTop (2) + MP::sectionTop (3)) / 2 && knob.getWidth() == 76,
+                       "Window: perilla en el medio de su parte, entre el primer y el segundo tercio (x 127)", knob.getCentreX());
             }
         }
     }

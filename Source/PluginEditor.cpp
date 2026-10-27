@@ -325,6 +325,22 @@ juce::Font MeteringABLookAndFeel::getLabelFont (juce::Label& label)
     return label.getFont();
 }
 
+juce::Slider::SliderLayout MeteringABLookAndFeel::getSliderLayout (juce::Slider& s)
+{
+    auto layout = juce::LookAndFeel_V4::getSliderLayout (s);
+    const auto& props = s.getProperties();
+    if (props.contains ("knobCentreX") && s.getTextBoxPosition() == juce::Slider::TextBoxRight)
+    {
+        const auto b = s.getLocalBounds();
+        const int size = juce::jmin ((int) props["knobSize"], b.getHeight());
+        const int cx = (int) props["knobCentreX"];
+        layout.sliderBounds = juce::Rectangle<int> (size, size).withCentre ({ cx, b.getCentreY() });
+        const int tw = s.getTextBoxWidth(), th = s.getTextBoxHeight();
+        layout.textBoxBounds = { b.getRight() - tw, b.getCentreY() - th / 2, tw, th };
+    }
+    return layout;
+}
+
 void MeteringABLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, float pos,
                                           float startAngle, float endAngle, juce::Slider&)
 {
@@ -580,6 +596,8 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     // Columna gris: títulos a la izquierda.
     for (auto* l : { &listenLabel, &windowLabel, &latencyLabel })
         l->setJustificationType (juce::Justification::centredLeft);
+    windowLabel.setInterceptsMouseClicks (false, false);        // la perilla pasa por debajo del título
+    windowInfoLabel.setInterceptsMouseClicks (false, false);
 
     linkLabel.setJustificationType (juce::Justification::centredLeft);
     latencyMsLabel.setJustificationType (juce::Justification::centredLeft);
@@ -1199,15 +1217,21 @@ void MeteringABPanel::resized()
     // 3) Ventana (90): título y ms|Sync arriba; abajo la perilla con el valor, y la
     //    equivalencia debajo del valor, a la derecha.
     {
-        auto w = centred (band (2), 88);                        // la perilla usa casi todo el alto
-        auto header = w.removeFromTop (20);
+        // La perilla (68 px) en el medio vertical de la parte y, de izquierda a derecha,
+        // justo entre el primer y el segundo tercio de la columna; el valor a la derecha.
+        const auto area = band (2);
+        auto header = area.withTrimmedTop (2).withHeight (20);
         syncButtons[1].setBounds (header.removeFromRight (46));
         syncButtons[0].setBounds (header.removeFromRight (38));
-        windowLabel.setBounds (header);
-        const auto knobs = w.removeFromTop (68);                // perilla de 60 px (antes 48)
-        windowSlider.setBounds (knobs);
-        windowSyncSlider.setBounds (knobs);
-        windowInfoLabel.setBounds (knobs.withTrimmedTop (50).removeFromRight (170));
+        windowLabel.setBounds (header.withWidth (64));          // solo el texto (no tapa la perilla)
+        const auto knobs = area.reduced (0, 2);
+        for (auto* ws : { &windowSlider, &windowSyncSlider })
+        {
+            ws->getProperties().set ("knobCentreX", windowKnobCentreX - knobs.getX());
+            ws->getProperties().set ("knobSize", windowKnobSize);
+            ws->setBounds (knobs);
+        }
+        windowInfoLabel.setBounds (juce::Rectangle<int> (knobs.getRight() - 170, knobs.getCentreY() + 15, 170, 16));
         windowInfoLabel.setJustificationType (juce::Justification::centredRight);
     }
 
