@@ -1359,7 +1359,7 @@ void MeteringABPanel::resized()
 
     // ---- Osciloscopio (a la derecha, siempre) ----
     auto section = getLocalBounds().withTrimmedLeft (sideWidth).reduced (18, 0);
-    auto scopeHeader = section.removeFromTop (scopeHeaderHeight).withSizeKeepingCentre (section.getWidth(), 28);
+    auto scopeHeader = section.removeFromTop (scopeHeaderHeight).withSizeKeepingCentre (section.getWidth(), 30);   // igual de alto que el selector de modo
     zoomBox.setBounds (scopeHeader.removeFromRight (96));
     scopeHeader.removeFromRight (8);
     // De izquierda a derecha: Gain, Freeze, Options (y el largo).
