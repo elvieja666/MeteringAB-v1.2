@@ -719,12 +719,12 @@ int main (int argc, char** argv)
                        && panelOf (er)->getMeterAreaForTests().getY() > MeteringABPanel::sendHeight,
                    "Send: corta justo donde en el Receive empieza la parte de los números", MeteringABPanel::sendHeight);
             {
-                // La columna en 5 partes iguales (±1 px por redondeo).
-                bool equal = MeteringABPanel::sectionTop (MeteringABPanel::numSections) == MeteringABPanel::receiveHeight
-                             && MeteringABPanel::receiveHeight % MeteringABPanel::numSections == 0;          // justas, sin redondeo
-                for (int i = 0; i < MeteringABPanel::numSections; ++i)
-                    equal = equal && (MeteringABPanel::sectionTop (i + 1) - MeteringABPanel::sectionTop (i)) * 5 == MeteringABPanel::receiveHeight;
-                check (equal, "Receive: 5 partes iguales de 135 px (título, números, Window, Latency, escucha)", MeteringABPanel::sectionTop (1));
+                // La columna en 5 partes.
+                using MP = MeteringABPanel;
+                const bool ok = MP::sectionTop (MP::numSections) == MP::receiveHeight
+                                && MP::sectionTop (1) == 135 && MP::sectionTop (2) == 270 && MP::sectionTop (3) == 360
+                                && MP::sectionTop (4) == 450 && MP::sendHeight == MP::sectionTop (1);
+                check (ok, "Receive: partes de 135, 135, 90, 90 y 225 (título, números, Window, Latency, escucha)", MP::sectionTop (4));
             }
         }
     }

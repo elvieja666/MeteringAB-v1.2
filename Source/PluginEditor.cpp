@@ -1181,10 +1181,10 @@ void MeteringABPanel::resized()
     if (isSendMode)
         return;
 
-    // La columna en 5 partes iguales: 1) título, modo, Link ID y estado; 2) números;
-    // 3) Window; 4) Latency; 5) escucha y Scope. Una línea fina entre cada parte; lo de
-    // cada parte va centrado en su alto.
-    auto band = [this] (int i)
+    // La columna en 5 partes: 1) título, modo, Link ID y estado; 2) números; 3) Window;
+    // 4) Latency; 5) escucha y Scope (ver sectionHeights). Una línea fina entre cada parte;
+    // lo de cada parte va centrado en su alto.
+    auto band = [] (int i)
     {
         const int top = sectionTop (i), bottom = sectionTop (i + 1);
         return juce::Rectangle<int> (20, top, sideWidth - 40, bottom - top);
@@ -1196,48 +1196,50 @@ void MeteringABPanel::resized()
     // 2) Números
     metersBounds = band (1).reduced (0, 10);                    // medidores (se dibujan en paint)
 
-    // 3) Ventana: igual de alta que la escucha (título y ms|Sync arriba; abajo la perilla
-    //    con el valor, y la equivalencia debajo del valor, a la derecha).
+    // 3) Ventana (90): título y ms|Sync arriba; abajo la perilla con el valor, y la
+    //    equivalencia debajo del valor, a la derecha.
     {
-        auto w = centred (band (2), 86);
+        auto w = centred (band (2), 80);
         auto header = w.removeFromTop (22);
         syncButtons[1].setBounds (header.removeFromRight (46));
         syncButtons[0].setBounds (header.removeFromRight (38));
         windowLabel.setBounds (header);
-        w.removeFromTop (4);
-        const auto knobs = w.removeFromTop (60);
+        w.removeFromTop (2);
+        const auto knobs = w.removeFromTop (56);
         windowSlider.setBounds (knobs);
         windowSyncSlider.setBounds (knobs);
-        windowInfoLabel.setBounds (knobs.withTrimmedTop (44).removeFromRight (170));
+        windowInfoLabel.setBounds (knobs.withTrimmedTop (41).removeFromRight (170));
         windowInfoLabel.setJustificationType (juce::Justification::centredRight);
     }
 
-    // 4) Latencia: número a la izquierda, Medir a la derecha, estado debajo.
+    // 4) Latencia (90): número a la izquierda, Medir a la derecha, estado debajo.
     {
-        auto l = centred (band (3), 90);
-        latencyLabel.setBounds (l.removeFromTop (20));
-        l.removeFromTop (4);
-        auto row = l.removeFromTop (50);
+        auto l = centred (band (3), 80);
+        latencyLabel.setBounds (l.removeFromTop (18));
+        l.removeFromTop (2);
+        auto row = l.removeFromTop (46);
         auto rightSide = row.removeFromRight (126);
-        measureButton.setBounds (rightSide.withSizeKeepingCentre (126, 42).translated (0, -3));
-        latencyNumberArea = row.removeFromTop (34);
-        latencyMsLabel.setBounds (row.removeFromTop (16));
-        latencyInfoLabel.setBounds (l.removeFromTop (16));
+        measureButton.setBounds (rightSide.withSizeKeepingCentre (126, 40).translated (0, -2));
+        latencyNumberArea = row.removeFromTop (32);
+        latencyMsLabel.setBounds (row.removeFromTop (14));
+        latencyInfoLabel.setBounds (l.removeFromTop (14));
     }
 
-    // 5) Escuchar: el botón grande PRE FX / POST FX y, al pie, cómo se nivela y Scope.
+    // 5) Escuchar (225): el botón grande PRE FX / POST FX centrado y, al pie, cómo se
+    //    nivela y Scope.
     {
-        auto e = centred (band (4), 22 + 4 + 52 + 10 + 32);
-        auto head = e.removeFromTop (22);
+        auto e = band (4);
+        auto footer = e.removeFromBottom (34 + 14).withTrimmedBottom (14);
+        scopeToggleButton.setBounds (footer.removeFromRight (116));   // Scope: abrir / cerrar el osciloscopio
+        matchInfoLabel.setBounds (footer);
+        matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
+
+        auto listen = centred (e, 22 + 6 + 64);
+        auto head = listen.removeFromTop (22);
         matchBypassButton.setBounds (head.removeFromRight (128));
         listenLabel.setBounds (head);
-        e.removeFromTop (4);
-        abButton.setBounds (e.removeFromTop (52).expanded (4, 0));
-        e.removeFromTop (10);
-        auto row = e.removeFromTop (32);
-        scopeToggleButton.setBounds (row.removeFromRight (116));   // Scope: abrir / cerrar el osciloscopio
-        matchInfoLabel.setBounds (row);
-        matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
+        listen.removeFromTop (6);
+        abButton.setBounds (listen.removeFromTop (64).expanded (4, 0));
     }
 
     // ---- Osciloscopio (a la derecha, siempre) ----

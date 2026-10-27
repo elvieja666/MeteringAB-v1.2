@@ -57,9 +57,16 @@ public:
     static constexpr int scopeWidth = 3 * sideWidth - 18 - 18;   // = 1104 (el recuadro del gráfico)
     static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1520 (al 100%)
     // La columna gris en 5 partes iguales (título/Link ID, números, Window, Latency, escucha).
+    // Alto de cada parte: título/Link ID 135, números 135, Window 90, Latency 90, escucha y Scope 225.
     static constexpr int numSections = 5;
-    static constexpr int sectionTop (int i) { return (receiveHeight * i + numSections / 2) / numSections; }   // 0, 135, 270, 405, 540, 675
-    static constexpr int sendWidth = sideWidth, sendHeight = (receiveHeight + numSections / 2) / numSections;   // Send: solo la primera parte (= sectionTop (1) = 135)
+    static constexpr std::array<int, numSections> sectionHeights { 135, 135, 90, 90, 225 };
+    static constexpr int sectionTop (int i)          // 0, 135, 270, 360, 450, 675
+    {
+        int y = 0;
+        for (int k = 0; k < i && k < numSections; ++k) y += sectionHeights[(size_t) k];
+        return y;
+    }
+    static constexpr int sendWidth = sideWidth, sendHeight = 135;    // Send: solo la primera parte (= sectionHeights[0])
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
     explicit MeteringABPanel (MeteringABProcessor&);
