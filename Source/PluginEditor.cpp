@@ -1281,10 +1281,11 @@ void MeteringABPanel::resized()
         l.removeFromTop (2);
         auto row = l.removeFromTop (46);
         auto rightSide = row.removeFromRight (measureWidth);
-        // Measure: justo en el medio (de arriba abajo) de la sección.
-        measureArea = juce::Rectangle<int> (measureWidth, 40).withCentre ({ rightSide.getCentreX(), band (3).getCentreY() });
+        // Measure: de alto, un tercio de la sección, y justo en el medio (de arriba abajo).
+        measureArea = juce::Rectangle<int> (measureWidth, band (3).getHeight() / 3).withCentre ({ rightSide.getCentreX(), band (3).getCentreY() });
         measureButton.setBounds (raisedBoundsFor (measureArea));
-        latencyInfoLabel.setBounds (l.removeFromTop (14));
+        // "Measured": 6 px debajo de Measure.
+        latencyInfoLabel.setBounds (l.getX(), measureArea.getBottom() + 6, l.getWidth(), 14);
         (void) row;
 
         // "64 samples": en la misma línea que el texto de Measure (su medio, a la misma altura)
@@ -1338,7 +1339,7 @@ void MeteringABPanel::resized()
         listenHintLabel.setBounds (listenHintLabel.getBounds().withRight (all.getCentreX()));
         matchInfoLabel.setBounds (listenHintLabel.getBounds().withLeft (all.getCentreX()).withRight (all.getRight()));
         matchInfoLabel.setJustificationType (juce::Justification::centredRight);
-        const int pillHeight = measureArea.getHeight(), pillGap = 8, columnGap = 16;
+        const int pillHeight = 40, pillGap = 8, columnGap = 16;      // Bypass y Scope: 40 de alto
         const int rowHeight = 2 * pillHeight + pillGap;
         // En el medio, de arriba abajo, entre donde terminan las letras de "Listen" (su línea
         // de base: el texto va centrado en su renglón) y el borde de abajo.
