@@ -200,7 +200,7 @@ private:
     void resetMeters();
     bool isSendMode = false;
     int lastListenPre = -1;                           // para seguir al botón de escucha
-    std::array<int, numSections> separatorY {};       // líneas finas entre las partes (y la del pie de la escucha)
+    std::array<int, numSections - 1> separatorY {};   // líneas finas entre las partes
     juce::String lastScopeSignature;                  // estado del osciloscopio (para no redibujarlo si no cambió)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MeteringABPanel)

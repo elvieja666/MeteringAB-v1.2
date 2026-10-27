@@ -1299,7 +1299,7 @@ void MeteringABPanel::resized()
     }
 
     // 5) Escuchar (225), opción C: "Listen" arriba, el botón grande PRE FX / POST FX, la
-    //    nota de LUFS; una línea fina y, al pie, Match Gain Bypass y Scope lado a lado.
+    //    nota de LUFS y, al pie, Match Gain Bypass y Scope lado a lado.
     {
         auto e = band (4).withTrimmedTop (16);
         {
@@ -1315,7 +1315,6 @@ void MeteringABPanel::resized()
         matchInfoLabel.setBounds (e.removeFromTop (16));
         matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
         e.removeFromTop (10);
-        separatorY[(size_t) numSections - 1] = e.getY();          // línea entre la escucha y el pie
         e.removeFromTop (14);
         auto row = e.removeFromTop (34);
         const int half = (row.getWidth() - 20) / 2;
