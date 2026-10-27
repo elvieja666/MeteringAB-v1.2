@@ -503,10 +503,11 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     abButton.onClick = [this] { toggleAB(); };
     addAndMakeVisible (abButton);
 
-    matchInfoLabel.setText ("Level-matched in LUFS"_u, juce::dontSendNotification);
+    matchInfoLabel.setText ("·  Level-matched in LUFS (K-weighted)"_u, juce::dontSendNotification);
     matchInfoLabel.setJustificationType (juce::Justification::centred);
     matchInfoLabel.setColour (juce::Label::textColourId, Colours::dim);
     matchInfoLabel.setFont (Theme::font (11.0f, 300));
+    matchInfoLabel.setBorderSize ({});                     // junto a "Listen", como estaba "click to switch"
     addAndMakeVisible (matchInfoLabel);
 
     // Match Gain Bypass: escuchar POST FX con su nivel real (sin nivelar).
@@ -523,13 +524,6 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     listenLabel.setColour (juce::Label::textColourId, Colours::dim);
     listenLabel.setFont (Theme::font (12.5f, 300));
     addAndMakeVisible (listenLabel);
-    listenHintLabel.setText ("·  click to switch"_u, juce::dontSendNotification);
-    listenHintLabel.setColour (juce::Label::textColourId, Theme::inkFaint);
-    listenHintLabel.setFont (Theme::font (11.0f, 300));
-    listenHintLabel.setJustificationType (juce::Justification::centredLeft);
-    listenHintLabel.setBorderSize ({});
-    listenHintLabel.setInterceptsMouseClicks (false, false);
-    addAndMakeVisible (listenHintLabel);
 
     // Medir latencia
     measureButton.setButtonText ("Measure");
@@ -913,7 +907,7 @@ void MeteringABPanel::timerCallback()
 
         for (juce::Component* c : std::initializer_list<juce::Component*> {
                  &windowSlider, &windowLabel, &latencyLabel, &latencyMsLabel,
-                 &abButton, &listenLabel, &listenHintLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel, &matchBypassButton,
+                 &abButton, &listenLabel, &matchInfoLabel, &measureButton, &latencyInfoLabel, &matchBypassButton,
 
                  &syncButtons[0], &syncButtons[1], &windowInfoLabel })
             c->setVisible (! isSendMode);
@@ -925,7 +919,7 @@ void MeteringABPanel::timerCallback()
     {
         const bool bypassed = processor.apvts.getRawParameterValue (ParamIDs::matchBypass)->load() > 0.5f;
         matchBypassButton.setToggleState (bypassed, juce::dontSendNotification);
-        matchInfoLabel.setText (bypassed ? "Match gain bypassed"_u : "Level-matched in LUFS"_u, juce::dontSendNotification);
+        matchInfoLabel.setText (bypassed ? "·  Match gain bypassed (real level)"_u : "·  Level-matched in LUFS (K-weighted)"_u, juce::dontSendNotification);
         matchInfoLabel.setColour (juce::Label::textColourId, bypassed ? Theme::warn : Colours::dim);
         if (bypassed != matchBypassShown) { matchBypassShown = bypassed; repaint(); }
     }
@@ -1331,15 +1325,14 @@ void MeteringABPanel::resized()
             const int listenWidth = juce::roundToInt (juce::GlyphArrangement::getStringWidth (listenLabel.getFont(), listenLabel.getText()))
                                     + listenLabel.getBorderSize().getLeft() + 4;
             listenLabel.setBounds (head.removeFromLeft (listenWidth));
-            listenHintLabel.setBounds (head);
+            // Junto a "Listen", la nota de LUFS (donde antes estaba "click to switch").
+            matchInfoLabel.setBounds (head);
+            matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
         }
-        // Opción C: la nota de LUFS en el renglón de "Listen", a la derecha. Debajo, el botón
+        // Opción C: debajo de "Listen", el botón
         // grande (2/3 del ancho) y a su derecha una columna angosta con Bypass y Scope, uno
         // arriba del otro (del alto de Measure, 8 entre los dos); el botón mide lo mismo de alto
         // que los dos juntos.
-        listenHintLabel.setBounds (listenHintLabel.getBounds().withRight (all.getCentreX()));
-        matchInfoLabel.setBounds (listenHintLabel.getBounds().withLeft (all.getCentreX()).withRight (all.getRight()));
-        matchInfoLabel.setJustificationType (juce::Justification::centredRight);
         const int pillHeight = measureArea.getHeight(), pillGap = 8;   // Bypass y Scope: del tamaño de Measure
         const int rowHeight = 2 * pillHeight + pillGap;
         // En el medio, de arriba abajo, entre donde terminan las letras de "Listen" (su línea
