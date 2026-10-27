@@ -74,7 +74,10 @@ public:
     static constexpr int windowKnobSize = 76;          // perilla de 68 px (el dibujo deja 4 de margen)
     // ms|Sync, el valor y la equivalencia: tres burbujas iguales, una en el medio de cada
     // tercio (a lo alto) de la parte de Window.
-    static constexpr int measureWidth = 126;           // botón Measure
+    // Los botones de la derecha (Link ID, ms|Sync, el valor, Measure, Bypass, Scope) ocupan
+    // el último tercio del ancho útil (de x 20 a sideWidth - 20): de x 227 a 330.
+    static constexpr int contentWidth = sideWidth - 40;
+    static constexpr int measureWidth = contentWidth - (2 * contentWidth + 2) / 3;   // = 103
     static constexpr int windowValueWidth = measureWidth, windowValueHeight = 24;   // igual de largas que Measure
     static constexpr int sendWidth = sideWidth, sendHeight = 150;    // Send: solo la primera parte (= sectionHeights[0])
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)

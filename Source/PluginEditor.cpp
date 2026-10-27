@@ -1255,7 +1255,8 @@ void MeteringABPanel::resized()
         {
             const int top = area.getY() + area.getHeight() * i / 3, bottom = area.getY() + area.getHeight() * (i + 1) / 3;
             return juce::Rectangle<int> (windowValueWidth, windowValueHeight)
-                       .withCentre ({ area.getRight() - windowValueWidth / 2, (top + bottom) / 2 });
+                       .withCentre ({ 0, (top + bottom) / 2 })
+                       .withX (area.getRight() - windowValueWidth);              // pegadas al margen derecho
         };
         auto pill = row (0);
         const auto value = row (1);
