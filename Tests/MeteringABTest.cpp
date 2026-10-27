@@ -730,9 +730,12 @@ int main (int argc, char** argv)
                        "Window: perilla en el medio de su parte, entre el primer y el segundo tercio (x 127)", knob.getCentreX());
                 const auto info = panelOf (er)->getWindowInfoForTests();
                 const int third = (MP::sectionTop (3) - MP::sectionTop (2)) / 3;
+                const auto measured = panelOf (er)->getLatencyInfoBoundsForTests();
                 check (info.first.getRight() == MP::sideWidth - 20 && info.second == juce::Justification::centredRight
-                           && info.first.getCentreY() == MP::sectionTop (2) + third * 2 + third / 2,
-                       "Window: la equivalencia termina justo donde terminan las burbujas, en el último tercio", info.first.getCentreY());
+                           && MP::sectionTop (3) - info.first.getBottom() == MP::sectionTop (4) - measured.getBottom()
+                           && info.first.getHeight() == measured.getHeight(),
+                       "Window: la equivalencia termina donde las burbujas y está a la altura de \"Measured\" (en su sección)", info.first.getY());
+                (void) third;
                 const auto measure = panelOf (er)->getMeasureButtonBoundsForTests();
                 check (MP::windowValueWidth == measure.getWidth() && info.first.getRight() == measure.getRight(),
                        "Window: ms|Sync y el valor igual de largos que Measure (y alineados)", measure.getWidth());

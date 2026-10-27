@@ -1261,6 +1261,11 @@ void MeteringABPanel::resized()
         latencyInfoLabel.setBounds (l.removeFromTop (14));
     }
 
+    // La equivalencia de Window, a la misma altura dentro de su sección que "Measured" en la
+    // de Latency (misma distancia a la línea de abajo).
+    windowInfoLabel.setBounds (windowInfoLabel.getBounds().withY (latencyInfoLabel.getY() - (sectionTop (3) - sectionTop (2)))
+                                                         .withHeight (latencyInfoLabel.getHeight()));
+
     // 5) Escuchar (225), opción C: "Listen" arriba, el botón grande PRE FX / POST FX, la
     //    nota de LUFS; una línea fina y, al pie, Match Gain Bypass y Scope lado a lado.
     {

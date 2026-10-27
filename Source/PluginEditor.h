@@ -104,6 +104,7 @@ public:
         return { windowInfoLabel.getBounds(), windowInfoLabel.getJustificationType() };
     }
     juce::Rectangle<int> getMeasureButtonBoundsForTests() const { return measureButton.getBounds(); }
+    juce::Rectangle<int> getLatencyInfoBoundsForTests() const   { return latencyInfoLabel.getBounds(); }
     juce::Rectangle<int> getWindowKnobForTests()             // dónde se dibuja la perilla de Window (en el panel)
     {
         const auto layout = windowSlider.getLookAndFeel().getSliderLayout (windowSlider);
