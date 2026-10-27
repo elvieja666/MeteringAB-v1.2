@@ -1325,7 +1325,10 @@ void MeteringABPanel::resized()
         // Al pie (último tercio): Match Gain Bypass y Scope, con la nota de LUFS en el medio
         // entre el botón y ellos.
         auto row = all.withTrimmedBottom (16).removeFromBottom (34);
-        matchInfoLabel.setBounds (all.withY (abButton.getBottom()).withBottom (row.getY()).withSizeKeepingCentre (all.getWidth(), 16));
+        // La nota de LUFS a la misma distancia del botón grande que "Measured" de Measure.
+        const auto info = latencyInfoLabel.getBounds();
+        matchInfoLabel.setBounds (all.getX(), abButton.getBottom() + (info.getY() - measureButton.getBottom()),
+                                  all.getWidth(), info.getHeight());
         matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
         const int half = (row.getWidth() - 20) / 2;
         matchBypassButton.setBounds (row.removeFromLeft (half));
