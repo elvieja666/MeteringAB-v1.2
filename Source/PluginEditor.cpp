@@ -1123,9 +1123,10 @@ void MeteringABPanel::paint (juce::Graphics& g)
     // Latencia medida: número grande + "muestras"
     drawNumberWithUnit (g, latencyNumberText, "samples", latencyNumberArea, 28.0f, Theme::inkStrong, -1);
 
-    // Líneas finas entre Ventana | Latencia | Escuchar
+    // Líneas finas entre Números | Ventana | Latencia | Escuchar
     g.setColour (juce::Colours::black.withAlpha (0.07f));
-    for (int y : { latencyLabel.getY() - 10, listenLabel.getY() - 10 })
+    const int belowMeters = (meters.getBottom() + windowLabel.getY()) / 2;   // a mitad de camino
+    for (int y : { belowMeters, latencyLabel.getY() - 10, listenLabel.getY() - 10 })
         g.fillRect (20, y, sideWidth - 40, 1);
 }
 
