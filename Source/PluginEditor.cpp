@@ -1359,16 +1359,23 @@ void MeteringABPanel::resized()
 
     // ---- Osciloscopio (a la derecha, siempre) ----
     auto section = getLocalBounds().withTrimmedLeft (sideWidth).reduced (18, 0);
-    auto scopeHeader = section.removeFromTop (scopeHeaderHeight).withSizeKeepingCentre (section.getWidth(), 30);   // igual de alto que el selector de modo
-    zoomBox.setBounds (scopeHeader.removeFromRight (96));
-    scopeHeader.removeFromRight (8);
-    // De izquierda a derecha: Gain, Freeze, Options (y el largo).
-    optionsButton.setBounds (scopeHeader.removeFromRight (74));
-    scopeHeader.removeFromRight (6);
-    freezeButton.setBounds (scopeHeader.removeFromRight (64));
-    scopeHeader.removeFromRight (6);
-    gainLineButton.setBounds (scopeHeader.removeFromRight (58));
-    scopeLabel.setBounds (scopeHeader);
+    auto headerArea = section.removeFromTop (scopeHeaderHeight);
+    scopeLabel.setBounds (headerArea);
+    // Gain, Freeze, Options y el largo: del tamaño de la burbuja de Link ID (103 x 24) y
+    // centrados (de arriba abajo) en la línea entre el 1.er y el 2.º cuarto de la primera parte.
+    {
+        const float lineY = (float) sectionHeights[0] / 4.0f;          // 37,5
+        auto row = headerArea.withHeight (windowValueHeight).withY (juce::roundToInt (lineY - (float) windowValueHeight * 0.5f));
+        zoomBox.setBounds (row.removeFromRight (windowValueWidth));
+        row.removeFromRight (8);
+        // De izquierda a derecha: Gain, Freeze, Options (y el largo).
+        optionsButton.setBounds (row.removeFromRight (windowValueWidth));
+        row.removeFromRight (6);
+        freezeButton.setBounds (row.removeFromRight (windowValueWidth));
+        row.removeFromRight (6);
+        gainLineButton.setBounds (row.removeFromRight (windowValueWidth));
+        scopeLabel.setBounds (headerArea.withRight (row.getX()));
+    }
 
     scope.setBounds (section.withTrimmedBottom (16));
 }
