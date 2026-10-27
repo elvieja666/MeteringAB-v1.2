@@ -1337,8 +1337,11 @@ void MeteringABPanel::resized()
         matchInfoLabel.setJustificationType (juce::Justification::centredRight);
         const int pillHeight = measureArea.getHeight(), pillGap = 8, columnGap = 16;
         const int rowHeight = 2 * pillHeight + pillGap;
-        // En el medio, de arriba abajo, entre el renglón de "Listen" y el borde de abajo.
-        const int top = listenLabel.getBottom() + (all.getBottom() - listenLabel.getBottom() - rowHeight) / 2;
+        // En el medio, de arriba abajo, entre donde terminan las letras de "Listen" (su línea
+        // de base: el texto va centrado en su renglón) y el borde de abajo.
+        const auto listenFont = listenLabel.getFont();
+        const float textBottom = (float) listenLabel.getBounds().getCentreY() - listenFont.getHeight() * 0.5f + listenFont.getAscent();
+        const int top = juce::roundToInt ((textBottom + (float) all.getBottom()) * 0.5f - (float) rowHeight * 0.5f);
         // Bypass y Scope del mismo tamaño que Measure; el botón grande ocupa el resto.
         const int columnWidth = measureArea.getWidth();
         const int bigWidth = all.getWidth() - columnGap - columnWidth;
