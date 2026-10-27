@@ -1315,14 +1315,15 @@ void MeteringABPanel::resized()
             listenLabel.setBounds (head.removeFromLeft (listenWidth));
             listenHintLabel.setBounds (head);
         }
-        e.removeFromTop (4);
-        abButton.setBounds (e.removeFromTop (84).expanded (4, 0));
-        e.removeFromTop (8);
-        matchInfoLabel.setBounds (e.removeFromTop (16));
+        // La parte en 3 tercios de 75: el botón grande ocupa justo el tercio del medio.
+        const auto all = band (4);
+        const int third = all.getHeight() / 3;
+        abButton.setBounds (all.withTrimmedTop (third).withHeight (third).expanded (4, 0));
+        // Al pie (último tercio): Match Gain Bypass y Scope, con la nota de LUFS en el medio
+        // entre el botón y ellos.
+        auto row = all.withTrimmedBottom (16).removeFromBottom (34);
+        matchInfoLabel.setBounds (all.withY (abButton.getBottom()).withBottom (row.getY()).withSizeKeepingCentre (all.getWidth(), 16));
         matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
-        e.removeFromTop (10);
-        e.removeFromTop (14);
-        auto row = e.removeFromTop (34);
         const int half = (row.getWidth() - 20) / 2;
         matchBypassButton.setBounds (row.removeFromLeft (half));
         scopeToggleButton.setBounds (row.removeFromRight (half));   // Scope: abrir / cerrar el osciloscopio
