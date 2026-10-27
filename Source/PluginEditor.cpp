@@ -1266,6 +1266,22 @@ void MeteringABPanel::resized()
     windowInfoLabel.setBounds (windowInfoLabel.getBounds().withY (latencyInfoLabel.getY() - (sectionTop (3) - sectionTop (2)))
                                                          .withHeight (latencyInfoLabel.getHeight()));
 
+    // ms|Sync y el valor: centrados justo entre la línea de arriba de la sección y la equivalencia.
+    {
+        constexpr int gap = 6;
+        const int stackHeight = 2 * windowValueHeight + gap;
+        const int top = (sectionTop (2) + windowInfoLabel.getY() - stackHeight + 1) / 2;
+        auto pill = juce::Rectangle<int> (sideWidth - 20 - windowValueWidth, top, windowValueWidth, windowValueHeight);
+        const auto value = pill.translated (0, windowValueHeight + gap);
+        syncButtons[0].setBounds (pill.removeFromLeft (windowValueWidth / 2));
+        syncButtons[1].setBounds (pill);
+        for (auto* ws : { &windowSlider, &windowSyncSlider })
+        {
+            ws->getProperties().set ("valueCentreY", value.getCentreY() - ws->getY());
+            ws->resized();                                         // vuelve a ubicar el valor
+        }
+    }
+
     // 5) Escuchar (225), opción C: "Listen" arriba, el botón grande PRE FX / POST FX, la
     //    nota de LUFS; una línea fina y, al pie, Match Gain Bypass y Scope lado a lado.
     {
