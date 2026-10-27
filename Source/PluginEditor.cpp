@@ -462,7 +462,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     for (auto* ws : { &windowSlider, &windowSyncSlider })
     {
         ws->setLookAndFeel (&lnf);
-        ws->setTextBoxStyle (juce::Slider::TextBoxRight, false, 104, 26);
+        ws->setTextBoxStyle (juce::Slider::TextBoxRight, false, windowValueWidth, windowValueHeight);
     }
 
     // Ventana en compases (modo Sync): misma perilla, valores musicales.
@@ -1218,12 +1218,10 @@ void MeteringABPanel::resized()
     //    equivalencia debajo del valor, a la derecha.
     {
         // La perilla (68 px) en el medio vertical de la parte y, de izquierda a derecha,
-        // justo entre el primer y el segundo tercio de la columna; el valor a la derecha.
+        // justo entre el primer y el segundo tercio de la columna. A su derecha, a la misma
+        // altura y del mismo tamaño: el selector ms|Sync y el valor; la equivalencia debajo.
         const auto area = band (2);
-        auto header = area.withTrimmedTop (2).withHeight (20);
-        syncButtons[1].setBounds (header.removeFromRight (46));
-        syncButtons[0].setBounds (header.removeFromRight (38));
-        windowLabel.setBounds (header.withWidth (64));          // solo el texto (no tapa la perilla)
+        windowLabel.setBounds (area.withTrimmedTop (2).withHeight (20).withWidth (64));   // solo el texto (no tapa la perilla)
         const auto knobs = area.reduced (0, 2);
         for (auto* ws : { &windowSlider, &windowSyncSlider })
         {
@@ -1231,8 +1229,11 @@ void MeteringABPanel::resized()
             ws->getProperties().set ("knobSize", windowKnobSize);
             ws->setBounds (knobs);
         }
-        windowInfoLabel.setBounds (juce::Rectangle<int> (knobs.getRight() - 170, knobs.getCentreY() + 15, 170, 16));
-        windowInfoLabel.setJustificationType (juce::Justification::centredRight);
+        auto pill = juce::Rectangle<int> (windowValueWidth, windowValueHeight)
+                        .withPosition (knobs.getRight() - 2 * windowValueWidth - 8, knobs.getCentreY() - windowValueHeight / 2);
+        syncButtons[0].setBounds (pill.removeFromLeft (windowValueWidth / 2));
+        syncButtons[1].setBounds (pill);
+        windowInfoLabel.setBounds (juce::Rectangle<int> (knobs.getRight() - 170, knobs.getCentreY() + windowValueHeight / 2 + 3, 170, 16));
     }
 
     // 4) Latencia (90): número a la izquierda, Medir a la derecha, estado debajo.
