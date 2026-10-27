@@ -1362,10 +1362,11 @@ void MeteringABPanel::resized()
     auto headerArea = section.removeFromTop (scopeHeaderHeight);
     scopeLabel.setBounds (headerArea);
     // Gain, Freeze, Options y el largo: del tamaño de la burbuja de Link ID (103 x 24) y
-    // centrados (de arriba abajo) en la línea entre el 1.er y el 2.º cuarto de la primera parte.
+    // en el medio (de arriba abajo) entre el borde de arriba y la línea del 1.er cuarto de la
+    // primera parte (y 37,5): a la altura del título "METERING A/B".
     {
-        const float lineY = (float) sectionHeights[0] / 4.0f;          // 37,5
-        auto row = headerArea.withHeight (windowValueHeight).withY (juce::roundToInt (lineY - (float) windowValueHeight * 0.5f));
+        const float centreY = (float) sectionHeights[0] / 8.0f;        // 18,75
+        auto row = headerArea.withHeight (windowValueHeight).withY (juce::roundToInt (centreY - (float) windowValueHeight * 0.5f));
         zoomBox.setBounds (row.removeFromRight (windowValueWidth));
         row.removeFromRight (8);
         // De izquierda a derecha: Gain, Freeze, Options (y el largo).
