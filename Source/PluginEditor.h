@@ -56,11 +56,10 @@ public:
     static constexpr int receiveHeight = 650;          // 150 + 150 + 100 + 100 + 150 (columna gris)
     static constexpr int scopeHeight = receiveHeight - 52 - 16;   // = 582
     static constexpr int sideWidth = 350;             // la columna gris (Receive)
-    // La sección del osciloscopio: 1140 (lo que medían 3 Receive cerrados de 380; no cambió
-    // al pasar la columna a 350).
-    static constexpr int scopeSectionWidth = 1140;
-    static constexpr int scopeWidth = scopeSectionWidth - 18 - 18;   // = 1104 (el recuadro del gráfico)
-    static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1490 (al 100%)
+    // La sección del osciloscopio mide lo mismo que 3 Receive cerrados (3 x 350 = 1050).
+    static constexpr int scopeSectionWidth = 3 * sideWidth;
+    static constexpr int scopeWidth = scopeSectionWidth - 18 - 18;   // = 1014 (el recuadro del gráfico)
+    static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1400 (al 100%)
     // La columna gris en 5 partes (título/Link ID, números, Window, Latency, escucha).
     // Alto de cada parte: título/Link ID 150, números 150, Window 100, Latency 100, escucha y Scope 150.
     static constexpr int numSections = 5;

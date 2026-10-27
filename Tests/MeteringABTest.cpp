@@ -839,8 +839,8 @@ int main (int argc, char** argv)
         check (e->getWidth() == MeteringABPanel::receiveWidth && e->getScopeForTests().getX() >= MeteringABPanel::sideWidth
                && e->getScopeForTests().getHeight() == MeteringABPanel::scopeHeight,
                "Osciloscopio a la derecha de la columna gris, a toda altura (x px)", e->getScopeForTests().getX());
-        check (e->getWidth() - MeteringABPanel::sideWidth == 1140,
-               "La sección del osciloscopio mide 1140 px", e->getWidth() - MeteringABPanel::sideWidth);
+        check (e->getWidth() - MeteringABPanel::sideWidth == 3 * MeteringABPanel::sideWidth,
+               "La sección del osciloscopio mide 3 Receive cerrados (1050 px)", e->getWidth() - MeteringABPanel::sideWidth);
     }
     {
         // Osciloscopio linkeado a la escucha: al alternar PRE/POST FX muestra solo esa onda.
