@@ -103,7 +103,8 @@ public:
     {
         return { windowInfoLabel.getBounds(), windowInfoLabel.getJustificationType() };
     }
-    juce::Rectangle<int> getMeasureButtonBoundsForTests() const { return measureButton.getBounds(); }
+    juce::Rectangle<int> getMeasureButtonBoundsForTests() const { return measureArea; }   // lo que se ve (sin la sombra)
+    juce::Rectangle<int> getABButtonAreaForTests() const        { return abArea; }
     juce::Rectangle<int> getLatencyInfoBoundsForTests() const   { return latencyInfoLabel.getBounds(); }
     std::pair<juce::Rectangle<int>, juce::Rectangle<int>> getLatencyNumberAreaForTests() const { return { latencyNumberArea, latencyMsLabel.getBounds() }; }
     std::pair<juce::Rectangle<int>, juce::Rectangle<int>> getWindowBubblesForTests()
@@ -143,6 +144,9 @@ private:
     PreciseSlider linkSlider, windowSlider, windowSyncSlider;
     juce::Label linkLabel, windowLabel, latencyLabel;
     juce::TextButton abButton, measureButton;
+    // Lo que se ve de los botones en relieve (Measure y el grande): el componente es un poco
+    // más grande para que la sombra quede por fuera de esta medida.
+    juce::Rectangle<int> measureArea, abArea;
     juce::TextButton matchBypassButton { "Match Gain Bypass" };   // POST sin la ganancia de matcheo
     juce::Label listenLabel, latencyInfoLabel, matchInfoLabel;
     juce::Label listenHintLabel;                      // "·  click to switch" (más chico y más claro que "Listen")

@@ -108,6 +108,12 @@ static juce::Rectangle<float> raisedShape (juce::Rectangle<float> bounds)
     return bounds.reduced (5.0f, 2.0f).withTrimmedBottom (4.0f);
 }
 
+// Al revés: el componente para que el relieve visible mida justo `visible`.
+static juce::Rectangle<int> raisedBoundsFor (juce::Rectangle<int> visible)
+{
+    return { visible.getX() - 5, visible.getY() - 2, visible.getWidth() + 10, visible.getHeight() + 8 };
+}
+
 void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& button, const juce::Colour&, bool over, bool down)
 {
     const auto kind = button.getProperties()["kind"].toString();
@@ -1265,7 +1271,8 @@ void MeteringABPanel::resized()
         auto row = l.removeFromTop (46);
         auto rightSide = row.removeFromRight (measureWidth);
         // Measure: justo en el medio (de arriba abajo) de la sección.
-        measureButton.setBounds (juce::Rectangle<int> (measureWidth, 40).withCentre ({ rightSide.getCentreX(), band (3).getCentreY() }));
+        measureArea = juce::Rectangle<int> (measureWidth, 40).withCentre ({ rightSide.getCentreX(), band (3).getCentreY() });
+        measureButton.setBounds (raisedBoundsFor (measureArea));
         latencyInfoLabel.setBounds (l.removeFromTop (14));
         (void) row;
 
@@ -1273,7 +1280,7 @@ void MeteringABPanel::resized()
         // y empezando justo donde empieza la perilla de Window; "= 1.33 ms" en el renglón de "Measured".
         const int knobLeft = windowKnobCentreX - (windowKnobSize - 8) / 2;     // el dibujo deja 4 de margen
         const int width = rightSide.getX() - 8 - knobLeft;
-        latencyNumberArea = juce::Rectangle<int> (knobLeft, 0, width, 32).withCentre ({ knobLeft + width / 2, measureButton.getBounds().getCentreY() });
+        latencyNumberArea = juce::Rectangle<int> (knobLeft, 0, width, 32).withCentre ({ knobLeft + width / 2, measureArea.getCentreY() });
         latencyMsLabel.setBounds (knobLeft, latencyInfoLabel.getY(), width, latencyInfoLabel.getHeight());   // "= 1.33 ms": en el renglón de "Measured"
     }
 
@@ -1287,7 +1294,7 @@ void MeteringABPanel::resized()
     {
         constexpr int gap = 6;
         const int stackHeight = 2 * windowValueHeight + gap;
-        const int toInfo = latencyInfoLabel.getY() - measureButton.getBottom();
+        const int toInfo = latencyInfoLabel.getY() - measureArea.getBottom();
         const int top = windowInfoLabel.getY() - toInfo - stackHeight;
         auto pill = juce::Rectangle<int> (sideWidth - 20 - windowValueWidth, top, windowValueWidth, windowValueHeight);
         const auto value = pill.translated (0, windowValueHeight + gap);
@@ -1319,22 +1326,23 @@ void MeteringABPanel::resized()
         // entre el tercio de arriba y el del medio.
         const auto all = band (4);
         const int third = all.getHeight() / 3;
-        abButton.setBounds (juce::Rectangle<int> (all.getWidth(), third)
-                                .withCentre ({ all.getCentreX(), all.getY() + third })
-                                .expanded (4, 0));
+        abArea = juce::Rectangle<int> (all.getWidth(), third)
+                     .withCentre ({ all.getCentreX(), all.getY() + third })
+                     .expanded (4, 0);
+        abButton.setBounds (raisedBoundsFor (abArea));
         // La nota de LUFS a la misma distancia del botón grande que "Measured" de Measure.
         const auto info = latencyInfoLabel.getBounds();
-        matchInfoLabel.setBounds (all.getX(), abButton.getBottom() + (info.getY() - measureButton.getBottom()),
+        matchInfoLabel.setBounds (all.getX(), abArea.getBottom() + (info.getY() - measureArea.getBottom()),
                                   all.getWidth(), info.getHeight());
         // Al pie, del alto de Measure y centrados (de arriba abajo) entre la nota de LUFS y el
         // borde de abajo del plugin: Match Gain Bypass a la izquierda (media columna) y Scope
         // a la derecha, del mismo largo que Measure.
         const int footCentreY = (matchInfoLabel.getBottom() + all.getBottom()) / 2;
-        const int pillHeight = measureButton.getHeight();
+        const int pillHeight = measureArea.getHeight();
         matchBypassButton.setBounds (juce::Rectangle<int> ((all.getWidth() - 20) / 2, pillHeight)
                                          .withCentre ({ all.getX() + (all.getWidth() - 20) / 4, footCentreY }));
-        scopeToggleButton.setBounds (juce::Rectangle<int> (measureButton.getWidth(), pillHeight)
-                                         .withCentre ({ all.getRight() - measureButton.getWidth() / 2, footCentreY }));   // Scope: abrir / cerrar el osciloscopio
+        scopeToggleButton.setBounds (juce::Rectangle<int> (measureArea.getWidth(), pillHeight)
+                                         .withCentre ({ all.getRight() - measureArea.getWidth() / 2, footCentreY }));   // Scope: abrir / cerrar el osciloscopio
         matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
     }
 
