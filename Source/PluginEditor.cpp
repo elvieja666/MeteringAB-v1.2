@@ -1323,19 +1323,22 @@ void MeteringABPanel::resized()
         // Opción C: la nota de LUFS en el renglón de "Listen", a la derecha. Debajo, el botón
         // grande (2/3 del ancho) y a su derecha una columna angosta con Bypass y Scope, uno
         // arriba del otro (del alto de Measure, 8 entre los dos); el botón mide lo mismo de alto
-        // que los dos juntos. El bloque, centrado de arriba abajo en la sección.
+        // que los dos juntos.
         listenHintLabel.setBounds (listenHintLabel.getBounds().withRight (all.getCentreX()));
         matchInfoLabel.setBounds (listenHintLabel.getBounds().withLeft (all.getCentreX()).withRight (all.getRight()));
         matchInfoLabel.setJustificationType (juce::Justification::centredRight);
         const int pillHeight = measureArea.getHeight(), pillGap = 8, columnGap = 16;
         const int rowHeight = 2 * pillHeight + pillGap;
-        const int top = all.getCentreY() - rowHeight / 2;          // en el medio (de arriba abajo) de la sección
-        const int bigWidth = 220;
+        // En el medio, de arriba abajo, entre el renglón de "Listen" y el borde de abajo.
+        const int top = listenLabel.getBottom() + (all.getBottom() - listenLabel.getBottom() - rowHeight) / 2;
+        // Bypass y Scope del mismo tamaño que Measure; el botón grande ocupa el resto.
+        const int columnWidth = measureArea.getWidth();
+        const int bigWidth = all.getWidth() - columnGap - columnWidth;
         abArea = juce::Rectangle<int> (all.getX(), top, bigWidth, rowHeight);
         abButton.setBounds (raisedBoundsFor (abArea));
         const int columnX = abArea.getRight() + columnGap;
-        matchBypassButton.setBounds (columnX, top, all.getRight() - columnX, pillHeight);
-        scopeToggleButton.setBounds (columnX, top + pillHeight + pillGap, all.getRight() - columnX, pillHeight);   // Scope: abrir / cerrar el osciloscopio
+        matchBypassButton.setBounds (columnX, top, columnWidth, pillHeight);
+        scopeToggleButton.setBounds (columnX, top + pillHeight + pillGap, columnWidth, pillHeight);   // Scope: abrir / cerrar el osciloscopio
     }
 
     // ---- Osciloscopio (a la derecha, siempre) ----
