@@ -737,9 +737,9 @@ int main (int argc, char** argv)
                        "Window: la equivalencia termina donde las burbujas y está a la altura de \"Measured\" (en su sección)", info.first.getY());
                 (void) third;
                 const auto bubbles = panelOf (er)->getWindowBubblesForTests();   // ms|Sync arriba, el valor abajo
-                check (info.first.getY() - bubbles.second.getBottom() == measured.getY() - panelOf (er)->getMeasureButtonBoundsForTests().getBottom()
+                check (bubbles.second.getCentreY() == (MP::sectionTop (2) + MP::sectionTop (3)) / 2
                            && bubbles.second.getRight() == MP::sideWidth - 20,
-                       "Window: del valor a la equivalencia, lo mismo que de Measure a \"Measured\"", info.first.getY() - bubbles.second.getBottom());
+                       "Window: el valor (3000 ms) en el medio de su sección", bubbles.second.getCentreY());
                 const auto measure = panelOf (er)->getMeasureButtonBoundsForTests();
                 check (MP::windowValueWidth == measure.getWidth() && info.first.getRight() == measure.getRight(),
                        "Window: ms|Sync y el valor igual de largos que Measure (y alineados)", measure.getWidth());
