@@ -1320,22 +1320,25 @@ void MeteringABPanel::resized()
             listenLabel.setBounds (head.removeFromLeft (listenWidth));
             listenHintLabel.setBounds (head);
         }
-        // El botón grande (48 de alto) justo debajo de "Listen".
-        abArea = juce::Rectangle<int> (all.getX(), listenLabel.getBottom() + 6, all.getWidth(), 48).expanded (4, 0);
-        abButton.setBounds (raisedBoundsFor (abArea));
-        // La nota de LUFS a la misma distancia del botón grande que "Measured" de Measure.
+        // Debajo de "Listen", en dos mitades: a la izquierda el botón grande y a la derecha,
+        // uno arriba del otro, Match Gain Bypass y Scope (del alto de Measure, 8 entre los dos).
+        // El botón grande mide lo mismo de alto que los dos juntos; la nota de LUFS va debajo
+        // (a la misma distancia que "Measured" de Measure). Todo el bloque, centrado de arriba
+        // abajo entre "Listen" y el borde de abajo.
         const auto info = latencyInfoLabel.getBounds();
-        matchInfoLabel.setBounds (all.getX(), abArea.getBottom() + (info.getY() - measureArea.getBottom()),
-                                  all.getWidth(), info.getHeight());
-        // Al pie, del alto de Measure y centrados (de arriba abajo) entre la nota de LUFS y el
-        // borde de abajo del plugin: Match Gain Bypass a la izquierda (media columna) y Scope
-        // a la derecha, del mismo largo que Measure.
-        const int footCentreY = (matchInfoLabel.getBottom() + all.getBottom()) / 2;
-        const int pillHeight = measureArea.getHeight();
-        matchBypassButton.setBounds (juce::Rectangle<int> ((all.getWidth() - 20) / 2, pillHeight)
-                                         .withCentre ({ all.getX() + (all.getWidth() - 20) / 4, footCentreY }));
+        const int toInfo = info.getY() - measureArea.getBottom();
+        const int pillHeight = measureArea.getHeight(), pillGap = 8;
+        const int rowHeight = 2 * pillHeight + pillGap;
+        const int blockHeight = rowHeight + toInfo + info.getHeight();
+        const int top = listenLabel.getBottom() + (all.getBottom() - listenLabel.getBottom() - blockHeight) / 2;
+        const int halfWidth = (all.getWidth() - 20) / 2;
+        abArea = juce::Rectangle<int> (all.getX(), top, halfWidth, rowHeight);
+        abButton.setBounds (raisedBoundsFor (abArea));
+        const int rightX = all.getRight() - halfWidth;
+        matchBypassButton.setBounds (rightX, top, halfWidth, pillHeight);
         scopeToggleButton.setBounds (juce::Rectangle<int> (measureArea.getWidth(), pillHeight)
-                                         .withCentre ({ all.getRight() - measureArea.getWidth() / 2, footCentreY }));   // Scope: abrir / cerrar el osciloscopio
+                                         .withPosition (all.getRight() - measureArea.getWidth(), top + pillHeight + pillGap));   // Scope: del largo de Measure, a la derecha
+        matchInfoLabel.setBounds (all.getX(), abArea.getBottom() + toInfo, all.getWidth(), info.getHeight());
         matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
     }
 
