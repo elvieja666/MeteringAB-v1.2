@@ -1140,6 +1140,13 @@ void MeteringABPanel::paint (juce::Graphics& g)
         g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
     }
 
+    // Burbuja de la equivalencia (ms <-> bars), del mismo tamaño que ms|Sync y el valor.
+    {
+        const auto r = windowInfoLabel.getBounds().toFloat();
+        g.setColour (Theme::pill);
+        g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
+    }
+
     // Latencia medida: número grande + "muestras"
     drawNumberWithUnit (g, latencyNumberText, "samples", latencyNumberArea, 28.0f, Theme::inkStrong, -1);
 
@@ -1220,27 +1227,30 @@ void MeteringABPanel::resized()
     //    equivalencia debajo del valor, a la derecha.
     {
         // La perilla (68 px) en el medio vertical de la parte y, de izquierda a derecha,
-        // justo entre el primer y el segundo tercio de la columna. A la derecha, apilados y
-        // del mismo tamaño: el selector ms|Sync, justo arriba del valor; la equivalencia debajo.
+        // justo entre el primer y el segundo tercio de la columna. A la derecha, tres burbujas
+        // iguales, cada una en el medio de un tercio del alto: ms|Sync, el valor y la equivalencia.
         const auto area = band (2);
         windowLabel.setBounds (area.withTrimmedTop (2).withHeight (20).withWidth (64));   // solo el texto (no tapa la perilla)
         const auto knobs = area.reduced (0, 2);
-        constexpr int gap = 4, infoHeight = 14;
-        const int stackHeight = 2 * windowValueHeight + gap + 2 + infoHeight;
-        const int stackTop = knobs.getCentreY() - stackHeight / 2;
-        auto pill = juce::Rectangle<int> (knobs.getRight() - windowValueWidth, stackTop, windowValueWidth, windowValueHeight);
-        const int valueTop = pill.getBottom() + gap;
+        auto row = [&] (int i)
+        {
+            const int top = area.getY() + area.getHeight() * i / 3, bottom = area.getY() + area.getHeight() * (i + 1) / 3;
+            return juce::Rectangle<int> (windowValueWidth, windowValueHeight)
+                       .withCentre ({ area.getRight() - windowValueWidth / 2, (top + bottom) / 2 });
+        };
+        auto pill = row (0);
+        const auto value = row (1);
         for (auto* ws : { &windowSlider, &windowSyncSlider })
         {
             ws->getProperties().set ("knobCentreX", windowKnobCentreX - knobs.getX());
             ws->getProperties().set ("knobSize", windowKnobSize);
-            ws->getProperties().set ("valueCentreY", valueTop + windowValueHeight / 2 - knobs.getY());
+            ws->getProperties().set ("valueCentreY", value.getCentreY() - knobs.getY());
             ws->setBounds (knobs);
         }
         syncButtons[0].setBounds (pill.removeFromLeft (windowValueWidth / 2));
         syncButtons[1].setBounds (pill);
-        windowInfoLabel.setBounds (juce::Rectangle<int> (knobs.getRight() - 170, valueTop + windowValueHeight + 2, 170, infoHeight));
-        windowInfoLabel.setJustificationType (juce::Justification::centredRight);   // termina donde terminan las burbujas
+        windowInfoLabel.setBounds (row (2));                    // con su burbuja (se dibuja en paint)
+        windowInfoLabel.setJustificationType (juce::Justification::centred);
     }
 
     // 4) Latencia (90): número a la izquierda, Medir a la derecha, estado debajo.

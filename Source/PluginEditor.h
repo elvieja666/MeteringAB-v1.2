@@ -71,7 +71,9 @@ public:
     }
     static constexpr int windowKnobCentreX = (sideWidth + 1) / 3;   // entre el primer y el segundo tercio (127)
     static constexpr int windowKnobSize = 76;          // perilla de 68 px (el dibujo deja 4 de margen)
-    static constexpr int windowValueWidth = 90, windowValueHeight = 26;   // ms|Sync y el valor: misma burbuja
+    // ms|Sync, el valor y la equivalencia: tres burbujas iguales, una en el medio de cada
+    // tercio (a lo alto) de la parte de Window.
+    static constexpr int windowValueWidth = 140, windowValueHeight = 24;
     static constexpr int sendWidth = sideWidth, sendHeight = 135;    // Send: solo la primera parte (= sectionHeights[0])
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
