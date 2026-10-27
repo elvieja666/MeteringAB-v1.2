@@ -24,8 +24,6 @@ private:
 // Colores de la parte de arriba (clara). El osciloscopio usa los de Theme oscuros.
 namespace Colours
 {
-    const juce::Colour background = Theme::topLight;
-    const juce::Colour text       = Theme::ink;
     const juce::Colour dim        = Theme::inkDim;
     const juce::Colour accent     = Theme::accent;
     const juce::Colour good       = Theme::good;
@@ -507,7 +505,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     matchInfoLabel.setJustificationType (juce::Justification::centred);
     matchInfoLabel.setColour (juce::Label::textColourId, Colours::dim);
     matchInfoLabel.setFont (Theme::font (11.0f, 300));
-    matchInfoLabel.setBorderSize ({});                     // junto a "Listen", como estaba "click to switch"
+    matchInfoLabel.setBorderSize ({});                     // pegada a "Listen"
     addAndMakeVisible (matchInfoLabel);
 
     // Match Gain Bypass: escuchar POST FX con su nivel real (sin nivelar).
@@ -1224,8 +1222,7 @@ void MeteringABPanel::resized()
         return;
 
     // La columna en 5 partes: 1) título, modo, Link ID y estado; 2) números; 3) Window;
-    // 4) Latency; 5) escucha y Scope (ver sectionHeights). Una línea fina entre cada parte;
-    // lo de cada parte va centrado en su alto.
+    // 4) Latency; 5) escucha y Scope (ver sectionHeights). Una línea fina entre cada parte.
     auto band = [] (int i)
     {
         const int top = sectionTop (i), bottom = sectionTop (i + 1);
@@ -1233,31 +1230,29 @@ void MeteringABPanel::resized()
     };
     for (int i = 1; i < numSections; ++i)
         separatorY[(size_t) (i - 1)] = sectionTop (i);
-    auto centred = [] (juce::Rectangle<int> r, int contentHeight) { return r.withSizeKeepingCentre (r.getWidth(), contentHeight); };
 
     // 2) Números
     metersBounds = band (1).reduced (0, 10);                    // medidores (se dibujan en paint)
 
-    // 3) Ventana (100): título y ms|Sync arriba; abajo la perilla con el valor, y la
-    //    equivalencia debajo del valor, a la derecha.
+    // Los títulos ("Window", "Latency", "Listen") a 10 px de la línea de arriba de su parte.
+    auto titleRow = [&band] (int i, int width) { return band (i).withTrimmedTop (10).withHeight (18).withWidth (width); };
+
+    // 3) Ventana (100): el título, la perilla y, en el último tercio del ancho, ms|Sync, el valor
+    //    y la equivalencia.
     {
-        // La perilla (68 px) en el medio vertical de la parte y, de izquierda a derecha,
-        // justo entre el primer y el segundo tercio de la columna. A la derecha, del mismo ancho y
-        // cada uno en el medio de un tercio del alto: ms|Sync, el valor y la equivalencia (texto).
         const auto area = band (2);
-        // Solo el texto (no tapa la perilla), a la misma distancia del borde de arriba que
-        // "Latency" y "Listen".
-        windowLabel.setBounds (area.withTrimmedTop ((area.getHeight() - 80) / 2).withHeight (18).withWidth (64));
+        windowLabel.setBounds (titleRow (2, 64));                        // solo el texto (no tapa la perilla)
+
+        // ms|Sync a 15 px de la línea de arriba (lo mismo que hay entre las letras de la
+        // equivalencia y la línea de abajo); el valor 6 px debajo, del mismo tamaño.
+        auto pill = juce::Rectangle<int> (area.getRight() - windowValueWidth, area.getY() + 15, windowValueWidth, windowValueHeight);
+        const auto value = pill.translated (0, windowValueHeight + 6);
+        syncButtons[0].setBounds (pill.removeFromLeft (windowValueWidth / 2));
+        syncButtons[1].setBounds (pill);
+
+        // La perilla: centrada en la línea entre el 1.er y el 2.º tercio y en el medio de la parte;
+        // el valor del slider se dibuja en la burbuja de arriba.
         const auto knobs = area.reduced (0, 2);
-        auto row = [&] (int i)
-        {
-            const int top = area.getY() + area.getHeight() * i / 3, bottom = area.getY() + area.getHeight() * (i + 1) / 3;
-            return juce::Rectangle<int> (windowValueWidth, windowValueHeight)
-                       .withCentre ({ 0, (top + bottom) / 2 })
-                       .withX (area.getRight() - windowValueWidth);              // pegadas al margen derecho
-        };
-        auto pill = row (0);
-        const auto value = row (1);
         for (auto* ws : { &windowSlider, &windowSyncSlider })
         {
             ws->getProperties().set ("knobCentreX", windowKnobCentreX - knobs.getX());
@@ -1265,80 +1260,51 @@ void MeteringABPanel::resized()
             ws->getProperties().set ("valueCentreY", value.getCentreY() - knobs.getY());
             ws->setBounds (knobs);
         }
-        syncButtons[0].setBounds (pill.removeFromLeft (windowValueWidth / 2));
-        syncButtons[1].setBounds (pill);
-        // La equivalencia: solo el texto, y siempre termina justo donde terminan las burbujas.
-        windowInfoLabel.setBounds (row (2).withLeft (area.getX() + 120));
+
+        // La equivalencia: solo el texto, termina donde terminan las burbujas y sus letras quedan
+        // a ~14 px de la línea de abajo (como "Window" de la de arriba).
+        windowInfoLabel.setBounds (juce::Rectangle<int> (area.getX() + 120, area.getBottom() - 26, 0, 14).withRight (area.getRight()));
         windowInfoLabel.setJustificationType (juce::Justification::centredRight);
     }
 
-    // 4) Latencia (100): número a la izquierda, Medir a la derecha, estado debajo.
+    // 4) Latencia (100): el número a la izquierda (donde empieza la perilla), Measure en el último
+    //    tercio y "Measured" / "= 1.33 ms" abajo.
     {
-        auto l = centred (band (3), 80);
-        latencyLabel.setBounds (l.removeFromTop (18));
-        l.removeFromTop (2);
-        auto row = l.removeFromTop (46);
-        auto rightSide = row.removeFromRight (measureWidth);
-        // Measure: de alto, un tercio de la sección, y justo en el medio (de arriba abajo).
-        measureArea = juce::Rectangle<int> (measureWidth, band (3).getHeight() / 3).withCentre ({ rightSide.getCentreX(), band (3).getCentreY() });
+        const auto area = band (3);
+        latencyLabel.setBounds (titleRow (3, area.getWidth()));
+        // Measure: de alto, un tercio de la parte, y justo en el medio (de arriba abajo).
+        measureArea = juce::Rectangle<int> (measureWidth, area.getHeight() / 3)
+                          .withCentre ({ area.getRight() - measureWidth / 2, area.getCentreY() })
+                          .withX (area.getRight() - measureWidth);
         measureButton.setBounds (raisedBoundsFor (measureArea));
-        // "Measured" (y "= 1.33 ms"): sus letras terminan a la misma distancia de la línea de abajo
-        // que la que hay entre la línea de arriba y las letras del título ("Latency"), unos 14 px.
-        latencyInfoLabel.setBounds (l.getX(), band (3).getBottom() - 25, l.getWidth(), 14);
-        (void) row;
+        // "Measured": sus letras terminan a ~14 px de la línea de abajo (como "Latency" de la de arriba).
+        latencyInfoLabel.setBounds (area.getX(), area.getBottom() - 25, area.getWidth(), 14);
 
-        // "64 samples": en la misma línea que el texto de Measure (su medio, a la misma altura)
-        // y empezando justo donde empieza la perilla de Window; "= 1.33 ms" en el renglón de "Measured".
+        // "64 samples": a la altura del texto de Measure, empezando donde empieza la perilla de
+        // Window; "= 1.33 ms" en el renglón de "Measured".
         const int knobLeft = windowKnobCentreX - (windowKnobSize - 8) / 2;     // el dibujo deja 4 de margen
-        const int width = rightSide.getX() - 8 - knobLeft;
+        const int width = measureArea.getX() - 8 - knobLeft;
         latencyNumberArea = juce::Rectangle<int> (knobLeft, 0, width, 32).withCentre ({ knobLeft + width / 2, measureArea.getCentreY() });
-        latencyMsLabel.setBounds (knobLeft, latencyInfoLabel.getY(), width, latencyInfoLabel.getHeight());   // "= 1.33 ms": en el renglón de "Measured"
+        latencyMsLabel.setBounds (knobLeft, latencyInfoLabel.getY(), width, latencyInfoLabel.getHeight());
     }
 
-    // La equivalencia de Window, a la misma altura dentro de su sección que "Measured" en la
-    // de Latency (misma distancia a la línea de abajo).
-    // La equivalencia de Window: igual, sus letras a ~14 px de la línea de abajo (como "Window"
-    // de la de arriba).
-    windowInfoLabel.setBounds (windowInfoLabel.getBounds().withY (sectionTop (3) - 26)
-                                                         .withHeight (latencyInfoLabel.getHeight()));
-
-    // ms|Sync y el valor, en bloque (6 px entre los dos, los dos del mismo tamaño): ms|Sync
-    // empieza a la misma distancia de la línea de arriba (15 px) que la que hay entre las
-    // letras de la equivalencia y la línea de abajo.
-    {
-        constexpr int gap = 6;
-        const int top = sectionTop (2) + 15;
-        auto pill = juce::Rectangle<int> (sideWidth - 20 - windowValueWidth, top, windowValueWidth, windowValueHeight);
-        const auto value = pill.translated (0, windowValueHeight + gap);
-        syncButtons[0].setBounds (pill.removeFromLeft (windowValueWidth / 2));
-        syncButtons[1].setBounds (pill);
-        for (auto* ws : { &windowSlider, &windowSyncSlider })
-        {
-            ws->getProperties().set ("valueCentreY", value.getCentreY() - ws->getY());
-            ws->resized();                                         // vuelve a ubicar el valor
-        }
-    }
-
-    // 5) Escuchar (150): "Listen" arriba, el botón grande PRE FX / POST FX, la nota de LUFS
-    //    y, al pie, Match Gain Bypass y Scope (ubicación provisoria).
+    // 5) Escuchar (150): "Listen" con la nota de LUFS al lado; debajo el botón grande PRE/POST FX
+    //    y, a su derecha, Bypass y Scope.
     {
         const auto all = band (4);
         {
-            // "Listen" a la misma distancia del borde de arriba que "Window" y "Latency".
-            const auto head0 = latencyLabel.getBounds().translated (0, sectionTop (4) - sectionTop (3));
-            auto head = juce::Rectangle<int> (all.getX(), head0.getY(), all.getWidth(), head0.getHeight());
+            auto head = titleRow (4, all.getWidth());
             const int listenWidth = juce::roundToInt (juce::GlyphArrangement::getStringWidth (listenLabel.getFont(), listenLabel.getText()))
                                     + listenLabel.getBorderSize().getLeft() + 4;
             listenLabel.setBounds (head.removeFromLeft (listenWidth));
-            // Junto a "Listen", la nota de LUFS (donde antes estaba "click to switch").
+            // Junto a "Listen", la nota de LUFS.
             matchInfoLabel.setBounds (head);
             matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
         }
-        // Opción C: debajo de "Listen", el botón
-        // grande (2/3 del ancho) y a su derecha una columna angosta con Bypass y Scope, uno
-        // arriba del otro (del alto de Measure, 8 entre los dos); el botón mide lo mismo de alto
-        // que los dos juntos.
-        const int pillHeight = measureArea.getHeight(), pillGap = 8;   // Bypass y Scope: del tamaño de Measure
+        // Debajo de "Listen": el botón grande y a su derecha, en el último tercio, Bypass y Scope
+        // uno arriba del otro (del tamaño de Measure, 8 entre los dos); el botón mide lo mismo de
+        // alto que los dos juntos.
+        const int pillHeight = measureArea.getHeight(), pillGap = 8;
         const int rowHeight = 2 * pillHeight + pillGap;
         // En el medio, de arriba abajo, entre donde terminan las letras de "Listen" (su línea
         // de base: el texto va centrado en su renglón) y el borde de abajo.
@@ -1360,11 +1326,8 @@ void MeteringABPanel::resized()
     // ---- Osciloscopio (a la derecha, siempre) ----
     // Los botones van en el medio entre el borde de arriba y la línea del 1.er cuarto (y 7..31);
     // el gráfico y los botones, con ese mismo margen (7 px) a la derecha y a la izquierda.
-    const int pillTop = juce::roundToInt ((float) sectionHeights[0] / 8.0f - (float) windowValueHeight * 0.5f);   // 7
     auto section = juce::Rectangle<int> (sideWidth + scopeMargin, 0, scopeWidth, getHeight());
-    jassert (section.getRight() == receiveWidth - pillTop);       // 7 px a la derecha, como arriba
     auto headerArea = section.withHeight (scopeTop);                 // la barra de arriba (hasta el gráfico)
-    scopeLabel.setBounds (headerArea);
     // Gain, Freeze, Options y el largo: del tamaño de la burbuja de Link ID (103 x 24) y
     // en el medio (de arriba abajo) entre el borde de arriba y la línea del 1.er cuarto de la
     // primera parte (y 37,5): a la altura del título "METERING A/B".
@@ -1428,14 +1391,14 @@ void MeteringABEditor::fitToPanel()
     shownScale = scale;
 
     constrainer.setFixedAspectRatio ((double) w / (double) h);
-    constrainer.setSizeLimits (juce::roundToInt (w * minScale), juce::roundToInt (h * minScale),
-                               juce::roundToInt (w * maxScale), juce::roundToInt (h * maxScale));
+    constrainer.setSizeLimits (juce::roundToInt ((float) w * minScale), juce::roundToInt ((float) h * minScale),
+                               juce::roundToInt ((float) w * maxScale), juce::roundToInt ((float) h * maxScale));
 
     if (send)
-        constrainer.setSizeLimits (juce::roundToInt (w * scale), juce::roundToInt (h * scale),
-                                   juce::roundToInt (w * scale), juce::roundToInt (h * scale));
+        constrainer.setSizeLimits (juce::roundToInt ((float) w * scale), juce::roundToInt ((float) h * scale),
+                                   juce::roundToInt ((float) w * scale), juce::roundToInt ((float) h * scale));
 
-    setSize (juce::roundToInt (w * shownScale), juce::roundToInt (h * shownScale));
+    setSize (juce::roundToInt ((float) w * shownScale), juce::roundToInt ((float) h * shownScale));
     resized();
 }
 

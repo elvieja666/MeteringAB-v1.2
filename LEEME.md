@@ -68,11 +68,11 @@ Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
 ### Tamaño de la ventana
 
-Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achicarlo: todo crece en proporción, de 40% a 150%. Por defecto el plugin mide 1194 × 522: la columna gris más grande y el osciloscopio con proporción 1,85 : 1 (866 × 468). **Clic derecho en esa esquina** (o Ctrl + clic) abre un menú con **Reset size**, para volver al tamaño por defecto. El tamaño queda guardado con el proyecto. En Send el plugin es la parte de arriba de la columna gris (hasta antes de los números), al mismo tamaño que en el Receive, y no tiene esquina para escalar.
+Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achicarlo: todo crece en proporción, de 40% a 150%. Al 100% el plugin mide 1400 × 650 con el osciloscopio abierto (la columna gris de 350 y el osciloscopio de 1050, tres veces la columna) y 350 × 650 cerrado; por defecto se abre un poco más chico (522 px de alto). **Clic derecho en esa esquina** (o Ctrl + clic) abre un menú con **Reset size**, para volver al tamaño por defecto. El tamaño queda guardado con el proyecto. En Send el plugin es la parte de arriba de la columna gris (hasta antes de los números), al mismo tamaño que en el Receive, y no tiene esquina para escalar.
 
 ### Osciloscopio
 
-Está a la derecha de la columna gris, a toda la altura del plugin. El botón **Scope** (al pie de la columna gris) lo cierra y lo abre; cerrado queda solo la columna gris. Un plugin nuevo arranca con el osciloscopio cerrado; después se abre como lo dejaste (también al abrir el proyecto). La columna gris tiene 5 partes, de arriba a abajo: modo y Link ID (135 px), los tres números (135), Ventana (90), Latencia (90) y Escuchar (225: el botón grande, la nota de LUFS y al pie Match Gain Bypass y Scope).
+Está a la derecha de la columna gris, a toda la altura del plugin. El botón **Scope** (al pie de la columna gris) lo cierra y lo abre; cerrado queda solo la columna gris. Un plugin nuevo arranca con el osciloscopio cerrado; después se abre como lo dejaste (también al abrir el proyecto). La columna gris tiene 5 partes, de arriba a abajo: título, modo, Link ID y estado (150 px), los tres números (150), Ventana (100), Latencia (100) y Escuchar (150: "Listen" con la nota de LUFS al lado, el botón grande PRE/POST FX y a su derecha Bypass y Scope, uno arriba del otro).
 
 Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al volumen del original, así ves solo lo que cambió.
 
@@ -85,7 +85,7 @@ Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al vo
   - *Color PRE FX* / *Color POST FX* (cada uno en su menú): Gris, Gris oscuro, Gris claro, Blanco, Azul, Rosa, Rojo, Violeta o Lima, o **Elegir otro color…** con un selector. Cambiar uno no toca el otro. Los botones PRE FX / POST FX toman los mismos colores.
   - *Mostrar grilla*: prende o apaga las líneas de fondo (las de cada compás quedan siempre).
   - Todo se guarda con el proyecto.
-- **Match Gain Bypass** (al pie de la columna, al lado de Scope): prendido (naranja), POST FX suena con su nivel real, sin la ganancia de matcheo. La ganancia se sigue midiendo y se ve en gris; abajo dice "Match gain bypassed". Se puede automatizar y se guarda con el proyecto.
+- **Bypass** (Match Gain Bypass; a la derecha del botón grande, arriba de Scope): prendido (naranja), POST FX suena con su nivel real, sin la ganancia de matcheo. La ganancia se sigue midiendo y se ve en gris; al lado de "Listen" dice "Match gain bypassed (real level)". Se puede automatizar y se guarda con el proyecto.
 - **Regla de nivel**: al pasar el mouse por el osciloscopio aparece una línea horizontal con su valor en dB. **Clic** = la línea queda fija (gris claro, arriba y abajo de -∞); clic sobre ella (o sobre su cartelito) la saca; con el mouse sobre su cartelito de dB no aparece la línea del mouse; **doble clic** (también sobre el cartelito de dB) = escribir el valor exacto (por ejemplo -6 o -12.5) y Enter; un clic en cualquier otra parte cierra la caja (Escape cancela).
 - **Gain** (el primero de la barra): dibuja una línea blanca punteada (sin cartel) al nivel de la **ganancia aplicada**, en dB. Sirve para ver hasta dónde llega lo procesado después de nivelarlo. Otro clic la saca; se guarda con el proyecto.
 - **Freeze** (botón arriba del osciloscopio): lo congela; otro clic lo descongela.
