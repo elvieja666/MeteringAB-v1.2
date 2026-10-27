@@ -1242,8 +1242,9 @@ void MeteringABPanel::resized()
         }
         syncButtons[0].setBounds (pill.removeFromLeft (windowValueWidth / 2));
         syncButtons[1].setBounds (pill);
-        windowInfoLabel.setBounds (row (2));                    // solo el texto (sin burbuja), centrado bajo el valor
-        windowInfoLabel.setJustificationType (juce::Justification::centred);
+        // La equivalencia: solo el texto, y siempre termina justo donde terminan las burbujas.
+        windowInfoLabel.setBounds (row (2).withLeft (area.getX() + 120));
+        windowInfoLabel.setJustificationType (juce::Justification::centredRight);
     }
 
     // 4) Latencia (90): número a la izquierda, Medir a la derecha, estado debajo.
