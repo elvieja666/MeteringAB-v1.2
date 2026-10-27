@@ -1315,10 +1315,13 @@ void MeteringABPanel::resized()
             listenLabel.setBounds (head.removeFromLeft (listenWidth));
             listenHintLabel.setBounds (head);
         }
-        // La parte en 3 tercios de 75: el botón grande ocupa justo el tercio del medio.
+        // La parte en 3 tercios de 75: el botón grande (75 de alto) centrado sobre la línea
+        // entre el tercio de arriba y el del medio.
         const auto all = band (4);
         const int third = all.getHeight() / 3;
-        abButton.setBounds (all.withTrimmedTop (third).withHeight (third).expanded (4, 0));
+        abButton.setBounds (juce::Rectangle<int> (all.getWidth(), third)
+                                .withCentre ({ all.getCentreX(), all.getY() + third })
+                                .expanded (4, 0));
         // Al pie (último tercio): Match Gain Bypass y Scope, con la nota de LUFS en el medio
         // entre el botón y ellos.
         auto row = all.withTrimmedBottom (16).removeFromBottom (34);
