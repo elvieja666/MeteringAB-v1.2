@@ -56,7 +56,10 @@ public:
     // La sección del osciloscopio mide lo mismo que 3 Receive cerrados (3 x 380 = 1140).
     static constexpr int scopeWidth = 3 * sideWidth - 18 - 18;   // = 1104 (el recuadro del gráfico)
     static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1520 (al 100%)
-    static constexpr int sendWidth = sideWidth, sendHeight = 134;    // Send: corta justo donde en el Receive empieza el recuadro de los números
+    // La columna gris en 5 partes iguales (título/Link ID, números, Window, Latency, escucha).
+    static constexpr int numSections = 5;
+    static constexpr int sectionTop (int i) { return (receiveHeight * i + numSections / 2) / numSections; }   // 0, 133, 265, 398, 530, 663
+    static constexpr int sendWidth = sideWidth, sendHeight = (receiveHeight + numSections / 2) / numSections;   // Send: solo la primera parte (= sectionTop (1) = 133)
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
     explicit MeteringABPanel (MeteringABProcessor&);
@@ -163,7 +166,7 @@ private:
     void resetMeters();
     bool isSendMode = false;
     int lastListenPre = -1;                           // para seguir al botón de escucha
-    std::array<int, 3> separatorY {};                 // líneas finas entre secciones (de resized)
+    std::array<int, numSections - 1> separatorY {};   // líneas finas entre las partes (de resized)
     juce::String lastScopeSignature;                  // estado del osciloscopio (para no redibujarlo si no cambió)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MeteringABPanel)

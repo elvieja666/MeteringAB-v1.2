@@ -715,8 +715,16 @@ int main (int argc, char** argv)
         {
             MeteringABProcessor rcv; setParam (rcv, ParamIDs::mode, 1);
             std::unique_ptr<juce::AudioProcessorEditor> er (rcv.createEditor());
-            check (panelOf (er)->getMeterAreaForTests().getY() == MeteringABPanel::sendHeight,
-                   "Send: corta justo donde en el Receive empieza el recuadro de los LUFS", panelOf (er)->getMeterAreaForTests().getY());
+            check (MeteringABPanel::sendHeight == MeteringABPanel::sectionTop (1)
+                       && panelOf (er)->getMeterAreaForTests().getY() > MeteringABPanel::sendHeight,
+                   "Send: corta justo donde en el Receive empieza la parte de los números", MeteringABPanel::sendHeight);
+            {
+                // La columna en 5 partes iguales (±1 px por redondeo).
+                bool equal = MeteringABPanel::sectionTop (MeteringABPanel::numSections) == MeteringABPanel::receiveHeight;
+                for (int i = 0; i < MeteringABPanel::numSections; ++i)
+                    equal = equal && std::abs ((MeteringABPanel::sectionTop (i + 1) - MeteringABPanel::sectionTop (i)) * 5 - MeteringABPanel::receiveHeight) <= 5;
+                check (equal, "Receive: 5 partes iguales (título, números, Window, Latency, escucha)", MeteringABPanel::sectionTop (1));
+            }
         }
     }
     {
