@@ -1205,7 +1205,7 @@ void MeteringABPanel::resized()
         const float centreY = (float) sectionHeights[0] * ((float) q + 0.5f) / 4.0f;
         return k.withHeight (height).withY (juce::roundToInt (centreY - (float) height * 0.5f));
     };
-    modeBox.setBounds (inQuarter (1, 30));
+    modeBox.setBounds (inQuarter (1, 33));                    // del alto de Measure, Bypass y Scope
     {
         // La burbuja (− valor +) del tamaño de la de "3000 ms" (103 x 24): su borde izquierdo
         // en la misma línea que ms|Sync, el valor, Measure, Bypass y Scope.
