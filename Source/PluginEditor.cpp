@@ -1047,19 +1047,26 @@ void MeteringABPanel::timerCallback()
 
 // Número grande (letra fina) con la unidad chica al lado, centrados juntos.
 static void drawNumberWithUnit (juce::Graphics& g, const juce::String& number, const juce::String& unit,
-                                juce::Rectangle<int> area, float size, juce::Colour colour, int align = 0)   // -1 izq, 0 centro, 1 der
+                                juce::Rectangle<int> area, float size, juce::Colour colour, int align = 0,   // -1 izq, 0 centro, 1 der
+                                float unitSize = -1.0f)                                                     // < 0: 0,44 del número
 {
     const float gap = unit.isEmpty() ? 0.0f : 4.0f;
-    auto measure = [&] (float sz)
+    if (unitSize < 0.0f)
+        unitSize = size * 0.44f;
+    auto measure = [&] (float k)
     {
-        return juce::GlyphArrangement::getStringWidth (Theme::font (sz, 300), number) + gap
-             + (unit.isEmpty() ? 0.0f : juce::GlyphArrangement::getStringWidth (Theme::font (sz * 0.44f, 400), unit));
+        return juce::GlyphArrangement::getStringWidth (Theme::font (size * k, 300), number) + gap
+             + (unit.isEmpty() ? 0.0f : juce::GlyphArrangement::getStringWidth (Theme::font (unitSize * k, 400), unit));
     };
     // Si no entra en su lugar (p. ej. una latencia de 4 cifras), se achica para que entre.
-    if (const float w = measure (size); w > (float) area.getWidth() && w > 0.0f)
-        size *= (float) area.getWidth() / w;
+    if (const float w = measure (1.0f); w > (float) area.getWidth() && w > 0.0f)
+    {
+        const float k = (float) area.getWidth() / w;
+        size *= k;
+        unitSize *= k;
+    }
     const auto numberFont = Theme::font (size, 300);
-    const auto unitFont   = Theme::font (size * 0.44f, 400);
+    const auto unitFont   = Theme::font (unitSize, 400);
     const float wNum  = juce::GlyphArrangement::getStringWidth (numberFont, number);
     const float wUnit = unit.isEmpty() ? 0.0f : juce::GlyphArrangement::getStringWidth (unitFont, unit);
     const float total = wNum + gap + wUnit;
@@ -1157,7 +1164,8 @@ void MeteringABPanel::paint (juce::Graphics& g)
     }
 
     // Latencia medida: número grande + "muestras"
-    drawNumberWithUnit (g, latencyNumberText, "samples", latencyNumberArea, 28.0f, Theme::inkStrong, -1);
+    // Las cifras miden de alto un tercio de la sección (100 / 3); "samples" queda del tamaño de antes.
+    drawNumberWithUnit (g, latencyNumberText, "samples", latencyNumberArea, 44.0f, Theme::inkStrong, -1, 28.0f * 0.44f);
 
     // Líneas finas entre Números | Ventana | Latencia | Escuchar
     g.setColour (juce::Colours::black.withAlpha (0.07f));
@@ -1287,7 +1295,7 @@ void MeteringABPanel::resized()
         // y empezando justo donde empieza la perilla de Window; "= 1.33 ms" en el renglón de "Measured".
         const int knobLeft = windowKnobCentreX - (windowKnobSize - 8) / 2;     // el dibujo deja 4 de margen
         const int width = rightSide.getX() - 8 - knobLeft;
-        latencyNumberArea = juce::Rectangle<int> (knobLeft, 0, width, 32).withCentre ({ knobLeft + width / 2, measureArea.getCentreY() });
+        latencyNumberArea = juce::Rectangle<int> (knobLeft, 0, width, 52).withCentre ({ knobLeft + width / 2, measureArea.getCentreY() });
         latencyMsLabel.setBounds (knobLeft, latencyInfoLabel.getY(), width, latencyInfoLabel.getHeight());   // "= 1.33 ms": en el renglón de "Measured"
     }
 
