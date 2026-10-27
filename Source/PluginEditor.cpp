@@ -1208,8 +1208,10 @@ void MeteringABPanel::resized()
     k.removeFromTop (6);
     {
         auto row = k.removeFromTop (30);
+        // La burbuja (− valor +) del mismo largo que Measure: su borde izquierdo en la misma
+        // línea que ms|Sync, el valor, Measure, Bypass y Scope.
         linkPlus.setBounds (row.removeFromRight (32));
-        linkValueLabel.setBounds (row.removeFromRight (40));
+        linkValueLabel.setBounds (row.removeFromRight (measureWidth - 2 * 32));
         linkMinus.setBounds (row.removeFromRight (32));
         linkLabel.setBounds (row);
         linkLabel.setJustificationType (juce::Justification::centredLeft);
