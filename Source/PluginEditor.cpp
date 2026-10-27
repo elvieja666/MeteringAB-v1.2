@@ -1339,19 +1339,21 @@ void MeteringABPanel::resized()
         listenHintLabel.setBounds (listenHintLabel.getBounds().withRight (all.getCentreX()));
         matchInfoLabel.setBounds (listenHintLabel.getBounds().withLeft (all.getCentreX()).withRight (all.getRight()));
         matchInfoLabel.setJustificationType (juce::Justification::centredRight);
-        const int pillHeight = measureArea.getHeight(), pillGap = 8, columnGap = 16;   // Bypass y Scope: del tamaño de Measure
+        const int pillHeight = measureArea.getHeight(), pillGap = 8;   // Bypass y Scope: del tamaño de Measure
         const int rowHeight = 2 * pillHeight + pillGap;
         // En el medio, de arriba abajo, entre donde terminan las letras de "Listen" (su línea
         // de base: el texto va centrado en su renglón) y el borde de abajo.
         const auto listenFont = listenLabel.getFont();
         const float textBottom = (float) listenLabel.getBounds().getCentreY() - listenFont.getHeight() * 0.5f + listenFont.getAscent();
         const int top = juce::roundToInt ((textBottom + (float) all.getBottom()) * 0.5f - (float) rowHeight * 0.5f);
-        // Bypass y Scope del mismo tamaño que Measure; el botón grande ocupa el resto.
+        // Bypass y Scope del mismo tamaño que Measure (en el último tercio). El botón grande:
+        // del margen izquierdo del plugin a su borde, lo mismo que de su borde derecho a la
+        // línea del último tercio (20 px de cada lado).
         const int columnWidth = measureArea.getWidth();
-        const int bigWidth = all.getWidth() - columnGap - columnWidth;
+        const int columnX = all.getRight() - columnWidth;
+        const int bigWidth = columnX - 2 * all.getX();
         abArea = juce::Rectangle<int> (all.getX(), top, bigWidth, rowHeight);
         abButton.setBounds (raisedBoundsFor (abArea));
-        const int columnX = abArea.getRight() + columnGap;
         matchBypassButton.setBounds (columnX, top, columnWidth, pillHeight);
         scopeToggleButton.setBounds (columnX, top + pillHeight + pillGap, columnWidth, pillHeight);   // Scope: abrir / cerrar el osciloscopio
     }
