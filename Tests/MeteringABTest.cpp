@@ -737,10 +737,9 @@ int main (int argc, char** argv)
                        "Window: la equivalencia termina donde las burbujas y está a la altura de \"Measured\" (en su sección)", info.first.getY());
                 (void) third;
                 const auto bubbles = panelOf (er)->getWindowBubblesForTests();   // ms|Sync arriba, el valor abajo
-                const int middle = (MP::sectionTop (2) + info.first.getY()) / 2;
-                check (std::abs ((bubbles.first.getY() + bubbles.second.getBottom()) / 2 - middle) <= 1
+                check (info.first.getY() - bubbles.second.getBottom() == measured.getY() - panelOf (er)->getMeasureButtonBoundsForTests().getBottom()
                            && bubbles.second.getRight() == MP::sideWidth - 20,
-                       "Window: ms|Sync y el valor centrados entre la línea de arriba y la equivalencia", bubbles.first.getY());
+                       "Window: del valor a la equivalencia, lo mismo que de Measure a \"Measured\"", info.first.getY() - bubbles.second.getBottom());
                 const auto measure = panelOf (er)->getMeasureButtonBoundsForTests();
                 check (MP::windowValueWidth == measure.getWidth() && info.first.getRight() == measure.getRight(),
                        "Window: ms|Sync y el valor igual de largos que Measure (y alineados)", measure.getWidth());

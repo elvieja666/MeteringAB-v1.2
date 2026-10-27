@@ -1266,11 +1266,13 @@ void MeteringABPanel::resized()
     windowInfoLabel.setBounds (windowInfoLabel.getBounds().withY (latencyInfoLabel.getY() - (sectionTop (3) - sectionTop (2)))
                                                          .withHeight (latencyInfoLabel.getHeight()));
 
-    // ms|Sync y el valor: centrados justo entre la línea de arriba de la sección y la equivalencia.
+    // ms|Sync y el valor, en bloque: el valor termina a la misma distancia de la equivalencia
+    // que Measure de "Measured" (6 px).
     {
         constexpr int gap = 6;
         const int stackHeight = 2 * windowValueHeight + gap;
-        const int top = (sectionTop (2) + windowInfoLabel.getY() - stackHeight + 1) / 2;
+        const int toInfo = latencyInfoLabel.getY() - measureButton.getBottom();
+        const int top = windowInfoLabel.getY() - toInfo - stackHeight;
         auto pill = juce::Rectangle<int> (sideWidth - 20 - windowValueWidth, top, windowValueWidth, windowValueHeight);
         const auto value = pill.translated (0, windowValueHeight + gap);
         syncButtons[0].setBounds (pill.removeFromLeft (windowValueWidth / 2));
