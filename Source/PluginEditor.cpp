@@ -603,6 +603,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     linkLabel.setJustificationType (juce::Justification::centredLeft);
     latencyMsLabel.setJustificationType (juce::Justification::centredLeft);
+    latencyMsLabel.setBorderSize ({});                          // empieza justo donde empieza el número
     latencyInfoLabel.setJustificationType (juce::Justification::centredRight);
 
     applyScopeLook();
@@ -1256,9 +1257,16 @@ void MeteringABPanel::resized()
         auto rightSide = row.removeFromRight (measureWidth);
         // Measure: justo en el medio (de arriba abajo) de la sección.
         measureButton.setBounds (juce::Rectangle<int> (measureWidth, 40).withCentre ({ rightSide.getCentreX(), band (3).getCentreY() }));
-        latencyNumberArea = row.removeFromTop (32);
-        latencyMsLabel.setBounds (row.removeFromTop (14));
         latencyInfoLabel.setBounds (l.removeFromTop (14));
+        (void) row;
+
+        // El número ("64 samples" y "= 1.33 ms"): en el medio de la sección, de arriba abajo,
+        // y empezando justo donde empieza la perilla de Window (su borde izquierdo).
+        const int knobLeft = windowKnobCentreX - (windowKnobSize - 8) / 2;     // el dibujo deja 4 de margen
+        auto numbers = juce::Rectangle<int> (knobLeft, 0, rightSide.getX() - 8 - knobLeft, 32 + 14)
+                           .withCentre ({ 0, band (3).getCentreY() }).withX (knobLeft);
+        latencyNumberArea = numbers.removeFromTop (32);
+        latencyMsLabel.setBounds (numbers);
     }
 
     // La equivalencia de Window, a la misma altura dentro de su sección que "Measured" en la

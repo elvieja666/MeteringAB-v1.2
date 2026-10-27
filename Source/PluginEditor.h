@@ -105,6 +105,7 @@ public:
     }
     juce::Rectangle<int> getMeasureButtonBoundsForTests() const { return measureButton.getBounds(); }
     juce::Rectangle<int> getLatencyInfoBoundsForTests() const   { return latencyInfoLabel.getBounds(); }
+    std::pair<juce::Rectangle<int>, juce::Rectangle<int>> getLatencyNumberAreaForTests() const { return { latencyNumberArea, latencyMsLabel.getBounds() }; }
     std::pair<juce::Rectangle<int>, juce::Rectangle<int>> getWindowBubblesForTests()
     {
         const auto layout = windowSlider.getLookAndFeel().getSliderLayout (windowSlider);
