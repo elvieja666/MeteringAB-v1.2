@@ -1140,13 +1140,6 @@ void MeteringABPanel::paint (juce::Graphics& g)
         g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
     }
 
-    // Burbuja de la equivalencia (ms <-> bars), del mismo tamaño que ms|Sync y el valor.
-    {
-        const auto r = windowInfoLabel.getBounds().toFloat();
-        g.setColour (Theme::pill);
-        g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
-    }
-
     // Latencia medida: número grande + "muestras"
     drawNumberWithUnit (g, latencyNumberText, "samples", latencyNumberArea, 28.0f, Theme::inkStrong, -1);
 
@@ -1227,8 +1220,8 @@ void MeteringABPanel::resized()
     //    equivalencia debajo del valor, a la derecha.
     {
         // La perilla (68 px) en el medio vertical de la parte y, de izquierda a derecha,
-        // justo entre el primer y el segundo tercio de la columna. A la derecha, tres burbujas
-        // iguales, cada una en el medio de un tercio del alto: ms|Sync, el valor y la equivalencia.
+        // justo entre el primer y el segundo tercio de la columna. A la derecha, del mismo ancho y
+        // cada uno en el medio de un tercio del alto: ms|Sync, el valor y la equivalencia (texto).
         const auto area = band (2);
         windowLabel.setBounds (area.withTrimmedTop (2).withHeight (20).withWidth (64));   // solo el texto (no tapa la perilla)
         const auto knobs = area.reduced (0, 2);
@@ -1249,7 +1242,7 @@ void MeteringABPanel::resized()
         }
         syncButtons[0].setBounds (pill.removeFromLeft (windowValueWidth / 2));
         syncButtons[1].setBounds (pill);
-        windowInfoLabel.setBounds (row (2));                    // con su burbuja (se dibuja en paint)
+        windowInfoLabel.setBounds (row (2));                    // solo el texto (sin burbuja), centrado bajo el valor
         windowInfoLabel.setJustificationType (juce::Justification::centred);
     }
 
