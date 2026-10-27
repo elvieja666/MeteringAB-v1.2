@@ -72,7 +72,7 @@ Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achi
 
 ### Osciloscopio
 
-Está a la derecha de la columna gris, a toda la altura del plugin. El botón **Scope** (al pie de la columna gris) lo cierra y lo abre; cerrado queda solo la columna gris. Un plugin nuevo arranca con el osciloscopio cerrado; después se abre como lo dejaste (también al abrir el proyecto). La columna gris tiene, de arriba a abajo: modo y Link ID, los tres números (Original, Procesado y Ganancia aplicada) juntos, Ventana, Latencia y Escuchar.
+Está a la derecha de la columna gris, a toda la altura del plugin. El botón **Scope** (al pie de la columna gris) lo cierra y lo abre; cerrado queda solo la columna gris. Un plugin nuevo arranca con el osciloscopio cerrado; después se abre como lo dejaste (también al abrir el proyecto). La columna gris tiene 5 partes, de arriba a abajo: modo y Link ID (135 px), los tres números (135), Ventana (90), Latencia (90) y Escuchar (225: el botón grande, la nota de LUFS y al pie Match Gain Bypass y Scope).
 
 Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al volumen del original, así ves solo lo que cambió.
 
@@ -85,7 +85,7 @@ Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al vo
   - *Color PRE FX* / *Color POST FX* (cada uno en su menú): Gris, Gris oscuro, Gris claro, Blanco, Azul, Rosa, Rojo, Violeta o Lima, o **Elegir otro color…** con un selector. Cambiar uno no toca el otro. Los botones PRE FX / POST FX toman los mismos colores.
   - *Mostrar grilla*: prende o apaga las líneas de fondo (las de cada compás quedan siempre).
   - Todo se guarda con el proyecto.
-- **Match Gain Bypass** (arriba a la derecha del botón grande de escucha): prendido (naranja), POST FX suena con su nivel real, sin la ganancia de matcheo. La ganancia se sigue midiendo y se ve en gris; abajo dice "Match gain bypassed". Se puede automatizar y se guarda con el proyecto.
+- **Match Gain Bypass** (al pie de la columna, al lado de Scope): prendido (naranja), POST FX suena con su nivel real, sin la ganancia de matcheo. La ganancia se sigue midiendo y se ve en gris; abajo dice "Match gain bypassed". Se puede automatizar y se guarda con el proyecto.
 - **Regla de nivel**: al pasar el mouse por el osciloscopio aparece una línea horizontal con su valor en dB. **Clic** = la línea queda fija (gris claro, arriba y abajo de -∞); clic sobre ella (o sobre su cartelito) la saca; con el mouse sobre su cartelito de dB no aparece la línea del mouse; **doble clic** (también sobre el cartelito de dB) = escribir el valor exacto (por ejemplo -6 o -12.5) y Enter; un clic en cualquier otra parte cierra la caja (Escape cancela).
 - **Gain** (el primero de la barra): dibuja una línea blanca punteada (sin cartel) al nivel de la **ganancia aplicada**, en dB. Sirve para ver hasta dónde llega lo procesado después de nivelarlo. Otro clic la saca; se guarda con el proyecto.
 - **Freeze** (botón arriba del osciloscopio): lo congela; otro clic lo descongela.

@@ -92,7 +92,7 @@ juce::Font MeteringABLookAndFeel::getTextButtonFont (juce::TextButton& button, i
         return Theme::font (22.0f, 600, 0.05f);
 
     if (button.getProperties()["kind"].toString() == "bypass")
-        return Theme::font (11.5f, 500);
+        return Theme::font (12.5f, 500);
 
     if (button.getProperties()["kind"].toString() == "plain")
         return Theme::font (button.getProperties().contains ("small") ? 12.0f
@@ -1224,21 +1224,23 @@ void MeteringABPanel::resized()
         latencyInfoLabel.setBounds (l.removeFromTop (14));
     }
 
-    // 5) Escuchar (225): el botón grande PRE FX / POST FX centrado y, al pie, cómo se
-    //    nivela y Scope.
+    // 5) Escuchar (225), opción C: "Listen" arriba, el botón grande PRE FX / POST FX, la
+    //    nota de LUFS; una línea fina y, al pie, Match Gain Bypass y Scope lado a lado.
     {
-        auto e = band (4);
-        auto footer = e.removeFromBottom (34 + 14).withTrimmedBottom (14);
-        scopeToggleButton.setBounds (footer.removeFromRight (116));   // Scope: abrir / cerrar el osciloscopio
-        matchInfoLabel.setBounds (footer);
+        auto e = band (4).withTrimmedTop (16);
+        listenLabel.setBounds (e.removeFromTop (22));
+        e.removeFromTop (4);
+        abButton.setBounds (e.removeFromTop (84).expanded (4, 0));
+        e.removeFromTop (8);
+        matchInfoLabel.setBounds (e.removeFromTop (16));
         matchInfoLabel.setJustificationType (juce::Justification::centredLeft);
-
-        auto listen = centred (e, 22 + 6 + 64);
-        auto head = listen.removeFromTop (22);
-        matchBypassButton.setBounds (head.removeFromRight (128));
-        listenLabel.setBounds (head);
-        listen.removeFromTop (6);
-        abButton.setBounds (listen.removeFromTop (64).expanded (4, 0));
+        e.removeFromTop (10);
+        separatorY[(size_t) numSections - 1] = e.getY();          // línea entre la escucha y el pie
+        e.removeFromTop (14);
+        auto row = e.removeFromTop (34);
+        const int half = (row.getWidth() - 20) / 2;
+        matchBypassButton.setBounds (row.removeFromLeft (half));
+        scopeToggleButton.setBounds (row.removeFromRight (half));   // Scope: abrir / cerrar el osciloscopio
     }
 
     // ---- Osciloscopio (a la derecha, siempre) ----
