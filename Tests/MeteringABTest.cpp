@@ -736,6 +736,8 @@ int main (int argc, char** argv)
                 const auto measure = panelOf (er)->getMeasureButtonBoundsForTests();
                 check (MP::windowValueWidth == measure.getWidth() && info.first.getRight() == measure.getRight(),
                        "Window: ms|Sync y el valor igual de largos que Measure (y alineados)", measure.getWidth());
+                check (measure.getCentreY() == (MP::sectionTop (3) + MP::sectionTop (4)) / 2,
+                       "Latency: Measure justo en el medio de la sección (de arriba abajo)", measure.getCentreY());
             }
         }
     }
