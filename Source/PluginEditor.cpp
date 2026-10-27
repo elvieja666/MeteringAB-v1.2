@@ -1260,13 +1260,12 @@ void MeteringABPanel::resized()
         latencyInfoLabel.setBounds (l.removeFromTop (14));
         (void) row;
 
-        // El número ("64 samples" y "= 1.33 ms"): en el medio de la sección, de arriba abajo,
-        // y empezando justo donde empieza la perilla de Window (su borde izquierdo).
+        // "64 samples": en la misma línea que el texto de Measure (su medio, a la misma altura)
+        // y empezando justo donde empieza la perilla de Window; "= 1.33 ms" debajo.
         const int knobLeft = windowKnobCentreX - (windowKnobSize - 8) / 2;     // el dibujo deja 4 de margen
-        auto numbers = juce::Rectangle<int> (knobLeft, 0, rightSide.getX() - 8 - knobLeft, 32 + 14)
-                           .withCentre ({ 0, band (3).getCentreY() }).withX (knobLeft);
-        latencyNumberArea = numbers.removeFromTop (32);
-        latencyMsLabel.setBounds (numbers);
+        const int width = rightSide.getX() - 8 - knobLeft;
+        latencyNumberArea = juce::Rectangle<int> (knobLeft, 0, width, 32).withCentre ({ knobLeft + width / 2, measureButton.getBounds().getCentreY() });
+        latencyMsLabel.setBounds (knobLeft, latencyNumberArea.getCentreY() + 14, width, 14);
     }
 
     // La equivalencia de Window, a la misma altura dentro de su sección que "Measured" en la

@@ -748,8 +748,9 @@ int main (int argc, char** argv)
                     const auto kb = panelOf (er)->getWindowKnobForTests();
                     const int knobLeft = kb.getX() + 4;               // el dibujo de la perilla deja 4 de margen
                     check (number.first.getX() == knobLeft && number.second.getX() == knobLeft
-                               && std::abs ((number.first.getY() + number.second.getBottom()) / 2 - (MP::sectionTop (3) + MP::sectionTop (4)) / 2) <= 1,
-                           "Latency: el número en el medio de la sección y alineado con el borde izquierdo de la perilla", number.first.getX());
+                               && number.first.getCentreY() == panelOf (er)->getMeasureButtonBoundsForTests().getCentreY()
+                               && number.second.getY() > number.first.getCentreY(),
+                           "Latency: \"64 samples\" en la línea de Measure y alineado con la perilla; los ms debajo", number.first.getCentreY());
                 }
                 check (measure.getCentreY() == (MP::sectionTop (3) + MP::sectionTop (4)) / 2,
                        "Latency: Measure justo en el medio de la sección (de arriba abajo)", measure.getCentreY());
