@@ -1322,10 +1322,11 @@ void MeteringABPanel::resized()
         abButton.setBounds (juce::Rectangle<int> (all.getWidth(), third)
                                 .withCentre ({ all.getCentreX(), all.getY() + third })
                                 .expanded (4, 0));
-        // Al pie: Match Gain Bypass (izquierda) y Scope (derecha), del mismo tamaño que Measure
+        // Al pie: Match Gain Bypass (izquierda) y Scope (derecha), del alto de Measure
         // y en el medio (de arriba abajo) del último tercio.
         const int lastThirdCentreY = all.getY() + 2 * third + (all.getHeight() - 2 * third) / 2;
-        const auto pill = juce::Rectangle<int> (measureButton.getWidth(), measureButton.getHeight());
+        // De ancho, la mitad cada uno (con 20 en el medio), como antes; de alto, como Measure.
+        const auto pill = juce::Rectangle<int> ((all.getWidth() - 20) / 2, measureButton.getHeight());
         matchBypassButton.setBounds (pill.withCentre ({ all.getX() + pill.getWidth() / 2, lastThirdCentreY }));
         scopeToggleButton.setBounds (pill.withCentre ({ all.getRight() - pill.getWidth() / 2, lastThirdCentreY }));   // Scope: abrir / cerrar el osciloscopio
         // La nota de LUFS a la misma distancia del botón grande que "Measured" de Measure.
