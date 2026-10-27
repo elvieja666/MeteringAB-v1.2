@@ -92,7 +92,7 @@ juce::Font MeteringABLookAndFeel::getTextButtonFont (juce::TextButton& button, i
         return Theme::font (22.0f, 600, 0.05f);
 
     if (button.getProperties()["kind"].toString() == "bypass")
-        return Theme::font (12.5f, 500);
+        return Theme::font (14.0f, 400);                 // igual que Measure y Scope
 
     if (button.getProperties()["kind"].toString() == "plain")
         return Theme::font (button.getProperties().contains ("small") ? 12.0f
