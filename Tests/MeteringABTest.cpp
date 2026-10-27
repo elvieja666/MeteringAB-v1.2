@@ -737,9 +737,9 @@ int main (int argc, char** argv)
                        "Window/Latency: la equivalencia y \"Measured\" a ~14 px de la línea de abajo (como el título de la de arriba)", info.first.getY());
                 (void) third;
                 const auto bubbles = panelOf (er)->getWindowBubblesForTests();   // ms|Sync arriba, el valor abajo
-                check (bubbles.second.getCentreY() == (MP::sectionTop (2) + MP::sectionTop (3)) / 2
-                           && bubbles.second.getRight() == MP::sideWidth - 20,
-                       "Window: el valor (3000 ms) en el medio de su sección", bubbles.second.getCentreY());
+                check (bubbles.first.getY() == MP::sectionTop (2) + 15 && bubbles.second.getY() == bubbles.first.getBottom() + 6
+                           && bubbles.first.getHeight() == bubbles.second.getHeight() && bubbles.second.getRight() == MP::sideWidth - 20,
+                       "Window: ms|Sync a 15 px de la línea de arriba; el valor 6 px debajo, del mismo tamaño", bubbles.first.getY());
                 const auto measure = panelOf (er)->getMeasureButtonBoundsForTests();
                 check (MP::windowValueWidth == measure.getWidth() && info.first.getRight() == measure.getRight(),
                        "Window: ms|Sync y el valor igual de largos que Measure (y alineados)", measure.getWidth());

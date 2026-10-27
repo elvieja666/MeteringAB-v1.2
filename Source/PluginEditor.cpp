@@ -315,7 +315,7 @@ void MeteringABLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
     if (label.getProperties()["well"] && ! label.isBeingEdited())
     {
         // Casillero hundido con el valor (se puede hacer clic para escribir).
-        auto r = label.getLocalBounds().toFloat().reduced (1.0f, 0.0f);
+        auto r = label.getLocalBounds().toFloat();             // del mismo tamaño que ms|Sync
         Theme::drawWell (g, r, r.getHeight() * 0.5f);
         g.setColour (label.findColour (juce::Label::textColourId));
         g.setFont (getLabelFont (label));
@@ -1298,11 +1298,12 @@ void MeteringABPanel::resized()
     windowInfoLabel.setBounds (windowInfoLabel.getBounds().withY (sectionTop (3) - 26)
                                                          .withHeight (latencyInfoLabel.getHeight()));
 
-    // ms|Sync y el valor, en bloque (6 px entre los dos): el valor ("3000 ms") justo en el
-    // medio, de arriba abajo, de la sección de Window.
+    // ms|Sync y el valor, en bloque (6 px entre los dos, los dos del mismo tamaño): ms|Sync
+    // empieza a la misma distancia de la línea de arriba (15 px) que la que hay entre las
+    // letras de la equivalencia y la línea de abajo.
     {
         constexpr int gap = 6;
-        const int top = sectionTop (2) + (sectionTop (3) - sectionTop (2) - windowValueHeight) / 2 - gap - windowValueHeight;
+        const int top = sectionTop (2) + 15;
         auto pill = juce::Rectangle<int> (sideWidth - 20 - windowValueWidth, top, windowValueWidth, windowValueHeight);
         const auto value = pill.translated (0, windowValueHeight + gap);
         syncButtons[0].setBounds (pill.removeFromLeft (windowValueWidth / 2));
