@@ -1339,7 +1339,7 @@ void MeteringABPanel::resized()
         listenHintLabel.setBounds (listenHintLabel.getBounds().withRight (all.getCentreX()));
         matchInfoLabel.setBounds (listenHintLabel.getBounds().withLeft (all.getCentreX()).withRight (all.getRight()));
         matchInfoLabel.setJustificationType (juce::Justification::centredRight);
-        const int pillHeight = 40, pillGap = 8, columnGap = 16;      // Bypass y Scope: 40 de alto
+        const int pillHeight = measureArea.getHeight(), pillGap = 8, columnGap = 16;   // Bypass y Scope: del tamaño de Measure
         const int rowHeight = 2 * pillHeight + pillGap;
         // En el medio, de arriba abajo, entre donde terminan las letras de "Listen" (su línea
         // de base: el texto va centrado en su renglón) y el borde de abajo.
