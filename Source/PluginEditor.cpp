@@ -1284,8 +1284,9 @@ void MeteringABPanel::resized()
         // Measure: de alto, un tercio de la sección, y justo en el medio (de arriba abajo).
         measureArea = juce::Rectangle<int> (measureWidth, band (3).getHeight() / 3).withCentre ({ rightSide.getCentreX(), band (3).getCentreY() });
         measureButton.setBounds (raisedBoundsFor (measureArea));
-        // "Measured": 6 px debajo de Measure.
-        latencyInfoLabel.setBounds (l.getX(), measureArea.getBottom() + 6, l.getWidth(), 14);
+        // "Measured" (y "= 1.33 ms"): sus letras terminan a la misma distancia de la línea de abajo
+        // que la que hay entre la línea de arriba y las letras del título ("Latency"), unos 14 px.
+        latencyInfoLabel.setBounds (l.getX(), band (3).getBottom() - 25, l.getWidth(), 14);
         (void) row;
 
         // "64 samples": en la misma línea que el texto de Measure (su medio, a la misma altura)
@@ -1298,7 +1299,9 @@ void MeteringABPanel::resized()
 
     // La equivalencia de Window, a la misma altura dentro de su sección que "Measured" en la
     // de Latency (misma distancia a la línea de abajo).
-    windowInfoLabel.setBounds (windowInfoLabel.getBounds().withY (latencyInfoLabel.getY() - (sectionTop (3) - sectionTop (2)))
+    // La equivalencia de Window: igual, sus letras a ~14 px de la línea de abajo (como "Window"
+    // de la de arriba).
+    windowInfoLabel.setBounds (windowInfoLabel.getBounds().withY (sectionTop (3) - 26)
                                                          .withHeight (latencyInfoLabel.getHeight()));
 
     // ms|Sync y el valor, en bloque (6 px entre los dos): el valor ("3000 ms") justo en el

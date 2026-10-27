@@ -732,9 +732,9 @@ int main (int argc, char** argv)
                 const int third = (MP::sectionTop (3) - MP::sectionTop (2)) / 3;
                 const auto measured = panelOf (er)->getLatencyInfoBoundsForTests();
                 check (info.first.getRight() == MP::sideWidth - 20 && info.second == juce::Justification::centredRight
-                           && MP::sectionTop (3) - info.first.getBottom() == MP::sectionTop (4) - measured.getBottom()
+                           && info.first.getY() == MP::sectionTop (3) - 26 && measured.getY() == MP::sectionTop (4) - 25
                            && info.first.getHeight() == measured.getHeight(),
-                       "Window: la equivalencia termina donde las burbujas y está a la altura de \"Measured\" (en su sección)", info.first.getY());
+                       "Window/Latency: la equivalencia y \"Measured\" a ~14 px de la línea de abajo (como el título de la de arriba)", info.first.getY());
                 (void) third;
                 const auto bubbles = panelOf (er)->getWindowBubblesForTests();   // ms|Sync arriba, el valor abajo
                 check (bubbles.second.getCentreY() == (MP::sectionTop (2) + MP::sectionTop (3)) / 2
