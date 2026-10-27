@@ -52,9 +52,10 @@ public:
     // 2,178 : 1 (ancho : alto) de la referencia; su alto = 780 - 52 - 16 = 712.
     static constexpr int receiveHeight = 663;          // columna gris compacta (más grande en pantalla)
     static constexpr int scopeHeight = receiveHeight - 52 - 16;   // = 595
-    static constexpr int scopeWidth = 1101;            // 595 * 1,85
     static constexpr int sideWidth = 380;             // la columna gris (Receive)
-    static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1967 (al 100%)
+    // La sección del osciloscopio mide lo mismo que 3 Receive cerrados (3 x 380 = 1140).
+    static constexpr int scopeWidth = 3 * sideWidth - 18 - 18;   // = 1104 (el recuadro del gráfico)
+    static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1520 (al 100%)
     static constexpr int sendWidth = sideWidth, sendHeight = 134;    // Send: corta justo donde en el Receive empieza el recuadro de los números
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
