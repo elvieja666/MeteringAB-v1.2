@@ -722,9 +722,9 @@ int main (int argc, char** argv)
                 // La columna en 5 partes.
                 using MP = MeteringABPanel;
                 const bool ok = MP::sectionTop (MP::numSections) == MP::receiveHeight
-                                && MP::sectionTop (1) == 135 && MP::sectionTop (2) == 270 && MP::sectionTop (3) == 360
-                                && MP::sectionTop (4) == 450 && MP::sendHeight == MP::sectionTop (1);
-                check (ok, "Receive: partes de 135, 135, 90, 90 y 225 (título, números, Window, Latency, escucha)", MP::sectionTop (4));
+                                && MP::sectionTop (1) == 150 && MP::sectionTop (2) == 300 && MP::sectionTop (3) == 400
+                                && MP::sectionTop (4) == 500 && MP::sendHeight == MP::sectionTop (1);
+                check (ok, "Receive: partes de 150, 150, 100, 100 y 150 (título, números, Window, Latency, escucha)", MP::sectionTop (4));
                 const auto knob = panelOf (er)->getWindowKnobForTests();
                 check (knob.getCentreX() == 127 && knob.getCentreY() == (MP::sectionTop (2) + MP::sectionTop (3)) / 2 && knob.getWidth() == 76,
                        "Window: perilla en el medio de su parte, entre el primer y el segundo tercio (x 127)", knob.getCentreX());
@@ -762,8 +762,9 @@ int main (int argc, char** argv)
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
         auto* outer = dynamic_cast<MeteringABEditor*> (ed.get());
-        check (ed->isResizable() && std::abs (panelOf (ed)->getScopeForTests().getHeight() * outer->getUiScale() - 468.3f) < 1.0f,
-               "Escalable: por defecto el osciloscopio mide 468 px de alto (plugin de 522)", panelOf (ed)->getScopeForTests().getWidth() * outer->getUiScale());
+        check (ed->isResizable() && std::abs (outer->getHeight() - 1.05f * 497.0f) < 1.5f
+                   && std::abs (panelOf (ed)->getScopeForTests().getHeight() * outer->getUiScale() - (float) MeteringABPanel::scopeHeight * MeteringABEditor::defaultScale) < 1.0f,
+               "Escalable: por defecto el plugin mide 522 px de alto (el osciloscopio en proporción)", outer->getHeight());
         outer->setUiScale (1.5f);
         check (ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * 1.5) && ed->getHeight() == juce::roundToInt (MeteringABPanel::receiveHeight * 1.5),
                "Escalable: al 150% todo crece en proporción (alto px)", ed->getHeight());
@@ -838,8 +839,8 @@ int main (int argc, char** argv)
         check (e->getWidth() == MeteringABPanel::receiveWidth && e->getScopeForTests().getX() >= MeteringABPanel::sideWidth
                && e->getScopeForTests().getHeight() == MeteringABPanel::scopeHeight,
                "Osciloscopio a la derecha de la columna gris, a toda altura (x px)", e->getScopeForTests().getX());
-        check (e->getWidth() - MeteringABPanel::sideWidth == 3 * MeteringABPanel::sideWidth,
-               "La sección del osciloscopio mide 3 Receive cerrados (1140 px)", e->getWidth() - MeteringABPanel::sideWidth);
+        check (e->getWidth() - MeteringABPanel::sideWidth == 1140,
+               "La sección del osciloscopio mide 1140 px", e->getWidth() - MeteringABPanel::sideWidth);
     }
     {
         // Osciloscopio linkeado a la escucha: al alternar PRE/POST FX muestra solo esa onda.

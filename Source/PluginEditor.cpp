@@ -1055,9 +1055,17 @@ void MeteringABPanel::timerCallback()
 static void drawNumberWithUnit (juce::Graphics& g, const juce::String& number, const juce::String& unit,
                                 juce::Rectangle<int> area, float size, juce::Colour colour, int align = 0)   // -1 izq, 0 centro, 1 der
 {
+    const float gap = unit.isEmpty() ? 0.0f : 4.0f;
+    auto measure = [&] (float sz)
+    {
+        return juce::GlyphArrangement::getStringWidth (Theme::font (sz, 300), number) + gap
+             + (unit.isEmpty() ? 0.0f : juce::GlyphArrangement::getStringWidth (Theme::font (sz * 0.44f, 400), unit));
+    };
+    // Si no entra en su lugar (p. ej. una latencia de 4 cifras), se achica para que entre.
+    if (const float w = measure (size); w > (float) area.getWidth() && w > 0.0f)
+        size *= (float) area.getWidth() / w;
     const auto numberFont = Theme::font (size, 300);
     const auto unitFont   = Theme::font (size * 0.44f, 400);
-    const float gap = unit.isEmpty() ? 0.0f : 4.0f;
     const float wNum  = juce::GlyphArrangement::getStringWidth (numberFont, number);
     const float wUnit = unit.isEmpty() ? 0.0f : juce::GlyphArrangement::getStringWidth (unitFont, unit);
     const float total = wNum + gap + wUnit;

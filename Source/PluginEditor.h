@@ -55,10 +55,12 @@ public:
     // 2,178 : 1 (ancho : alto) de la referencia; su alto = 780 - 52 - 16 = 712.
     static constexpr int receiveHeight = 650;          // 150 + 150 + 100 + 100 + 150 (columna gris)
     static constexpr int scopeHeight = receiveHeight - 52 - 16;   // = 582
-    static constexpr int sideWidth = 380;             // la columna gris (Receive)
-    // La sección del osciloscopio mide lo mismo que 3 Receive cerrados (3 x 380 = 1140).
-    static constexpr int scopeWidth = 3 * sideWidth - 18 - 18;   // = 1104 (el recuadro del gráfico)
-    static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1520 (al 100%)
+    static constexpr int sideWidth = 350;             // la columna gris (Receive)
+    // La sección del osciloscopio: 1140 (lo que medían 3 Receive cerrados de 380; no cambió
+    // al pasar la columna a 350).
+    static constexpr int scopeSectionWidth = 1140;
+    static constexpr int scopeWidth = scopeSectionWidth - 18 - 18;   // = 1104 (el recuadro del gráfico)
+    static constexpr int receiveWidth = sideWidth + 18 + scopeWidth + 18;   // = 1490 (al 100%)
     // La columna gris en 5 partes (título/Link ID, números, Window, Latency, escucha).
     // Alto de cada parte: título/Link ID 150, números 150, Window 100, Latency 100, escucha y Scope 150.
     static constexpr int numSections = 5;
@@ -69,7 +71,7 @@ public:
         for (int k = 0; k < i && k < numSections; ++k) y += sectionHeights[(size_t) k];
         return y;
     }
-    static constexpr int windowKnobCentreX = (sideWidth + 1) / 3;   // entre el primer y el segundo tercio (127)
+    static constexpr int windowKnobCentreX = 127;    // donde estaba con la columna de 380 (entre el 1.er y el 2.º tercio)
     static constexpr int windowKnobSize = 76;          // perilla de 68 px (el dibujo deja 4 de margen)
     // ms|Sync, el valor y la equivalencia: tres burbujas iguales, una en el medio de cada
     // tercio (a lo alto) de la parte de Window.
@@ -200,7 +202,7 @@ private:
     bool metersFalling = false;
     bool audioWasStopped = false;
     juce::Rectangle<int> meterArea() const;
-    juce::Rectangle<int> metersBounds { 20, 136, 340, 124 };
+    juce::Rectangle<int> metersBounds { 20, 160, sideWidth - 40, 130 };
     void resetMeters();
     bool isSendMode = false;
     int lastListenPre = -1;                           // para seguir al botón de escucha
