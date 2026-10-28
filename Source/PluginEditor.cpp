@@ -1366,7 +1366,11 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     fitToPanel();
 }
 
-MeteringABEditor::~MeteringABEditor() = default;
+MeteringABEditor::~MeteringABEditor()
+{
+    if (resizableCorner != nullptr)
+        resizableCorner->setLookAndFeel (nullptr);     // la esquina es de la clase base: vive más que cornerLookAndFeel
+}
 
 void MeteringABEditor::paint (juce::Graphics& g)
 {
@@ -1387,6 +1391,7 @@ void MeteringABEditor::fitToPanel()
     {
         resizableCorner->removeMouseListener (this);
         resizableCorner->addMouseListener (this, false);
+        resizableCorner->setLookAndFeel (&cornerLookAndFeel);   // sin las rayitas diagonales
     }
     shownScale = scale;
 

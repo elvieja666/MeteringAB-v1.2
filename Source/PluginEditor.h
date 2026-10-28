@@ -255,6 +255,12 @@ private:
     MeteringABProcessor& processor;
     MeteringABPanel panel;
     juce::ComponentBoundsConstrainer constrainer;
+    // La esquina para escalar: funciona igual, pero sin las rayitas diagonales.
+    struct InvisibleCornerLookAndFeel : juce::LookAndFeel_V4
+    {
+        void drawCornerResizer (juce::Graphics&, int, int, bool, bool) override {}
+    };
+    InvisibleCornerLookAndFeel cornerLookAndFeel;
     float scale = 1.0f;                               // escala del Receive (la que elegís con la esquina)
     float shownScale = 1.0f;                          // la que se usa ahora (Send: la misma que el Receive)
     bool fitting = false;
