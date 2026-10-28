@@ -430,7 +430,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     linkValueLabel.setEditable (true);
     linkValueLabel.setJustificationType (juce::Justification::centred);
-    linkValueLabel.setFont (Theme::font (14.0f, 400));
+    linkValueLabel.setFont (Theme::font (14.0f, 500));
     linkValueLabel.setColour (juce::Label::textColourId, Theme::ink);
     linkValueLabel.onTextChange = [this]
     {
@@ -529,7 +529,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
 
     latencyInfoLabel.setJustificationType (juce::Justification::centred);
-    latencyInfoLabel.setFont (Theme::font (11.0f, 300));
+    latencyInfoLabel.setFont (Theme::font (11.0f, 400));
     addAndMakeVisible (latencyInfoLabel);
 
 
@@ -1143,7 +1143,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
             g.fillRect (row.getX(), row.getBottom(), row.getWidth(), 1);
         }
         g.setColour (Theme::inkDim);
-        g.setFont (Theme::font (12.0f, 400));
+        g.setFont (Theme::font (12.0f, 300));
         g.drawText (readouts[i].title, row.withTrimmedTop (6), juce::Justification::centredLeft);
         drawNumberWithUnit (g, readouts[i].number, readouts[i].unit, row, 27.0f, readouts[i].colour, 1);
     }
