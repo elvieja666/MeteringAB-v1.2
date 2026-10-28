@@ -1335,7 +1335,7 @@ void MeteringABPanel::resized()
         const float centreY = (float) sectionHeights[0] / 8.0f;        // 18,75
         auto row = headerArea.withHeight (windowValueHeight).withY (juce::roundToInt (centreY - (float) windowValueHeight * 0.5f));
         zoomBox.setBounds (row.removeFromRight (windowValueWidth));
-        row.removeFromRight (8);
+        row.removeFromRight (6);                                        // 6 px entre todas
         // De izquierda a derecha: Gain, Freeze, Options (y el largo).
         optionsButton.setBounds (row.removeFromRight (windowValueWidth));
         row.removeFromRight (6);
