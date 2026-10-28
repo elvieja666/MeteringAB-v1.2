@@ -1280,12 +1280,12 @@ void MeteringABPanel::resized()
         // "Measured": sus letras terminan a ~14 px de la línea de abajo (como "Latency" de la de arriba).
         latencyInfoLabel.setBounds (area.getX(), area.getBottom() - 25, area.getWidth(), 14);
 
-        // "64 samples": a la altura del texto de Measure, empezando donde empieza la perilla de
-        // Window; "= 1.33 ms" en el renglón de "Measured".
-        const int knobLeft = windowKnobCentreX - (windowKnobSize - 8) / 2;     // el dibujo deja 4 de margen
-        const int width = measureArea.getX() - 8 - knobLeft;
-        latencyNumberArea = juce::Rectangle<int> (knobLeft, 0, width, 32).withCentre ({ knobLeft + width / 2, measureArea.getCentreY() });
-        latencyMsLabel.setBounds (knobLeft, latencyInfoLabel.getY(), width, latencyInfoLabel.getHeight());
+        // "64 samples": a la altura del texto de Measure, empezando donde empieza el texto del
+        // título "Latency"; "= 1.33 ms" en el renglón de "Measured", alineado igual.
+        const int textLeft = latencyLabel.getX() + latencyLabel.getBorderSize().getLeft();
+        const int width = measureArea.getX() - 8 - textLeft;
+        latencyNumberArea = juce::Rectangle<int> (textLeft, 0, width, 32).withCentre ({ textLeft + width / 2, measureArea.getCentreY() });
+        latencyMsLabel.setBounds (textLeft, latencyInfoLabel.getY(), width, latencyInfoLabel.getHeight());
     }
 
     // 5) Escuchar (150): "Listen" con la nota de LUFS al lado; debajo el botón grande PRE/POST FX

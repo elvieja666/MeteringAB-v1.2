@@ -745,12 +745,11 @@ int main (int argc, char** argv)
                        "Window: ms|Sync y el valor igual de largos que Measure (y alineados)", measure.getWidth());
                 {
                     const auto number = panelOf (er)->getLatencyNumberAreaForTests();
-                    const auto kb = panelOf (er)->getWindowKnobForTests();
-                    const int knobLeft = kb.getX() + 4;               // el dibujo de la perilla deja 4 de margen
-                    check (number.first.getX() == knobLeft && number.second.getX() == knobLeft
+                    const int titleTextLeft = 20 + 5;                 // donde empieza el texto de "Latency" (borde del Label)
+                    check (number.first.getX() == titleTextLeft && number.second.getX() == titleTextLeft
                                && number.first.getCentreY() == panelOf (er)->getMeasureButtonBoundsForTests().getCentreY()
                                && number.second.getY() == panelOf (er)->getLatencyInfoBoundsForTests().getY(),
-                           "Latency: \"64 samples\" en la línea de Measure; \"= 1.33 ms\" en el renglón de \"Measured\"", number.first.getCentreY());
+                           "Latency: \"64 samples\" y \"= 1.33 ms\" donde empieza \"Latency\"; en la línea de Measure y de \"Measured\"", number.first.getCentreY());
                 }
                 check (measure.getCentreY() == (MP::sectionTop (3) + MP::sectionTop (4)) / 2,
                        "Latency: Measure justo en el medio de la sección (de arriba abajo)", measure.getCentreY());
