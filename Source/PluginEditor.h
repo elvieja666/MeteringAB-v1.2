@@ -53,15 +53,14 @@ public:
     // Medidas al 100%. Receive: la columna gris (350 x 650) y, a la derecha, el osciloscopio
     // (1050 = 3 columnas). Send: solo la primera parte de la columna (350 x 150).
     static constexpr int receiveHeight = 650;          // 150 + 150 + 100 + 100 + 150 (columna gris)
-    // El gráfico del osciloscopio, de arriba abajo: de la línea del 1.er cuarto de la primera
-    // parte (y 37,5) a donde terminan POST FX y Scope (y 624).
-    static constexpr int scopeTop = 38, scopeBottom = 624;
-    static constexpr int scopeHeight = scopeBottom - scopeTop;   // = 586
+    // El recuadro del gráfico: 7 px de margen a los costados y abajo (lo mismo que arriba de los
+    // botones); arriba empieza en la línea del 1.er cuarto de la primera parte (y 37,5).
+    static constexpr int scopeMargin = 7;
+    static constexpr int scopeTop = 38, scopeBottom = receiveHeight - scopeMargin;   // 38 .. 643
+    static constexpr int scopeHeight = scopeBottom - scopeTop;   // = 605
     static constexpr int sideWidth = 350;             // la columna gris (Receive)
     // La sección del osciloscopio mide lo mismo que 3 Receive cerrados (3 x 350 = 1050).
     static constexpr int scopeSectionWidth = 3 * sideWidth;
-    // El recuadro del gráfico: 7 px de margen a cada lado (lo mismo que arriba de los botones).
-    static constexpr int scopeMargin = 7;
     static constexpr int scopeWidth = scopeSectionWidth - 2 * scopeMargin;   // = 1036
     static constexpr int receiveWidth = sideWidth + scopeSectionWidth;      // = 1400 (al 100%)
     // La columna gris en 5 partes (título/Link ID, números, Window, Latency, escucha).
@@ -114,7 +113,6 @@ public:
         return { windowInfoLabel.getBounds(), windowInfoLabel.getJustificationType() };
     }
     juce::Rectangle<int> getMeasureButtonBoundsForTests() const { return measureArea; }   // lo que se ve (sin la sombra)
-    juce::Rectangle<int> getABButtonAreaForTests() const        { return abArea; }
     juce::Rectangle<int> getLatencyInfoBoundsForTests() const   { return latencyInfoLabel.getBounds(); }
     std::pair<juce::Rectangle<int>, juce::Rectangle<int>> getLatencyNumberAreaForTests() const { return { latencyNumberArea, latencyMsLabel.getBounds() }; }
     std::pair<juce::Rectangle<int>, juce::Rectangle<int>> getWindowBubblesForTests()

@@ -1346,8 +1346,7 @@ void MeteringABPanel::resized()
         scopeLabel.setBounds (headerArea.withRight (row.getRight()));
     }
 
-    // El gráfico: de la línea del 1.er cuarto (y 37,5) a donde terminan POST FX y Scope.
-    jassert (abArea.getBottom() == scopeBottom);
+    // El gráfico: de la línea del 1.er cuarto (y 37,5) a 7 px del borde de abajo.
     scope.setBounds (section.getX(), scopeTop, section.getWidth(), scopeBottom - scopeTop);
 }
 
