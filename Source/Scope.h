@@ -694,9 +694,12 @@ private:
 
 public:
     // Dónde se dibuja la onda (sin los márgenes de las escalas).
+    // La grilla, adentro del recuadro, con el mismo margen en los 4 lados (arriba va la regla y
+    // a la izquierda los dB).
+    static constexpr float plotMargin = 20.0f;
     juce::Rectangle<float> plotArea() const
     {
-        return getLocalBounds().toFloat().withTrimmedLeft (38.0f).withTrimmedTop (20.0f).withTrimmedRight (10.0f).withTrimmedBottom (8.0f);
+        return getLocalBounds().toFloat().reduced (plotMargin);        // el mismo margen en los 4 lados
     }
 
     // Zoom máximo: que se vean al menos ~48 muestras.
@@ -813,7 +816,7 @@ public:
                 if (roomForLabel)
                 {
                     g.setColour (juce::Colour (0xff8a8f98));
-                    g.drawText (juce::String (db), juce::Rectangle<float> (plot.getX() - 36.0f, y - 7.0f, 32.0f, 14.0f).toNearestInt(),
+                    g.drawText (juce::String (db), juce::Rectangle<float> (plot.getX() - plotMargin, y - 7.0f, plotMargin - 3.0f, 14.0f).toNearestInt(),
                                 juce::Justification::centredRight);
                 }
             }
@@ -826,7 +829,7 @@ public:
         g.drawHorizontalLine (juce::roundToInt (midY), plot.getX(), plot.getRight());
         g.setColour (juce::Colour (0xff8a8f98));
         g.drawText ("-" + juce::String::fromUTF8 ("\xe2\x88\x9e"),
-                    juce::Rectangle<float> (plot.getX() - 36.0f, midY - 7.0f, 32.0f, 14.0f).toNearestInt(), juce::Justification::centredRight);
+                    juce::Rectangle<float> (plot.getX() - plotMargin, midY - 7.0f, plotMargin - 3.0f, 14.0f).toNearestInt(), juce::Justification::centredRight);
     }
 
     using Bins = std::array<float, MeteringABProcessor::scopeBins>;

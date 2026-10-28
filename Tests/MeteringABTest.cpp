@@ -1414,7 +1414,7 @@ int main (int argc, char** argv)
         panel->getFreezeButtonForTests().onClick();
         check (sc.isFrozen() && panel->getFreezeButtonForTests().getToggleState(), "Freeze: el botón congela", 1);
 
-        const auto plot = sc.getLocalBounds().toFloat().withTrimmedLeft (38.0f).withTrimmedRight (10.0f);
+        const auto plot = sc.getLocalBounds().toFloat().reduced (ScopeView::plotMargin);
         const float mx = plot.getX() + plot.getWidth() * 0.25f;          // mouse en 1/4 del ancho
         juce::MouseWheelDetails w {}; w.deltaY = 0.5f;
         sc.mouseWheelMove (mouse (mx), w);
