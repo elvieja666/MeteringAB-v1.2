@@ -733,7 +733,7 @@ public:
         const int firstLine = juce::jmax (0, (int) std::floor (viewStart * totalLines));
         const int lastLine  = juce::jmin (totalLines, (int) std::ceil ((viewStart + viewSpan) * totalLines));
 
-        g.setFont (Theme::font (11.0f, 400));
+        g.setFont (Theme::font (11.0f, 300));
 
         for (int k = firstLine; k <= lastLine; ++k)
         {
@@ -797,7 +797,7 @@ public:
     // skipZeroSide: -1 = sin la etiqueta "0" de arriba (la línea sí se dibuja); 0 = todas.
     void drawLevelGrid (juce::Graphics& g, juce::Rectangle<float> plot, float midY, float half, int skipZeroSide = 0) const
     {
-        g.setFont (Theme::font (11.0f, 400));
+        g.setFont (Theme::font (11.0f, 300));
         float lastLabelOffset = 1.0e9f;                   // distancia al centro de la última etiqueta
 
         for (int db : { 0, -6, -12, -18 })

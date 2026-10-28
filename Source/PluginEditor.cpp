@@ -93,7 +93,7 @@ juce::Font MeteringABLookAndFeel::getTextButtonFont (juce::TextButton& button, i
 
     if (button.getProperties()["kind"].toString() == "plain")
         return Theme::font (button.getProperties().contains ("small") ? 12.0f
-                            : button.getProperties().contains ("open") ? 14.0f : 16.0f, button.getProperties().contains ("small") ? 400 : 300);
+                            : button.getProperties().contains ("open") ? 14.0f : 15.0f, button.getProperties().contains ("small") ? 400 : 300);   // − y +: como "Oscilloscope"
 
     return Theme::font (juce::jmin (14.0f, (float) buttonHeight * 0.5f), 400);
 }
@@ -277,7 +277,7 @@ void MeteringABLookAndFeel::drawComboBox (juce::Graphics& g, int w, int h, bool,
 
 juce::Font MeteringABLookAndFeel::getComboBoxFont (juce::ComboBox& box)
 {
-    return Theme::font (box.getProperties()["kind"].toString() == "chip" ? 12.5f : 14.0f, 400);
+    return Theme::font (box.getProperties()["kind"].toString() == "chip" ? 12.0f : 14.0f, 400);   // el largo: como Gain / Freeze / Options
 }
 
 void MeteringABLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
@@ -297,7 +297,7 @@ juce::Label* MeteringABLookAndFeel::createSliderTextBox (juce::Slider& slider)
 {
     auto* label = LookAndFeel_V4::createSliderTextBox (slider);
     label->getProperties().set ("well", true);
-    label->setFont (Theme::font (14.5f, 400));
+    label->setFont (Theme::font (14.0f, 400));                  // como Measure, Bypass y Scope
     label->setColour (juce::Label::textColourId, Theme::inkStrong);
     label->setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
     label->setColour (juce::Label::outlineColourId, juce::Colours::transparentBlack);
@@ -408,7 +408,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     linkLabel.setText ("Link ID", juce::dontSendNotification);
     linkLabel.setColour (juce::Label::textColourId, Colours::dim);
-    linkLabel.setFont (Theme::font (13.0f, 300));
+    linkLabel.setFont (Theme::font (12.5f, 300));                 // como los títulos (Window, Latency, Listen)
     linkLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (linkLabel);
 
@@ -430,7 +430,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     linkValueLabel.setEditable (true);
     linkValueLabel.setJustificationType (juce::Justification::centred);
-    linkValueLabel.setFont (Theme::font (14.0f, 500));
+    linkValueLabel.setFont (Theme::font (14.0f, 400));
     linkValueLabel.setColour (juce::Label::textColourId, Theme::ink);
     linkValueLabel.onTextChange = [this]
     {
@@ -451,7 +451,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     // El número de latencia se dibuja en paint (número grande + "muestras" chico).
 
     latencyMsLabel.setJustificationType (juce::Justification::centred);
-    latencyMsLabel.setFont (Theme::font (11.5f, 300));
+    latencyMsLabel.setFont (Theme::font (11.0f, 300));
     latencyMsLabel.setColour (juce::Label::textColourId, Colours::dim);
     addAndMakeVisible (latencyMsLabel);
 
@@ -529,7 +529,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
 
     latencyInfoLabel.setJustificationType (juce::Justification::centred);
-    latencyInfoLabel.setFont (Theme::font (11.0f, 400));
+    latencyInfoLabel.setFont (Theme::font (11.0f, 300));
     addAndMakeVisible (latencyInfoLabel);
 
 
@@ -612,7 +612,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     applyScopeLook();
 
-    statusLabel.setFont (Theme::font (12.5f, 400));
+    statusLabel.setFont (Theme::font (12.0f, 400));
     statusLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (statusLabel);
 
@@ -1047,16 +1047,17 @@ static void drawNumberWithUnit (juce::Graphics& g, const juce::String& number, c
                                 juce::Rectangle<int> area, float size, juce::Colour colour, int align = 0)   // -1 izq, 0 centro, 1 der
 {
     const float gap = unit.isEmpty() ? 0.0f : 4.0f;
+    constexpr float unitRatio = 12.0f / 27.0f;                   // números de 27 -> unidades de 12
     auto measure = [&] (float sz)
     {
         return juce::GlyphArrangement::getStringWidth (Theme::font (sz, 300), number) + gap
-             + (unit.isEmpty() ? 0.0f : juce::GlyphArrangement::getStringWidth (Theme::font (sz * 0.44f, 400), unit));
+             + (unit.isEmpty() ? 0.0f : juce::GlyphArrangement::getStringWidth (Theme::font (sz * unitRatio, 400), unit));
     };
     // Si no entra en su lugar (p. ej. una latencia de 4 cifras), se achica para que entre.
     if (const float w = measure (size); w > (float) area.getWidth() && w > 0.0f)
         size *= (float) area.getWidth() / w;
     const auto numberFont = Theme::font (size, 300);
-    const auto unitFont   = Theme::font (size * 0.44f, 400);
+    const auto unitFont   = Theme::font (size * unitRatio, 400);
     const float wNum  = juce::GlyphArrangement::getStringWidth (numberFont, number);
     const float wUnit = unit.isEmpty() ? 0.0f : juce::GlyphArrangement::getStringWidth (unitFont, unit);
     const float total = wNum + gap + wUnit;
@@ -1142,7 +1143,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
             g.fillRect (row.getX(), row.getBottom(), row.getWidth(), 1);
         }
         g.setColour (Theme::inkDim);
-        g.setFont (Theme::font (12.0f, 300));
+        g.setFont (Theme::font (12.0f, 400));
         g.drawText (readouts[i].title, row.withTrimmedTop (6), juce::Justification::centredLeft);
         drawNumberWithUnit (g, readouts[i].number, readouts[i].unit, row, 27.0f, readouts[i].colour, 1);
     }
@@ -1155,7 +1156,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
     }
 
     // Latencia medida: número grande + "muestras"
-    drawNumberWithUnit (g, latencyNumberText, "samples", latencyNumberArea, 28.0f, Theme::inkStrong, -1);
+    drawNumberWithUnit (g, latencyNumberText, "samples", latencyNumberArea, 27.0f, Theme::inkStrong, -1);   // como los números de LUFS
 
     // Líneas finas entre Números | Ventana | Latencia | Escuchar
     g.setColour (juce::Colours::black.withAlpha (0.07f));
