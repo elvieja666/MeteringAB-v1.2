@@ -384,7 +384,9 @@ public:
 
             const float midY = area.getCentreY();
             const float half = area.getHeight() * 0.5f;
-            drawLevelGrid (g, area, midY, half);
+            // Con L y R separados, el "0" de abajo de L y el de arriba de R quedaban pegados
+            // (uno encima del otro): se muestra solo el de L.
+            drawLevelGrid (g, area, midY, half, split && lane == 1 ? -1 : 0);
 
             auto yFor = [&] (float v) { return midY - juce::jlimit (-1.0f, 1.0f, v) * half; };
             const int preIndex = lane * 2, postIndex = lane * 2 + 1;
@@ -792,7 +794,8 @@ public:
     }
 
     // Escala en dB: 0, -6, -12, -18 arriba y abajo, -∞ en el centro.
-    void drawLevelGrid (juce::Graphics& g, juce::Rectangle<float> plot, float midY, float half) const
+    // skipZeroSide: -1 = sin la etiqueta "0" de arriba (la línea sí se dibuja); 0 = todas.
+    void drawLevelGrid (juce::Graphics& g, juce::Rectangle<float> plot, float midY, float half, int skipZeroSide = 0) const
     {
         g.setFont (Theme::font (11.0f, 400));
         float lastLabelOffset = 1.0e9f;                   // distancia al centro de la última etiqueta
@@ -813,7 +816,7 @@ public:
                     g.drawHorizontalLine (juce::roundToInt (y), plot.getX(), plot.getRight());
                 }
 
-                if (roomForLabel)
+                if (roomForLabel && ! (db == 0 && side == skipZeroSide))
                 {
                     g.setColour (juce::Colour (0xff8a8f98));
                     g.drawText (juce::String (db), juce::Rectangle<float> (plot.getX() - plotMargin, y - 7.0f, plotMargin - 3.0f, 14.0f).toNearestInt(),
