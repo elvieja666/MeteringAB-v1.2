@@ -1025,6 +1025,29 @@ int main (int argc, char** argv)
         check (std::abs (c.recv.displayGain.load() - 6.0f) < 0.1f, "Sync: FX -6 dB -> ganancia ~ +6 dB", c.recv.displayGain.load());
     }
     {
+        // En pausa la medición se congela (no se borra): al volver a dar play la ganancia
+        // arranca donde estaba, sin saltos.
+        Chain c (14, -6.0f, 0);
+        c.run (6.0);
+        const float preBefore = c.recv.displayPre.load();
+        c.head.playing = false; c.silent = true;
+        c.run (2.0);
+        check (c.recv.displayPre.load() < -100.0f, "Pausa: los números se ven en -inf", c.recv.displayPre.load());
+        c.head.playing = true; c.silent = false;
+        c.run (0.03);
+        check (std::abs (c.recv.displayGain.load() - 6.0f) < 0.3f, "Play después de pausa: la ganancia arranca donde estaba (~ +6 dB)", c.recv.displayGain.load());
+        check (std::abs (c.recv.displayPre.load() - preBefore) < 0.5f, "Play después de pausa: la medición sigue con la ventana de antes (dB)", c.recv.displayPre.load() - preBefore);
+
+        // Al borrar la medición (clic en los números), la ganancia no se mueve hasta tener
+        // media ventana de audio; después toma el valor nuevo.
+        c.fxGain = juce::Decibels::decibelsToGain (-12.0f);
+        c.recv.requestMeterReset();
+        c.run (0.6);
+        check (std::abs (c.recv.displayGain.load() - 6.0f) < 0.3f, "Reset: con poco audio la ganancia se queda quieta (~ +6 dB)", c.recv.displayGain.load());
+        c.run (3.0);
+        check (std::abs (c.recv.displayGain.load() - 12.0f) < 0.3f, "Reset: con media ventana toma el valor nuevo (~ +12 dB)", c.recv.displayGain.load());
+    }
+    {
         // Al abrir el Receive: una sola onda, la que suena (aunque un proyecto viejo tuviera Overlay).
         {
             MeteringABProcessor fresh; setParam (fresh, ParamIDs::mode, 1); setParam (fresh, ParamIDs::pre, 0);

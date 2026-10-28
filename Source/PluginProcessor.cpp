@@ -419,17 +419,19 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     configureMeter (preMeter);
     configureMeter (postMeter);
 
-    // Medidores en cero: con Logic en pausa, o al hacer clic sobre los números.
-    // (La ganancia aplicada se mantiene: al volver el audio se recalcula enseguida.)
+    // Con Logic en pausa la medición se congela (no se borra): al dar play sigue con la
+    // ventana de antes y la ganancia arranca estable; el audio nuevo va reemplazando al viejo.
+    // Se borra solo al hacer clic sobre los números (o al cambiar de Link ID).
     const bool paused = hostKnowsTransport && ! hostPlaying;
 
-    if (meterResetRequested.exchange (false) || paused)
+    if (meterResetRequested.exchange (false))
     {
         preMeter.reset();
         postMeter.reset();
     }
 
-    postMeter.process (buffer.getArrayOfReadPointers(), numCh, n);
+    if (! paused)
+        postMeter.process (buffer.getArrayOfReadPointers(), numCh, n);
 
     if (! connected)
     {
@@ -499,15 +501,19 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         }
     }
 
-    preMeter.process (dryBuffer.getArrayOfReadPointers(), numCh, n);
+    if (! paused)
+        preMeter.process (dryBuffer.getArrayOfReadPointers(), numCh, n);
 
     // 2) Matcheo automático: cuánta ganancia hace falta para igualar el nivel.
+    //    Después de borrar la medición, la ganancia no se mueve hasta tener al menos media
+    //    ventana de audio (con muy poco audio la comparación salta de un lado a otro).
     {
         const double preMs = preMeter.getMeanSquare();
         const double postMs = postMeter.getMeanSquare();
         constexpr double gate = 1.0e-6;                  // -60 dB: no matchear silencio
+        const bool enoughAudio = juce::jmin (preMeter.getFillFraction(), postMeter.getFillFraction()) >= 0.5;
 
-        if (preMs > gate && postMs > 1.0e-12)
+        if (! paused && enoughAudio && preMs > gate && postMs > 1.0e-12)
             autoGainDb = juce::jlimit (-autoLimitDb, autoLimitDb, (float) (10.0 * std::log10 (preMs / postMs)));
     }
 
@@ -674,9 +680,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
 
     if (paused)
     {
-        preMeter.reset();                              // en pausa quedan en -∞
-        postMeter.reset();
-        displayPre  = -120.0f;
+        displayPre  = -120.0f;                         // en pausa se muestran en -∞ (la medición queda guardada)
         displayPost = -120.0f;
         displayGainValid = false;
         return;

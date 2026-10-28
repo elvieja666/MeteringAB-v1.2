@@ -56,6 +56,15 @@ public:
         binsFilled = 0;
         runningSum = 0.0;
         binsSinceRecompute = 0;
+        samplesSinceReset = 0;
+    }
+
+    // Cuánto de la ventana tiene audio desde el último reset (0 a 1).
+    double getFillFraction() const
+    {
+        if (averaging == Averaging::rectangular)
+            return juce::jmin (1.0, (double) juce::jmin (binsFilled, windowBins) / (double) juce::jmax (1, windowBins));
+        return juce::jmin (1.0, (double) samplesSinceReset / (windowSeconds * sampleRate));
     }
 
     void setMode (Mode m)              { mode = m; }
@@ -90,6 +99,7 @@ public:
     void process (const float* const* data, int numChannels, int numSamples)
     {
         numChannels = juce::jlimit (1, 2, numChannels);
+        samplesSinceReset = juce::jmin (samplesSinceReset + (juce::int64) numSamples, (juce::int64) 1 << 40);
 
         for (int i = 0; i < numSamples; ++i)
         {
@@ -245,6 +255,7 @@ private:
     double runningSum = 0.0;
     double alpha = 0.0;
     double meanSquare = 0.0;
+    juce::int64 samplesSinceReset = 0;
     Mode mode = Mode::rms;
     std::array<ChannelState, 2> channels;
 };
