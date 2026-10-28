@@ -1080,6 +1080,20 @@ int main (int argc, char** argv)
 
         std::unique_ptr<juce::AudioProcessorEditor> ed (c.recv.createEditor());
         auto* p = panelOf (ed);
+        {
+            // Ningún botón ni perilla se queda con el teclado (Enter y espacio siguen yendo a Logic).
+            int grabbing = 0;
+            std::function<void (juce::Component&)> visit = [&] (juce::Component& comp)
+            {
+                if (dynamic_cast<juce::TextEditor*> (&comp) == nullptr && (comp.getWantsKeyboardFocus() || comp.getMouseClickGrabsKeyboardFocus()))
+                    ++grabbing;
+                for (auto* ch : comp.getChildren())
+                    visit (*ch);
+            };
+            visit (*ed);
+            check (grabbing == 0 && ! p->getMatchBypassButtonForTests().getWantsKeyboardFocus(),
+                   "Teclado: ningún botón se queda con Enter/espacio (componentes que lo toman)", grabbing);
+        }
         p->getMatchBypassButtonForTests().onClick();
         check (c.recv.apvts.getRawParameterValue (ParamIDs::matchBypass)->load() > 0.5f && p->getMatchBypassButtonForTests().getToggleState()
                    && p->getMatchBypassButtonForTests().isVisible(),

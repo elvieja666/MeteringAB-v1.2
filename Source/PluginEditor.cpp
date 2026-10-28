@@ -38,7 +38,6 @@ PreciseSlider::PreciseSlider()
     setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     setTextBoxStyle (juce::Slider::TextBoxBelow, false, 124, 22);
     setTextBoxIsEditable (true);                 // <- clic en el número para escribir
-    setWantsKeyboardFocus (true);
 }
 
 void PreciseSlider::mouseDown (const juce::MouseEvent& e)
@@ -1363,6 +1362,23 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     setResizable (true, true);
     setConstrainer (&constrainer);
     fitToPanel();
+
+    // Que ningún botón ni perilla se quede con el teclado al hacerle clic: así Enter,
+    // espacio, etc. siguen yendo a Logic (antes, después de tocar un botón, Enter lo
+    // volvía a apretar). Solo toman el teclado las cajas de texto mientras escribís.
+    disableKeyboardFocus (*this);
+}
+
+void MeteringABEditor::disableKeyboardFocus (juce::Component& c)
+{
+    if (dynamic_cast<juce::TextEditor*> (&c) == nullptr)
+    {
+        c.setWantsKeyboardFocus (false);
+        c.setMouseClickGrabsKeyboardFocus (false);
+    }
+
+    for (auto* child : c.getChildren())
+        disableKeyboardFocus (*child);
 }
 
 MeteringABEditor::~MeteringABEditor()

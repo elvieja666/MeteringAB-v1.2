@@ -252,6 +252,7 @@ private:
 
     MeteringABProcessor& processor;
     MeteringABPanel panel;
+    static void disableKeyboardFocus (juce::Component&);
     juce::ComponentBoundsConstrainer constrainer;
     // La esquina para escalar: funciona igual, pero sin las rayitas diagonales.
     struct InvisibleCornerLookAndFeel : juce::LookAndFeel_V4
