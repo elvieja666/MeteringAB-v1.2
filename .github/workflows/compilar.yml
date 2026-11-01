@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   mac:
-    runs-on: macos-15
+    runs-on: macos-15-intel   # las arm64 vienen sin capacidad; igual compila universal (arm64+x86_64)
     steps:
       - name: Bajar el código
         uses: actions/checkout@v4
