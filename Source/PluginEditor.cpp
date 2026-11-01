@@ -679,14 +679,16 @@ juce::PopupMenu MeteringABPanel::buildStyleMenu() const
     for (int i = 0; i < ScopeView::channelNames.size(); ++i)
         channelsMenu.addItem (500 + i, ScopeView::channelNames[i], true, channels == i);
     menu.addSubMenu ("Channels: " + ScopeView::channelNames[juce::jlimit (0, ScopeView::channelNames.size() - 1, channels)], channelsMenu);
-    menu.addItem (400, "Show grid", true, scope.getShowGrid());
-    juce::PopupMenu gridMenu;                     // resolución: Auto, 1/4, 1/8, 1/16, 1/32, 1/64
+    // Grid: la resolución (Auto, 1/4 ... 1/64) y, abajo, mostrar la grilla y los tresillos.
+    juce::PopupMenu gridMenu;
     const bool triplets = scope.getTripletGrid();
     for (size_t i = 0; i < ScopeView::gridDivisions.size(); ++i)
         gridMenu.addItem (410 + (int) i, ScopeView::gridDivisionName (ScopeView::gridDivisions[i], triplets),
                           true, scope.getGridDivision() == ScopeView::gridDivisions[i]);
+    gridMenu.addSeparator();
+    gridMenu.addItem (400, "Show grid", true, scope.getShowGrid());
+    gridMenu.addItem (401, "Triplet grid", true, triplets);
     menu.addSubMenu ("Grid: " + ScopeView::gridDivisionName (scope.getGridDivision(), triplets), gridMenu);
-    menu.addItem (401, "Triplet grid", true, triplets);
     return menu;
 }
 

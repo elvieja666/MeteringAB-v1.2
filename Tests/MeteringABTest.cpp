@@ -837,6 +837,18 @@ int main (int argc, char** argv)
         for (juce::PopupMenu::MenuItemIterator it (optionsMenu); it.next();)
             if (it.getItem().text.startsWith ("Grid")) gridItem = it.getItem().text;
         check (gridItem == "Grid: Auto", "Grid: en Options, por defecto automática", gridItem.length());
+        {
+            juce::StringArray top, inGrid;
+            for (juce::PopupMenu::MenuItemIterator it (optionsMenu); it.next();)
+            {
+                top.add (it.getItem().text);
+                if (it.getItem().subMenu != nullptr && it.getItem().text.startsWith ("Grid"))
+                    for (juce::PopupMenu::MenuItemIterator sub (*it.getItem().subMenu); sub.next();)
+                        inGrid.add (sub.getItem().text);
+            }
+            check (top.size() == 2 && inGrid.contains ("Show grid") && inGrid.contains ("Triplet grid") && inGrid[0] == "Auto",
+                   "Options: Show grid y Triplet grid adentro de Grid (afuera solo Channels y Grid)", top.size());
+        }
         p->applyStyleMenuResult (410 + 3);                         // 1/16
         check ((int) p->getProcessorStateForTests().getProperty ("scopeGridDivision") == 16 && sc.getGridDivision() == 16 && subdivisionsShown() == 4,
                "Grid 1/16: 4 líneas por tiempo", sc.getLastSubdivisionsForTests());
