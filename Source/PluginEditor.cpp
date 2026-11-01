@@ -716,7 +716,10 @@ void MeteringABPanel::applyStyleMenuResult (int result)
 
 juce::PopupMenu::Options MeteringABPanel::styleMenuOptions (juce::Component& anchor) const
 {
+    // Del borde izquierdo de Options al borde derecho de la píldora del largo (1 bar).
+    const int width = &anchor == &optionsButton ? zoomBox.getRight() - optionsButton.getX() : anchor.getWidth();
     return juce::PopupMenu::Options().withTargetComponent (&anchor)
+                                     .withMinimumWidth (width)
                                      .withStandardItemHeight (anchor.getHeight());   // también los submenús
 }
 

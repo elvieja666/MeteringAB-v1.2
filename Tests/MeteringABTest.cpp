@@ -815,6 +815,9 @@ int main (int argc, char** argv)
             const int optionsRow = p->styleMenuOptions (p->getOptionsButtonForTests()).getStandardItemHeight();
             check (zoomRow == zb.getHeight() && zoomRow == 24, "Menú del largo: filas del alto de la píldora (24)", zoomRow);
             check (optionsRow == p->getOptionsButtonForTests().getHeight() && optionsRow == 24, "Menú de Options: filas del alto de la píldora (24)", optionsRow);
+            const int optionsWidth = p->styleMenuOptions (p->getOptionsButtonForTests()).getMinimumWidth();
+            check (optionsWidth == zb.getRight() - p->getOptionsButtonForTests().getX() && optionsWidth == 103 + 6 + 103,
+                   "Menú de Options: de Options al borde derecho de la píldora del largo (212)", optionsWidth);
             check (modeRow == mb.getHeight() && modeRow == 33, "Menú Receive / Send: filas del alto de la píldora (33)", modeRow);
         }
     }
