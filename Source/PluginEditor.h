@@ -40,6 +40,10 @@ public:
     float popupFontSize = 14.0f;                      // menús: el tamaño de la letra de lo que los abre
     // Menú de un selector: cada fila del alto de su píldora.
     juce::PopupMenu::Options getOptionsForComboBoxPopupMenu (juce::ComboBox&, juce::Label&) override;
+    // > 0: cada fila de menú mide eso de ancho (menús de las píldoras: los submenús de Options
+    // quedan del ancho de una píldora; el menú principal se estira hasta su ancho mínimo).
+    int popupItemWidth = 0;
+    void getIdealPopupMenuItemSize (const juce::String&, bool isSeparator, int standardHeight, int& idealWidth, int& idealHeight) override;
     juce::Label* createSliderTextBox (juce::Slider&) override;
     // Perilla con lugar propio (propiedades "knobCentreX" y "knobSize"): la perilla
     // centrada ahí y el valor contra el borde derecho.

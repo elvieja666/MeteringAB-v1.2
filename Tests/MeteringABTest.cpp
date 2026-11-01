@@ -818,6 +818,10 @@ int main (int argc, char** argv)
             const int optionsWidth = p->styleMenuOptions (p->getOptionsButtonForTests()).getMinimumWidth();
             check (optionsWidth == zb.getRight() - p->getOptionsButtonForTests().getX() && optionsWidth == 103 + 6 + 103,
                    "Menú de Options: de Options al borde derecho de la píldora del largo (212)", optionsWidth);
+            int w = 0, h = 0;
+            p->getChipLookAndFeelForTests().getIdealPopupMenuItemSize ("L and R split", false, 24, w, h);
+            check (w + 2 * p->getChipLookAndFeelForTests().getPopupMenuBorderSize() == 103,
+                   "Submenús Channels y Grid: del ancho de una píldora (103)", w);
             check (modeRow == mb.getHeight() && modeRow == 33, "Menú Receive / Send: filas del alto de la píldora (33)", modeRow);
         }
     }

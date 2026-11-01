@@ -279,6 +279,13 @@ juce::PopupMenu::Options MeteringABLookAndFeel::getOptionsForComboBoxPopupMenu (
     return LookAndFeel_V4::getOptionsForComboBoxPopupMenu (box, label).withStandardItemHeight (box.getHeight());
 }
 
+void MeteringABLookAndFeel::getIdealPopupMenuItemSize (const juce::String& text, bool isSeparator, int standardHeight, int& idealWidth, int& idealHeight)
+{
+    LookAndFeel_V4::getIdealPopupMenuItemSize (text, isSeparator, standardHeight, idealWidth, idealHeight);
+    if (popupItemWidth > 0)
+        idealWidth = popupItemWidth;
+}
+
 juce::Font MeteringABLookAndFeel::getPopupMenuFont()
 {
     return Theme::font (popupFontSize, 400);
@@ -586,6 +593,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     zoomBox.getProperties().set ("kind", "chip");
     chipLnf.popupFontSize = 12.0f;                 // su menú, con la letra de la píldora (12 regular)
+    chipLnf.popupItemWidth = windowValueWidth - 2 * chipLnf.getPopupMenuBorderSize();   // menús del ancho de una píldora (103)
     zoomBox.setLookAndFeel (&chipLnf);
 
     // El osciloscopio sigue a la escucha: muestra solo la onda que suena.
