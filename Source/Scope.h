@@ -5,7 +5,7 @@
 #include "PluginProcessor.h"
 #include "Text.h"
 #include "Theme.h"
-#include "ClosedHandCursor.h"
+#include "NativeCursor.h"
 
 // ---------------------------------------------------------------------------
 //  Osciloscopio sincronizado al tempo del proyecto.
@@ -103,16 +103,24 @@ public:
         return hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY) && ! isOnMarkerTag() && ! isOverShowAll()
                && hoverX >= plot.getRight() - 78.0f && hoverX <= plot.getRight() - 6.0f;
     }
+    // Con zoom: mano abierta; mientras apretás y arrastrás, la mano cerrada nativa de macOS
+    // (JUCE no la trae); al soltar, otra vez la abierta.
     void updateCursor()
     {
-        if (grabbing && isZoomed())
-            setMouseCursor (closedHandCursor());
-        else
-            setMouseCursor (isOverClickable() ? juce::MouseCursor::PointingHandCursor
-                            : isZoomed()      ? juce::MouseCursor::DraggingHandCursor
-                                              : juce::MouseCursor::NormalCursor);
-        updateMouseCursor();                                // que se vea ya (también en medio de un arrastre)
+        const bool closed = grabbing && isZoomed();
+        setMouseCursor (closed            ? juce::MouseCursor::DraggingHandCursor
+                        : isOverClickable() ? juce::MouseCursor::PointingHandCursor
+                        : isZoomed()        ? juce::MouseCursor::DraggingHandCursor
+                                            : juce::MouseCursor::NormalCursor);
+        updateMouseCursor();                                // que se vea ya
+
+        if (closed)
+            NativeCursor::showClosedHand();                 // después de JUCE, para que quede la cerrada
+        else if (std::exchange (closedHandShown, false) && isZoomed() && ! isOverClickable())
+            NativeCursor::showOpenHand();                   // JUCE cree que ya está la abierta: ponerla a mano
+        if (closed) closedHandShown = true;
     }
+    bool isClosedHandShownForTests() const { return closedHandShown; }
     bool isGrabbingForTests() const { return grabbing; }
     juce::Rectangle<float> getHoverTagAreaForTests (float y) const
     {
@@ -210,6 +218,7 @@ public:
             dragged = true;
         if (! grabbing || ! isZoomed())                     // solo si agarró la onda (no "Show all" ni la cajita)
             return;
+        NativeCursor::showClosedHand();                     // que siga cerrada mientras arrastrás
         setView (dragStartView - (double) (e.position.x - dragStartX) / juce::jmax (1.0f, plotArea().getWidth()) * viewSpan, viewSpan);
     }
 
@@ -985,6 +994,7 @@ private:
     float hoverY = -1.0f;                               // regla: altura del mouse (-1 = afuera)
     float hoverX = -1.0f;
     std::optional<float> markerDb, markerBeforeClick;   // regla: línea fija (en dB)
+    bool closedHandShown = false;                       // la mano cerrada nativa está puesta
     std::unique_ptr<juce::TextEditor> markerEditor;
     static inline const juce::Colour markerColour { 0xffd3d6db };   // gris claro
     std::optional<float> gainLineDb;                    // línea de la ganancia aplicada
