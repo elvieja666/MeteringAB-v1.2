@@ -37,9 +37,9 @@ jobs:
           cp -R "$ART/VST3/Metering AB.vst3" salida/
           codesign --force --deep -s - "salida/Metering AB.component"
           codesign --force --deep -s - "salida/Metering AB.vst3"
-          cp instalar.command salida/
+          cp instalar.command desinstalar.command salida/
           cp Resources/Fonts/OFL.txt "salida/Licencia letra Inter (OFL).txt"
-          chmod +x salida/instalar.command
+          chmod +x salida/instalar.command salida/desinstalar.command
           cd salida
           ditto -c -k --sequesterRsrc . ../MeteringAB-mac.zip
 

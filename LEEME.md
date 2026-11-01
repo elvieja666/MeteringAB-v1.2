@@ -39,6 +39,12 @@ bash ~/Downloads/MeteringAB-mac/instalar.command
 
 Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
 
+Se instala en tu usuario (no pide contraseña). Para **desinstalarlo**, con Logic cerrado:
+
+```
+bash ~/Downloads/MeteringAB-mac/desinstalar.command
+```
+
 ## Cuando haya una versión nueva
 
 1. En tu repositorio de GitHub tocá **Add file** → **Upload files**.
@@ -118,6 +124,7 @@ Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al vo
 - `Source/Theme.h` · colores y letra. La letra es **Inter** (licencia libre OFL, ver `Resources/Fonts/OFL.txt`), incluida dentro del plugin.
 - `Tests/` · pruebas automáticas que verifican que el matcheo funcione.
 - `.github/workflows/compilar.yml` · las instrucciones para que GitHub compile el plugin.
-- `instalar.command` · instala en tu Mac el plugin que compiló GitHub.
+- `instalar.command` · instala en tu Mac (en tu usuario) el plugin que compiló GitHub.
+- `desinstalar.command` · lo desinstala de tu usuario.
 
 Si cambiás algo del código, subí el cambio a GitHub, esperá el tilde verde, instalá la versión nueva y reabrí el plugin en Logic.

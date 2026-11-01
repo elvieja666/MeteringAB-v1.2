@@ -1,7 +1,8 @@
 #!/bin/bash
 # ---------------------------------------------------------------------------
 #  Instala Metering A/B (ya compilado por GitHub) en tu Mac.
-#  Uso en la Terminal:  bash ~/Downloads/MeteringAB-mac/instalar.command
+#  Uso: doble clic, o en la Terminal:  bash ~/Downloads/MeteringAB-mac/instalar.command
+#  Se instala en tu usuario (~/Library/Audio/Plug-Ins): no pide contraseña.
 # ---------------------------------------------------------------------------
 set -e
 cd "$(dirname "$0")"
