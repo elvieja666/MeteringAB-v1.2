@@ -804,9 +804,11 @@ int main (int argc, char** argv)
         check (! p->isScopeOpenForTests() && ! p->getScopeForTests().isVisible() && p->getWidth() == MeteringABPanel::sideWidth
                && ! p->getScopeToggleForTests().getToggleState(),
                "Scope: un plugin nuevo se abre con el osciloscopio cerrado (solo la columna gris)", p->getWidth());
+        check (! ed->isResizable(), "Scope cerrado: sin la esquina para escalar", ed->isResizable() ? 1 : 0);
         p->getScopeToggleForTests().onClick();
         check (p->isScopeOpenForTests() && p->getScopeForTests().isVisible() && p->getWidth() == MeteringABPanel::receiveWidth,
                "Scope: al abrirlo vuelve el osciloscopio (ancho)", p->getWidth());
+        check (ed->isResizable(), "Scope abierto: con la esquina para escalar", ed->isResizable() ? 1 : 0);
         {
             std::unique_ptr<juce::AudioProcessorEditor> ed2 (a.createEditor());
             check (panelOf (ed2)->isScopeOpenForTests() && panelOf (ed2)->getWidth() == MeteringABPanel::receiveWidth,
@@ -821,6 +823,8 @@ int main (int argc, char** argv)
         p->getScopeToggleForTests().onClick();
         check (! p->isScopeOpenForTests() && p->getWidth() == MeteringABPanel::sideWidth,
                "Scope: al cerrarlo queda solo la columna gris (ancho)", p->getWidth());
+        check (! ed->isResizable() && ed->getWidth() == juce::roundToInt ((float) MeteringABPanel::sideWidth * dynamic_cast<MeteringABEditor*> (ed.get())->getUiScale()),
+               "Scope cerrado: sin esquina y con la misma escala", ed->getWidth());
         {
             std::unique_ptr<juce::AudioProcessorEditor> ed4 (a.createEditor());
             check (! panelOf (ed4)->isScopeOpenForTests(), "Scope: cerrado, al reabrir sigue cerrado", 1);

@@ -1399,10 +1399,10 @@ void MeteringABEditor::fitToPanel()
     const juce::ScopedValueSetter<bool> busy (fitting, true);
     const int w = juce::jmax (1, panel.getWidth()), h = juce::jmax (1, panel.getHeight());
     const bool send = panel.isSendLayout();
-
-    // Send: la misma escala que el Receive (su columna gris queda igual), pero sin
-    // esquina para escalarlo. Receive: con la esquina.
-    setResizable (! send, ! send);
+    // Se escala solo con el osciloscopio abierto. Con el osciloscopio cerrado y en Send,
+    // la misma escala, pero sin la esquina para escalar.
+    const bool canResize = ! send && panel.isScopeOpen();
+    setResizable (canResize, canResize);
     if (resizableCorner != nullptr)                  // clic derecho en la esquina: menú de tamaño
     {
         resizableCorner->removeMouseListener (this);
@@ -1415,7 +1415,7 @@ void MeteringABEditor::fitToPanel()
     constrainer.setSizeLimits (juce::roundToInt ((float) w * minScale), juce::roundToInt ((float) h * minScale),
                                juce::roundToInt ((float) w * maxScale), juce::roundToInt ((float) h * maxScale));
 
-    if (send)
+    if (! canResize)
         constrainer.setSizeLimits (juce::roundToInt ((float) w * scale), juce::roundToInt ((float) h * scale),
                                    juce::roundToInt ((float) w * scale), juce::roundToInt ((float) h * scale));
 
@@ -1425,7 +1425,7 @@ void MeteringABEditor::fitToPanel()
 
 void MeteringABEditor::resized()
 {
-    if (! fitting && ! panel.isSendLayout())
+    if (! fitting && ! panel.isSendLayout() && panel.isScopeOpen())
     {
         // El usuario arrastró la esquina: la escala sale del ancho.
         scale = juce::jlimit (minScale, maxScale, (float) getWidth() / (float) juce::jmax (1, panel.getWidth()));

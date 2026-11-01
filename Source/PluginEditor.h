@@ -104,6 +104,7 @@ public:
     juce::ValueTree& getProcessorStateForTests() { return processor.apvts.state; }
     juce::TextButton& getGainLineButtonForTests() { return gainLineButton; }
     bool isSendLayout() const                   { return isSendMode; }
+    bool isScopeOpen() const                    { return scopeOpen; }
     bool isScopeOpenForTests() const            { return scopeOpen; }
     juce::TextButton& getABButtonForTests()      { return abButton; }
     juce::TextButton& getMatchBypassButtonForTests() { return matchBypassButton; }
