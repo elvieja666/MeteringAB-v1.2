@@ -807,6 +807,16 @@ int main (int argc, char** argv)
                    && optionsMenu.getHeight() == pill.getHeight(),
                "Menú del largo y de Options: misma letra que la píldora", zoomMenu.getHeight());
         check (p->getLookAndFeel().getPopupMenuFont().getHeight() > pill.getHeight(), "Los otros menús siguen en 14", 1);
+        {
+            juce::Label l;
+            auto& mb = p->getModeBoxForTests();
+            const int zoomRow = zb.getLookAndFeel().getOptionsForComboBoxPopupMenu (zb, l).getStandardItemHeight();
+            const int modeRow = mb.getLookAndFeel().getOptionsForComboBoxPopupMenu (mb, l).getStandardItemHeight();
+            const int optionsRow = p->styleMenuOptions (p->getOptionsButtonForTests()).getStandardItemHeight();
+            check (zoomRow == zb.getHeight() && zoomRow == 24, "Menú del largo: filas del alto de la píldora (24)", zoomRow);
+            check (optionsRow == p->getOptionsButtonForTests().getHeight() && optionsRow == 24, "Menú de Options: filas del alto de la píldora (24)", optionsRow);
+            check (modeRow == mb.getHeight() && modeRow == 33, "Menú Receive / Send: filas del alto de la píldora (33)", modeRow);
+        }
     }
     {
         // Options > Grid: resolución fija de la grilla (Auto, 1/4 ... 1/64), se guarda con el proyecto.

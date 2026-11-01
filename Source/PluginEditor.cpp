@@ -274,6 +274,11 @@ void MeteringABLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Lab
     label.setColour (juce::Label::textColourId, box.getProperties()["kind"].toString() == "chip" ? Theme::chipText : Theme::ink);
 }
 
+juce::PopupMenu::Options MeteringABLookAndFeel::getOptionsForComboBoxPopupMenu (juce::ComboBox& box, juce::Label& label)
+{
+    return LookAndFeel_V4::getOptionsForComboBoxPopupMenu (box, label).withStandardItemHeight (box.getHeight());
+}
+
 juce::Font MeteringABLookAndFeel::getPopupMenuFont()
 {
     return Theme::font (popupFontSize, 400);
@@ -709,6 +714,12 @@ void MeteringABPanel::applyStyleMenuResult (int result)
     applyScopeLook();
 }
 
+juce::PopupMenu::Options MeteringABPanel::styleMenuOptions (juce::Component& anchor) const
+{
+    return juce::PopupMenu::Options().withTargetComponent (&anchor)
+                                     .withStandardItemHeight (anchor.getHeight());   // también los submenús
+}
+
 void MeteringABPanel::showStyleMenu (juce::Component& anchor)
 {
     styleMenuAnchor = &anchor;
@@ -719,7 +730,7 @@ void MeteringABPanel::showStyleMenu (juce::Component& anchor)
 
     auto menu = buildStyleMenu();
     menu.setLookAndFeel (&chipLnf);                // letra como la de la píldora Options (12 regular)
-    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&anchor),
+    menu.showMenuAsync (styleMenuOptions (anchor),
                                           [safe = juce::Component::SafePointer<MeteringABPanel> (this)] (int result)
     {
         if (safe != nullptr)

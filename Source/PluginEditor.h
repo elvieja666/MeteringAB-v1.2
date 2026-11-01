@@ -38,6 +38,8 @@ public:
     void positionComboBoxText (juce::ComboBox&, juce::Label&) override;
     juce::Font getPopupMenuFont() override;
     float popupFontSize = 14.0f;                      // menús: el tamaño de la letra de lo que los abre
+    // Menú de un selector: cada fila del alto de su píldora.
+    juce::PopupMenu::Options getOptionsForComboBoxPopupMenu (juce::ComboBox&, juce::Label&) override;
     juce::Label* createSliderTextBox (juce::Slider&) override;
     // Perilla con lugar propio (propiedades "knobCentreX" y "knobSize"): la perilla
     // centrada ahí y el valor contra el borde derecho.
@@ -103,6 +105,8 @@ public:
     const ScopeView& getScopeForTests() const { return scope; }
     ScopeView& getScopeForTests()             { return scope; }
     juce::ComboBox& getZoomBoxForTests()      { return zoomBox; }
+    juce::ComboBox& getModeBoxForTests()      { return modeBox; }
+    juce::PopupMenu::Options styleMenuOptions (juce::Component& anchor) const;   // menú de Options: filas del alto de la píldora
     juce::LookAndFeel& getChipLookAndFeelForTests() { return chipLnf; }
     juce::String getStatusTextForTests() const { return statusLabel.getText(); }
     bool statusFitsForTests() const
