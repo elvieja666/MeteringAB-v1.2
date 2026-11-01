@@ -180,6 +180,8 @@ private:
     bool   hostKnowsTransport = false;                // el host informa play / pausa
     bool   hostPlaying = false, hostHasPpq = false, hostHasBarStart = false, hostHasBarCount = false;
     double hostPpq = 0.0, hostBarStart = 0.0;
+    bool   hostLooping = false;                       // Logic en modo ciclo (con los puntos del ciclo)
+    double hostLoopStart = 0.0, hostLoopEnd = 0.0;
     juce::int64 hostBarCount = 0;
     double scopePhaseQuarters = 0.0;                  // dónde va el barrido (en negras)
     int    lastScopeBin = -1, lastScopeLength = -1, lastRawSlot = -1;

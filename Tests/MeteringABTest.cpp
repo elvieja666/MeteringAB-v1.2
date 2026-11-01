@@ -55,9 +55,11 @@ struct ChainHead : juce::AudioPlayHead
 {
     double ppq = 0.0;
     bool playing = true;
+    double cycleEnd = 0.0;                                   // > 0: modo ciclo de 0 a cycleEnd (en negras)
     juce::Optional<PositionInfo> getPosition() const override
     {
         PositionInfo p; p.setBpm (120.0); p.setTimeSignature (TimeSignature { 4, 4 }); p.setIsPlaying (playing);
+        if (cycleEnd > 0.0) { p.setIsLooping (true); p.setLoopPoints (LoopPoints { 0.0, cycleEnd }); }
         p.setPpqPosition (ppq); p.setPpqPositionOfLastBarStart (std::floor (ppq / 4.0) * 4.0);
         p.setBarCount ((juce::int64) std::floor (ppq / 4.0));
         return p;
@@ -1103,6 +1105,23 @@ int main (int argc, char** argv)
             diff += a1[k] != a2[k] ? 1 : 0;
         check (! a1.empty() && a1.size() == a2.size() && diff == 0,
                "Osciloscopio en un loop: cada vuelta se dibuja igual, muestra por muestra (casilleros distintos)", diff);
+    }
+    {
+        // Ciclo de Logic más corto que el osciloscopio (1 negra, osciloscopio de 1 compás) y que
+        // salta en el medio de un bloque: después del final del ciclo no queda nada dibujado.
+        Chain c (16, -3.0f, 0);
+        c.block = 448;
+        c.loopLen = 24000;                            // 1 negra a 120
+        c.head.cycleEnd = 1.0;
+        c.run (3.0);
+        const int lastBin = MeteringABProcessor::scopeBins / 4;   // la columna del final del ciclo
+        int stray = 0;
+        for (int b = lastBin + 1; b < MeteringABProcessor::scopeBins; ++b)
+            stray += c.recv.scopeCount[(size_t) b].load() > 0 ? 1 : 0;
+        int drawn = 0;
+        for (int b = 0; b < lastBin; ++b)
+            drawn += c.recv.scopeCount[(size_t) b].load() > 0 ? 1 : 0;
+        check (stray == 0 && drawn == lastBin, "Modo ciclo corto: sin \"residuo\" después del final del ciclo (columnas de más)", stray);
     }
     {
         // Al abrir el Receive: una sola onda, la que suena (aunque un proyecto viejo tuviera Overlay).

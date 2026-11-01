@@ -163,6 +163,9 @@ void MeteringABProcessor::readHostTempo()
             hostHasPpq = ppq.hasValue();             if (ppq)      hostPpq = *ppq;
             hostHasBarStart = barStart.hasValue();   if (barStart) hostBarStart = *barStart;
             hostHasBarCount = barCount.hasValue();   if (barCount) hostBarCount = *barCount;
+            const auto loop = position->getLoopPoints();
+            hostLooping = position->getIsLooping() && loop.hasValue() && loop->ppqEnd > loop->ppqStart;
+            if (hostLooping) { hostLoopStart = loop->ppqStart; hostLoopEnd = loop->ppqEnd; }
 
             if (const auto sig = position->getTimeSignature())
             {
@@ -580,8 +583,35 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     scopeLastBlockPpq = hostHasPpq ? hostPpq : 0.0;
     double songQuarters = hostHasPpq ? hostPpq : scopePlayStartQuarters;   // posición del audio que llega
 
+    // Modo ciclo: si Logic vuelve al principio del ciclo en el medio de este bloque, desde esa
+    // muestra el osciloscopio sigue desde el principio del ciclo (antes seguía de largo y el
+    // arranque del loop quedaba dibujado como un "residuo" después del final del ciclo).
+    int cycleWrapAt = -1;
+    double cycleWrapPhase = 0.0;
+    if (scopeRunning && hostHasPpq && hostLooping && hostPpq < hostLoopEnd)
+    {
+        const double toEnd = (hostLoopEnd - hostPpq) / quartersPerSample;
+        const int k = (int) std::ceil (toEnd - 1.0e-6);
+        if (k > 0 && k < n)
+        {
+            cycleWrapAt = k;
+            cycleWrapPhase = std::fmod (scopeQuarters + (hostLoopStart - hostPpq), loopQuarters);
+            if (cycleWrapPhase < 0.0)
+                cycleWrapPhase += loopQuarters;
+        }
+    }
+
     for (int i = 0; i < n; ++i)
     {
+        if (i == cycleWrapAt)
+        {
+            scopeQuarters = cycleWrapPhase;
+            songQuarters = hostLoopStart;
+            loopPos = (juce::int64) std::llround (scopeQuarters / quartersPerSample) % loopSamples;
+            if (loopPos < 0)
+                loopPos += loopSamples;
+        }
+
         const float g = gainSmoother.getNextValue();
         const float wPost = mixPost.getNextValue(), wPre = mixPre.getNextValue();
         float preSumValue = 0.0f, postSumValue = 0.0f;
