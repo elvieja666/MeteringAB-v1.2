@@ -92,8 +92,7 @@ juce::Font MeteringABLookAndFeel::getTextButtonFont (juce::TextButton& button, i
         return Theme::font (14.0f, 400);                 // igual que Measure y Scope
 
     if (button.getProperties()["kind"].toString() == "plain")
-        return Theme::font (button.getProperties().contains ("small") ? 12.0f
-                            : button.getProperties().contains ("open") ? 14.0f : 15.0f, button.getProperties().contains ("small") ? 400 : 300);   // − y +: como "Oscilloscope"
+        return Theme::font (15.0f, 300);                 // − y + de Link ID: como "Oscilloscope"
 
     return Theme::font (juce::jmin (14.0f, (float) buttonHeight * 0.5f), 400);
 }
@@ -201,17 +200,6 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
     {
         colour = button.getToggleState() ? juce::Colours::white : Theme::inkDim;
     }
-    else if (kind == "plain" && button.getProperties().contains ("open"))
-    {
-        // Triángulo ▸ / ▾ dibujado (más prolijo que un carácter).
-        const bool open = button.getProperties()["open"];
-        auto tri = r.removeFromLeft (22).toFloat().withSizeKeepingCentre (9.0f, 9.0f);
-        juce::Path p;
-        if (open) p.addTriangle (tri.getX(), tri.getY() + 1.5f, tri.getRight(), tri.getY() + 1.5f, tri.getCentreX(), tri.getBottom() - 0.5f);
-        else      p.addTriangle (tri.getX() + 1.5f, tri.getY(), tri.getX() + 1.5f, tri.getBottom(), tri.getRight() - 0.5f, tri.getCentreY());
-        g.setColour (colour);
-        g.fillPath (p);
-    }
 
     if (! button.isEnabled())
         colour = colour.withMultipliedAlpha (0.5f);
@@ -241,9 +229,7 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
         return;
     }
 
-    g.drawFittedText (button.getButtonText(), r,
-                      kind == "plain" && button.getProperties().contains ("open") ? juce::Justification::centredLeft
-                                                                                  : juce::Justification::centred, 1);
+    g.drawFittedText (button.getButtonText(), r, juce::Justification::centred, 1);
 }
 
 void MeteringABLookAndFeel::drawComboBox (juce::Graphics& g, int w, int h, bool, int, int, int, int, juce::ComboBox& box)
@@ -1366,7 +1352,8 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
 
     // Que ningún botón ni perilla se quede con el teclado al hacerle clic: así Enter,
     // espacio, etc. siguen yendo a Logic (antes, después de tocar un botón, Enter lo
-    // volvía a apretar). Solo toman el teclado las cajas de texto mientras escribís.
+    // volvía a apretar). Toman el teclado solo las cajas de texto mientras escribís y el
+    // osciloscopio (que no usa ninguna tecla; ver disableKeyboardFocus).
     disableKeyboardFocus (*this);
 }
 

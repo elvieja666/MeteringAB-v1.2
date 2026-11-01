@@ -21,7 +21,9 @@ public:
 //   raised  = en relieve sobre el gris (Medir, el botón grande)
 //   segment = mitad de ms | Sync (la elegida queda en relieve)
 //   chip    = pastilla oscura del osciloscopio (color en "chipColour")
-//   plain   = solo texto (▸ Osciloscopio)
+//   plain   = solo texto (− y + de Link ID)
+//   bypass  = pastilla de Match Gain Bypass (prendida = naranja)
+//   scopetoggle = pastilla de Scope con el triángulo (abierto = azul)
 class MeteringABLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
