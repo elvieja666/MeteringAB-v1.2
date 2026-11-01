@@ -130,6 +130,20 @@ public:
                                             : juce::MouseCursor::NormalCursor);
         updateMouseCursor();                                // que se vea ya
     }
+    // Al soltar, macOS (o Logic) vuelve a poner la mano cerrada después de que JUCE puso la
+    // abierta, y quedaba cerrada hasta mover el mouse. Se vuelve a poner la que corresponde
+    // un instante después de soltar (sin esperar a que muevas el mouse).
+    void reassertCursorAfterRelease()
+    {
+        ++cursorReassertsForTests;
+        for (int delayMs : { 0, 40, 150 })
+            juce::Timer::callAfterDelay (delayMs, [safe = juce::Component::SafePointer<ScopeView> (this)]
+            {
+                if (safe != nullptr && ! safe->grabbing && safe->isMouseOver())
+                    safe->updateCursor();
+            });
+    }
+    int cursorReassertsForTests = 0;
     bool isClosedHandShownForTests() const { return closedHandShown; }
     bool isGrabbingForTests() const { return grabbing; }
     int getLastSubdivisionsForTests() const { return lastSubdivisions; }
@@ -237,14 +251,13 @@ public:
         if (std::exchange (swallowClick, false))
             return;
 
-        if (grabbing)
-        {
-            grabbing = false;                               // soltar: vuelve la mano abierta
-        }
+        const bool wasGrabbing = std::exchange (grabbing, false);   // soltar: vuelve la mano abierta
         hoverPoint = e.position;
         hoverX = e.position.x;
         hoverY = plotArea().contains (e.position) ? e.position.y : -1.0f;
         updateCursor();
+        if (wasGrabbing)
+            reassertCursorAfterRelease();
         if (dragged || e.getNumberOfClicks() > 1 || e.mods.isPopupMenu())
             return;
 

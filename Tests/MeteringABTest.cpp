@@ -1595,7 +1595,7 @@ int main (int argc, char** argv)
                 sc.mouseDrag (mouse (moved.x).withNewPosition (moved));
                 const bool closedWhileDragging = sc.isClosedHandShownForTests();
                 sc.mouseUp (mouse (moved.x).withNewPosition (moved));
-                const bool openAfter = ! sc.isGrabbingForTests() && ! sc.isClosedHandShownForTests()
+                const bool openAfter = ! sc.isGrabbingForTests() && ! sc.isClosedHandShownForTests() && sc.cursorReassertsForTests > 0
                                        && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::DraggingHandCursor);
                 check (closedOnPress && closedWhileDragging && openAfter,
                        "Zoom: al agarrar y arrastrar, mano cerrada; al soltar, mano abierta", closedOnPress * 100 + closedWhileDragging * 10 + openAfter);
