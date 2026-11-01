@@ -987,8 +987,9 @@ int main (int argc, char** argv)
             MeteringABProcessor send; setParam (send, ParamIDs::link, 12);      // modo Send, sin procesar audio
             panelOf (ed)->refreshNow();
             const auto waiting = panelOf (ed)->getStatusTextForTests();
-            check (recv.sendersOnCurrentLink() == 1 && waiting.startsWith ("Send found on Link ID 12"),
-                   "Proyecto nuevo, sin audio: el Receive ya ve el Send (esperando audio)", recv.sendersOnCurrentLink());
+            check (recv.sendersOnCurrentLink() == 1 && waiting.startsWith ("Connected to Send on Link ID 12"),
+                   "Proyecto nuevo, sin audio: el Receive ya está conectado al Send", recv.sendersOnCurrentLink());
+            check (panelOf (ed)->statusFitsForTests(), "El mensaje (no audio yet) entra en una línea, con ID de dos cifras", 1);
             setParam (send, ParamIDs::link, 13);                                   // cambia de ID sin audio
             panelOf (ed)->refreshNow();
             check (recv.sendersOnCurrentLink() == 0 && panelOf (ed)->getStatusTextForTests().startsWith ("No Send"),

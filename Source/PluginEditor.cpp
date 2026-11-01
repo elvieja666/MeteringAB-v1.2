@@ -1015,10 +1015,10 @@ void MeteringABPanel::timerCallback()
     }
     else if (processor.sendersOnCurrentLink() > 0)
     {
-        // Hay un Send en este Link ID pero todavía no suena nada (proyecto nuevo, parado):
-        // no es un error, solo espera audio.
-        statusLabel.setText ("Send found on Link ID "_u + juce::String (link) + ": waiting for audio.", juce::dontSendNotification);
-        statusLabel.setColour (juce::Label::textColourId, Colours::dim);
+        // Hay un Send en este Link ID pero todavía no le llega audio (proyecto nuevo, pista
+        // vacía o parado): está conectado igual, no es un error.
+        statusLabel.setText ("Connected to Send on Link ID "_u + juce::String (link) + " · no audio yet"_u, juce::dontSendNotification);
+        statusLabel.setColour (juce::Label::textColourId, Colours::good);
     }
     else
     {
