@@ -469,7 +469,7 @@ int main (int argc, char** argv)
                     drawMenu (menu, 2, "/menu-options.png");
                     for (juce::PopupMenu::MenuItemIterator it (menu); it.next();)
                         if (it.getItem().subMenu != nullptr)
-                            drawMenu (*it.getItem().subMenu, -1, "/menu-channels.png");
+                            drawMenu (*it.getItem().subMenu, -1, it.getItem().text.startsWith ("Grid") ? "/menu-grid.png" : "/menu-channels.png");
                     panel->getProcessorStateForTests().setProperty ("scopeGridTriplets", false, nullptr);
                     sc.setTripletGrid (false);
                 }
@@ -811,6 +811,45 @@ int main (int argc, char** argv)
         outer->setUiScale (1.0f);
         std::unique_ptr<juce::AudioProcessorEditor> ed2 (a.createEditor());
         check (ed2->getWidth() == MeteringABPanel::receiveWidth, "Escalable: al reabrir el plugin recuerda el tamaño (ancho px)", ed2->getWidth());
+    }
+    {
+        // Options > Grid: resolución fija de la grilla (Auto, 1/4 ... 1/64), se guarda con el proyecto.
+        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+        auto* p = panelOf (ed);
+        auto& sc = p->getScopeForTests();
+        auto subdivisionsShown = [&] { (void) sc.createComponentSnapshot (sc.getLocalBounds()); return sc.getLastSubdivisionsForTests(); };
+        juce::String gridItem;
+        const auto optionsMenu = p->buildStyleMenu();
+        for (juce::PopupMenu::MenuItemIterator it (optionsMenu); it.next();)
+            if (it.getItem().text.startsWith ("Grid")) gridItem = it.getItem().text;
+        check (gridItem == "Grid: Auto", "Grid: en Options, por defecto automática", gridItem.length());
+        p->applyStyleMenuResult (410 + 3);                         // 1/16
+        check ((int) p->getProcessorStateForTests().getProperty ("scopeGridDivision") == 16 && sc.getGridDivision() == 16 && subdivisionsShown() == 4,
+               "Grid 1/16: 4 líneas por tiempo", sc.getLastSubdivisionsForTests());
+        p->applyStyleMenuResult (410 + 4);                         // 1/32
+        check (subdivisionsShown() == 8, "Grid 1/32: 8 líneas por tiempo", sc.getLastSubdivisionsForTests());
+        p->applyStyleMenuResult (410 + 1);                         // 1/4
+        check (subdivisionsShown() == 1, "Grid 1/4: una línea por tiempo", sc.getLastSubdivisionsForTests());
+        p->applyStyleMenuResult (401);                             // tresillos
+        p->applyStyleMenuResult (410 + 3);
+        check (subdivisionsShown() == 6, "Grid 1/16T: 6 líneas por tiempo", sc.getLastSubdivisionsForTests());
+        p->applyStyleMenuResult (401);
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> ed2 (a.createEditor());
+            check (panelOf (ed2)->getScopeForTests().getGridDivision() == 16, "Grid: se recuerda al reabrir", panelOf (ed2)->getScopeForTests().getGridDivision());
+        }
+        {
+            // Muy densa para el ancho (líneas a menos de 3 px): se ve la siguiente más grande.
+            const auto saved = sc.getBounds();
+            sc.setSize (220, saved.getHeight());
+            p->applyStyleMenuResult (410 + 5);                     // 1/64
+            const int shown = subdivisionsShown();
+            check (shown < 16 && shown >= 1, "Grid 1/64 en poco ancho: no se hace una mancha", shown);
+            sc.setBounds (saved);
+        }
+        p->applyStyleMenuResult (410);                             // Auto
+        check (sc.getGridDivision() == 0, "Grid: volver a Auto", sc.getGridDivision());
     }
     {
         // Botón Scope (al pie de la columna gris): un plugin nuevo arranca cerrado; después recuerda.

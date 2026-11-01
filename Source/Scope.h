@@ -50,6 +50,22 @@ public:
 
     void setShowGrid (bool shouldShow)         { showGrid = shouldShow; repaint(); }
     void setTripletGrid (bool on)              { tripletGrid = on; repaint(); }
+    // Resolución de la grilla: 0 = automática (se achica con el zoom); 4, 8, 16, 32 o 64 =
+    // fija en 1/4, 1/8, 1/16... (con Triplet grid: 1/8T, 1/16T...).
+    static constexpr std::array<int, 6> gridDivisions { 0, 4, 8, 16, 32, 64 };
+    void setGridDivision (int d)               { gridDivision = d; repaint(); }
+    int getGridDivision() const                { return gridDivision; }
+    static juce::String gridDivisionName (int d, bool triplets)
+    {
+        if (d <= 0) return "Auto";
+        return "1/" + juce::String (d) + (triplets && d > 4 ? "T" : "");
+    }
+    // Líneas por tiempo para una resolución fija (1/4 = 1, 1/16 = 4; en tresillos 1/8T = 3, 1/16T = 6).
+    static int subdivisionsFor (int d, bool triplets)
+    {
+        if (d <= 4) return 1;
+        return triplets ? d / 8 * 3 : d / 4;
+    }
     bool getTripletGrid() const                { return tripletGrid; }
 
     bool getShowGrid() const                   { return showGrid; }
@@ -116,6 +132,7 @@ public:
     }
     bool isClosedHandShownForTests() const { return closedHandShown; }
     bool isGrabbingForTests() const { return grabbing; }
+    int getLastSubdivisionsForTests() const { return lastSubdivisions; }
     juce::Rectangle<float> getHoverTagAreaForTests (float y) const
     {
         const auto plot = plotArea();
@@ -721,12 +738,25 @@ public:
     void drawTimeGrid (juce::Graphics& g, juce::Rectangle<float> plot) const
     {
         const double totalBeats = lengthBars * beatsPerBar;
-        // Normal: 16avos (4 por tiempo). Tresillos: 3 por tiempo (corcheas en tresillo).
-        int subdivisions = tripletGrid ? (totalBeats <= 16.0 ? 3 : 1) : (totalBeats <= 8.0 ? 4 : 1);
         const double pixelsPerBeat = plot.getWidth() / (totalBeats * viewSpan);
-        const int maxSubdivisions = tripletGrid ? 6 : 256;               // tresillos: hasta tresillos de semicorchea
-        while (subdivisions * 2 <= maxSubdivisions && pixelsPerBeat / (subdivisions * 2) >= 14.0 && isZoomed())
-            subdivisions *= 2;
+        int subdivisions = 1;
+        if (gridDivision > 0)
+        {
+            // Fija (Options > Grid). Si las líneas quedaran a menos de 3 px (se haría una mancha),
+            // se dibuja la siguiente más grande hasta que hagas zoom.
+            subdivisions = subdivisionsFor (gridDivision, tripletGrid);
+            while (subdivisions > 1 && pixelsPerBeat / subdivisions < 3.0)
+                subdivisions = subdivisions % 2 == 0 ? subdivisions / 2 : 1;
+        }
+        else
+        {
+            // Automática. Normal: 16avos (4 por tiempo). Tresillos: 3 por tiempo (corcheas en tresillo).
+            subdivisions = tripletGrid ? (totalBeats <= 16.0 ? 3 : 1) : (totalBeats <= 8.0 ? 4 : 1);
+            const int maxSubdivisions = tripletGrid ? 6 : 256;           // tresillos: hasta tresillos de semicorchea
+            while (subdivisions * 2 <= maxSubdivisions && pixelsPerBeat / (subdivisions * 2) >= 14.0 && isZoomed())
+                subdivisions *= 2;
+        }
+        lastSubdivisions = subdivisions;
 
         const int totalLines = juce::roundToInt (totalBeats * subdivisions);
         const bool labelSubdivisions = totalBeats * viewSpan < 2.0;
@@ -1017,6 +1047,8 @@ private:
     juce::Colour preColour { palettes[0].pre }, postColour { palettes[0].post };
     bool showGrid = true;
     bool tripletGrid = false;                           // grilla en tresillos (3 por tiempo)
+    int gridDivision = 0;                               // 0 = automática; 4, 8, 16, 32, 64 = fija
+    mutable int lastSubdivisions = 0;                   // líneas por tiempo del último dibujo (tests)
     int currentBin = 0;
     double lengthBars = 1.0;
     int beatsPerBar = 4;

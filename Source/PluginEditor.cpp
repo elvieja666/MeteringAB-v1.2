@@ -632,6 +632,7 @@ void MeteringABPanel::applyScopeLook()
     auto& state = processor.apvts.state;
     scope.setShowGrid ((bool) state.getProperty ("scopeGrid", true));
     scope.setTripletGrid ((bool) state.getProperty ("scopeGridTriplets", false));
+    scope.setGridDivision ((int) state.getProperty ("scopeGridDivision", 0));
     scope.setChannels ((ScopeView::Channels) juce::jlimit (0, 3, (int) state.getProperty ("scopeChannels", 0)));
 
     const int palette = juce::jlimit (0, ScopeView::customPalette, (int) state.getProperty ("scopePalette", 0));
@@ -663,7 +664,13 @@ juce::PopupMenu MeteringABPanel::buildStyleMenu() const
         channelsMenu.addItem (500 + i, ScopeView::channelNames[i], true, channels == i);
     menu.addSubMenu ("Channels: " + ScopeView::channelNames[juce::jlimit (0, ScopeView::channelNames.size() - 1, channels)], channelsMenu);
     menu.addItem (400, "Show grid", true, scope.getShowGrid());
-    menu.addItem (401, "Triplet grid", true, scope.getTripletGrid());
+    juce::PopupMenu gridMenu;                     // resolución: Auto, 1/4, 1/8, 1/16, 1/32, 1/64
+    const bool triplets = scope.getTripletGrid();
+    for (size_t i = 0; i < ScopeView::gridDivisions.size(); ++i)
+        gridMenu.addItem (410 + (int) i, ScopeView::gridDivisionName (ScopeView::gridDivisions[i], triplets),
+                          true, scope.getGridDivision() == ScopeView::gridDivisions[i]);
+    menu.addSubMenu ("Grid: " + ScopeView::gridDivisionName (scope.getGridDivision(), triplets), gridMenu);
+    menu.addItem (401, "Triplet grid", true, triplets);
     return menu;
 }
 
@@ -687,6 +694,8 @@ void MeteringABPanel::applyStyleMenuResult (int result)
     else if (result == 300 || result == 301) { pickCustomColour (result == 300); return; }
     else if (result == 400)                 st.setProperty ("scopeGrid", ! scope.getShowGrid(), nullptr);
     else if (result == 401)                 st.setProperty ("scopeGridTriplets", ! scope.getTripletGrid(), nullptr);
+    else if (result >= 410 && result < 410 + (int) ScopeView::gridDivisions.size())
+        st.setProperty ("scopeGridDivision", ScopeView::gridDivisions[(size_t) (result - 410)], nullptr);
     else if (result >= 500 && result < 600) st.setProperty ("scopeChannels", result - 500, nullptr);
     else if (result >= 600 && result < 700) st.setProperty ("scopeStyleLink", result - 601, nullptr);   // 600 = -1 (igual)
     else if (result >= 700 && result < 700 + (int) waveColours.size())
