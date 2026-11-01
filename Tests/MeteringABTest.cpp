@@ -79,6 +79,7 @@ struct Chain
     float hpState[2][2] = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
     bool saturate = false, pulsing = false;                    // para las capturas del osciloscopio
     long long sampleCount = 0;
+    long long loopLen = 0;                                     // > 0: un loop de Logic (modo ciclo) de este largo en muestras
     float lpState[2] = { 0.0f, 0.0f };
 
     int block = 512;                                           // tamaño de bloque del "host"
@@ -103,6 +104,13 @@ struct Chain
             for (int i = 0; i < block; ++i)
             {
                 float x = silent ? 0.0f : 0.25f * (float) std::sin (phase) + 0.05f * (rng.nextFloat() * 2 - 1);
+                if (loopLen > 0)                                // el mismo audio en cada vuelta del loop
+                {
+                    const auto idx = (std::uint32_t) ((sampleCount) % loopLen);
+                    const auto hash = (idx * 2654435761u) >> 8;
+                    x = 0.25f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 220.0 * idx / 48000.0)
+                        + 0.2f * ((float) (hash & 0xffff) / 32768.0f - 1.0f);
+                }
                 if (pulsing)   // golpes tipo batería cada 0,5 s
                 {
                     const double tb = std::fmod ((double) sampleCount / 48000.0, 0.5);
@@ -113,7 +121,7 @@ struct Chain
                 buf.setSample (0, i, x); buf.setSample (1, i, x * 0.8f);
             }
             dry.makeCopyOf (buf);
-            head.ppq = (double) (sampleCount - block) * 120.0 / 60.0 / 48000.0;
+            head.ppq = (double) (loopLen > 0 ? (sampleCount - block) % loopLen : sampleCount - block) * 120.0 / 60.0 / 48000.0;
             send.processBlock (buf, midi);
             // "Efecto": ganancia + latencia
             for (int i = 0; i < block; ++i)
@@ -1072,6 +1080,29 @@ int main (int argc, char** argv)
         check (std::abs (c.recv.displayGain.load() - 6.0f) < 0.3f, "Reset: con poco audio la ganancia se queda quieta (~ +6 dB)", c.recv.displayGain.load());
         c.run (3.0);
         check (std::abs (c.recv.displayGain.load() - 12.0f) < 0.3f, "Reset: con media ventana toma el valor nuevo (~ +12 dB)", c.recv.displayGain.load());
+    }
+    {
+        // Logic en modo ciclo (1 compás, como el osciloscopio) con bloques que no entran justo: el detalle del
+        // osciloscopio (zoom) tiene que quedar idéntico en cada vuelta, muestra por muestra.
+        Chain c (15, -3.0f, 0);
+        c.block = 448;
+        c.loopLen = 4 * 24000;                        // 1 compás de 4/4 a 120 = 2 s
+        auto snapshot = [&]
+        {
+            std::vector<std::uint32_t> v ((size_t) c.recv.scopeRawSlots.load());
+            for (size_t k = 0; k < v.size(); ++k)
+                v[k] = c.recv.scopeRaw[0][k].load();       // PRE (la ganancia de matcheo no la toca)
+            return v;
+        };
+        c.run (8.2);                                  // varias vueltas
+        const auto a1 = snapshot();
+        c.run (4.3);                                  // dos vueltas más (los bloques caen en otro lugar)
+        const auto a2 = snapshot();
+        int diff = 0;
+        for (size_t k = 0; k < a1.size() && k < a2.size(); ++k)
+            diff += a1[k] != a2[k] ? 1 : 0;
+        check (! a1.empty() && a1.size() == a2.size() && diff == 0,
+               "Osciloscopio en un loop: cada vuelta se dibuja igual, muestra por muestra (casilleros distintos)", diff);
     }
     {
         // Al abrir el Receive: una sola onda, la que suena (aunque un proyecto viejo tuviera Overlay).

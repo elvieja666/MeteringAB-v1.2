@@ -533,7 +533,14 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     const bool scopeRunning = hostPlaying;
     const double loopQuarters = getScopeLengthBars() * timeSigNum.load() * 4.0 / timeSigDen.load();
     const double quartersPerSample = hostBpm.load() / 60.0 / currentSampleRate;
-    const int rawSlots = juce::jlimit (1, scopeRawCapacity, (int) std::floor (loopQuarters / quartersPerSample));
+    // Posición exacta en muestras dentro del loop del osciloscopio: cada muestra cae siempre en el
+    // mismo casillero en todas las vueltas (antes se calculaba con decimales y, según el redondeo,
+    // dos muestras podían caer juntas y saltearse un casillero: cada vuelta se veía apenas distinta).
+    const auto loopSamples = (juce::int64) juce::jmax (1.0, std::round (loopQuarters / quartersPerSample));
+    auto loopPos = (juce::int64) std::llround (scopeQuarters / quartersPerSample) % loopSamples;
+    if (loopPos < 0)
+        loopPos += loopSamples;
+    const int rawSlots = (int) juce::jlimit ((juce::int64) 1, (juce::int64) scopeRawCapacity, loopSamples);
     const bool rawReady = scopeRaw[0] != nullptr;
     if (rawSlots != scopeRawSlots.load (std::memory_order_relaxed))
     {
@@ -606,9 +613,9 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
         const float values[numScopeTraces] = { preSumValue / (float) numCh, postSumValue / (float) numCh,
                                                preCh[0], postCh[0], preCh[1], postCh[1] };
         const bool drawing = scopeRunning && scopeGateOpen;
-        const int bin = drawing ? juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins)) : -1;
+        const int bin = drawing ? juce::jlimit (0, scopeBins - 1, (int) (loopPos * scopeBins / loopSamples)) : -1;
         const bool newBin = drawing && bin != lastScopeBin;   // columna nueva: reemplaza la del loop anterior
-        const int rawSlot = drawing && rawReady ? juce::jlimit (0, rawSlots - 1, (int) (scopeQuarters / loopQuarters * rawSlots)) : -1;
+        const int rawSlot = drawing && rawReady ? juce::jlimit (0, rawSlots - 1, (int) (loopPos * rawSlots / loopSamples)) : -1;
 
         for (int t = 0; t < numScopeTraces; ++t)
         {
@@ -671,6 +678,8 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
             scopeQuarters += quartersPerSample;
             if (scopeQuarters >= loopQuarters)
                 scopeQuarters -= loopQuarters;
+            if (++loopPos >= loopSamples)
+                loopPos = 0;
         }
     }
 
