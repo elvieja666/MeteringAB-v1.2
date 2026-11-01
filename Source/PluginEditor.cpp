@@ -998,7 +998,7 @@ void MeteringABPanel::timerCallback()
     if (! linkValueLabel.isBeingEdited())
         linkValueLabel.setText (juce::String (link), juce::dontSendNotification);
 
-    if (processor.duplicateSend.load())
+    if (processor.duplicateSend.load() || processor.sendersOnCurrentLink() > 1)
     {
         statusLabel.setText ("More than one Send on Link ID "_u + juce::String (link) + ": change one."_u, juce::dontSendNotification);
         statusLabel.setColour (juce::Label::textColourId, Colours::bad);
@@ -1013,9 +1013,16 @@ void MeteringABPanel::timerCallback()
         statusLabel.setText ("Connected to the Send on Link ID " + juce::String (link) + ".", juce::dontSendNotification);
         statusLabel.setColour (juce::Label::textColourId, Colours::good);
     }
+    else if (processor.sendersOnCurrentLink() > 0)
+    {
+        // Hay un Send en este Link ID pero todavía no suena nada (proyecto nuevo, parado):
+        // no es un error, solo espera audio.
+        statusLabel.setText ("Send found on Link ID "_u + juce::String (link) + ": waiting for audio.", juce::dontSendNotification);
+        statusLabel.setColour (juce::Label::textColourId, Colours::dim);
+    }
     else
     {
-        statusLabel.setText ("No Send playing on Link ID "_u + juce::String (link) + " (press play).", juce::dontSendNotification);
+        statusLabel.setText ("No Send on Link ID "_u + juce::String (link) + ".", juce::dontSendNotification);
         statusLabel.setColour (juce::Label::textColourId, Colours::bad);
     }
 

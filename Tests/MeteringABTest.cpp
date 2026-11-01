@@ -976,6 +976,30 @@ int main (int argc, char** argv)
         check (a.duplicateSend.load() && b2.duplicateSend.load(), "Dos Send en el mismo ID: avisan los dos", 1);
     }
     {
+        // Proyecto nuevo: Logic todavía no le pasó audio a nadie. El Receive igual sabe que
+        // hay un Send en su Link ID (no lo marca como error, solo espera audio).
+        MeteringABProcessor recv; setParam (recv, ParamIDs::mode, 1); setParam (recv, ParamIDs::link, 12);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (recv.createEditor());
+        panelOf (ed)->refreshNow();
+        const auto none = panelOf (ed)->getStatusTextForTests();
+        check (none.startsWith ("No Send on Link ID 12"), "Sin Send en el ID: lo avisa", none.length());
+        {
+            MeteringABProcessor send; setParam (send, ParamIDs::link, 12);      // modo Send, sin procesar audio
+            panelOf (ed)->refreshNow();
+            const auto waiting = panelOf (ed)->getStatusTextForTests();
+            check (recv.sendersOnCurrentLink() == 1 && waiting.startsWith ("Send found on Link ID 12"),
+                   "Proyecto nuevo, sin audio: el Receive ya ve el Send (esperando audio)", recv.sendersOnCurrentLink());
+            setParam (send, ParamIDs::link, 13);                                   // cambia de ID sin audio
+            panelOf (ed)->refreshNow();
+            check (recv.sendersOnCurrentLink() == 0 && panelOf (ed)->getStatusTextForTests().startsWith ("No Send"),
+                   "El Send cambia de Link ID sin audio: el Receive se entera", recv.sendersOnCurrentLink());
+            setParam (send, ParamIDs::link, 12);
+        }
+        panelOf (ed)->refreshNow();
+        check (recv.sendersOnCurrentLink() == 0 && panelOf (ed)->getStatusTextForTests().startsWith ("No Send"),
+               "Al borrar el Send, el Receive deja de verlo", recv.sendersOnCurrentLink());
+    }
+    {
         // Guardar/recuperar estado (como cuando abrís el proyecto de Logic).
         MeteringABProcessor a, b2;
         setParam (a, ParamIDs::latency, 128.37f);

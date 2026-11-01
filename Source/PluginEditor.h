@@ -101,6 +101,7 @@ public:
     void refreshNow() { timerCallback(); }
     const ScopeView& getScopeForTests() const { return scope; }
     ScopeView& getScopeForTests()             { return scope; }
+    juce::String getStatusTextForTests() const { return statusLabel.getText(); }
     juce::TextButton& getFreezeButtonForTests() { return freezeButton; }
     juce::TextButton& getOptionsButtonForTests() { return optionsButton; }
     juce::ValueTree& getProcessorStateForTests() { return processor.apvts.state; }

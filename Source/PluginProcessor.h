@@ -84,6 +84,7 @@ public:
     std::atomic<juce::uint32> lastBlockMs { 0 };      // cuándo llegó el último bloque de audio
     std::atomic<bool>  sendConnected { false };
     std::atomic<bool>  duplicateSend { false };
+    int sendersOnCurrentLink() const;                 // Send anotados en este Link ID (suene o no)
 
     // Tempo y compás del proyecto (los informa Logic en cada bloque).
     std::atomic<double> hostBpm      { 120.0 };
@@ -158,6 +159,7 @@ private:
     void readHostTempo();
     void configureMeter (LoudnessMeter& meter) const;
     void updateSenderRegistration (bool isSend, int linkIndex);
+    void registerFromParameters();
     void processSend (juce::AudioBuffer<float>& buffer, LinkSlot& slot);
     void processReceive (juce::AudioBuffer<float>& buffer, LinkSlot& slot);
     double scopeBlockStartQuarters (int n);          // posición en el loop del osciloscopio
@@ -202,7 +204,7 @@ private:
     void setMixTargets (bool pre, bool immediately);
 
     float autoGainDb = 0.0f;
-    int   registeredSendLink = -1;                    // -1 = no registrado
+    std::atomic<int> registeredSendLink { -1 };       // -1 = no registrado
     juce::uint32 lastHeartbeat = 0;
     int   blocksWithoutHeartbeat = 0;
     int   lastLink = -1;

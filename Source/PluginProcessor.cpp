@@ -90,11 +90,16 @@ MeteringABProcessor::MeteringABProcessor()
 
     syncStateHandled = pSync->load() > 0.5f;
     apvts.addParameterListener (ParamIDs::sync, this);
+    apvts.addParameterListener (ParamIDs::mode, this);
+    apvts.addParameterListener (ParamIDs::link, this);
+    registerFromParameters();
 }
 
 MeteringABProcessor::~MeteringABProcessor()
 {
     apvts.removeParameterListener (ParamIDs::sync, this);
+    apvts.removeParameterListener (ParamIDs::mode, this);
+    apvts.removeParameterListener (ParamIDs::link, this);
     cancelPendingUpdate();
     updateSenderRegistration (false, -1);
 }
@@ -197,9 +202,24 @@ void MeteringABProcessor::configureMeter (LoudnessMeter& meter) const
 
 // Cuando cambia el botón ms/Sync (desde la interfaz, automatización o el
 // host), la conversión se hace un instante después en el hilo de la interfaz.
-void MeteringABProcessor::parameterChanged (const juce::String&, float)
+void MeteringABProcessor::parameterChanged (const juce::String& parameterID, float)
 {
-    triggerAsyncUpdate();
+    if (parameterID == ParamIDs::sync)
+        triggerAsyncUpdate();
+    else
+        registerFromParameters();                   // modo o Link ID: el Send se anota ya, sin esperar audio
+}
+
+// El Send se anota en su Link ID apenas existe (y al cambiar de modo o de ID), no recién
+// cuando Logic le pasa audio: así el Receive sabe que hay un Send aunque nada suene todavía.
+void MeteringABProcessor::registerFromParameters()
+{
+    updateSenderRegistration ((int) pMode->load() == (int) Mode::send, (int) pLink->load() - 1);
+}
+
+int MeteringABProcessor::sendersOnCurrentLink() const
+{
+    return SharedBus::get().slot ((int) pLink->load() - 1).senderCount.load();
 }
 
 void MeteringABProcessor::startLatencyMeasurement()
@@ -309,17 +329,16 @@ bool MeteringABProcessor::isBusesLayoutSupported (const BusesLayout& layouts) co
 void MeteringABProcessor::updateSenderRegistration (bool isSend, int linkIndex)
 {
     const int wanted = isSend ? linkIndex : -1;
+    const int old = registeredSendLink.exchange (wanted);   // se llama desde el audio y desde la interfaz
 
-    if (wanted == registeredSendLink)
+    if (old == wanted)
         return;
 
-    if (registeredSendLink >= 0)
-        SharedBus::get().slot (registeredSendLink).senderCount.fetch_sub (1);
+    if (old >= 0)
+        SharedBus::get().slot (old).senderCount.fetch_sub (1);
 
     if (wanted >= 0)
         SharedBus::get().slot (wanted).senderCount.fetch_add (1);
-
-    registeredSendLink = wanted;
 }
 
 void MeteringABProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -842,6 +861,7 @@ void MeteringABProcessor::setStateInformation (const void* data, int sizeInBytes
             // (no es un cambio de ms/Sync hecho por el usuario).
             cancelPendingUpdate();
             syncStateHandled = pSync->load() > 0.5f;
+            registerFromParameters();
 
             if (latencyMeasurer.getState() == LatencyMeasurer::State::analysing)
                 triggerAsyncUpdate();                   // no perder una medición en curso
