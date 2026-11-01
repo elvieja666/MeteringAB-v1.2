@@ -1160,14 +1160,17 @@ int main (int argc, char** argv)
             int grabbing = 0;
             std::function<void (juce::Component&)> visit = [&] (juce::Component& comp)
             {
-                if (dynamic_cast<juce::TextEditor*> (&comp) == nullptr && (comp.getWantsKeyboardFocus() || comp.getMouseClickGrabsKeyboardFocus()))
+                if (dynamic_cast<juce::TextEditor*> (&comp) == nullptr && dynamic_cast<ScopeView*> (&comp) == nullptr
+                    && (comp.getWantsKeyboardFocus() || comp.getMouseClickGrabsKeyboardFocus()))
                     ++grabbing;
                 for (auto* ch : comp.getChildren())
                     visit (*ch);
             };
             visit (*ed);
-            check (grabbing == 0 && ! p->getMatchBypassButtonForTests().getWantsKeyboardFocus(),
-                   "Teclado: ningún botón se queda con Enter/espacio (componentes que lo toman)", grabbing);
+            juce::KeyPress enter (juce::KeyPress::returnKey);
+            check (grabbing == 0 && ! p->getMatchBypassButtonForTests().getWantsKeyboardFocus()
+                       && p->getScopeForTests().getWantsKeyboardFocus() && ! p->getScopeForTests().keyPressed (enter),
+                   "Teclado: ningún botón se queda con Enter/espacio; el osciloscopio toma el foco (para las manitos) sin usar Enter", grabbing);
         }
         p->getMatchBypassButtonForTests().onClick();
         check (c.recv.apvts.getRawParameterValue (ParamIDs::matchBypass)->load() > 0.5f && p->getMatchBypassButtonForTests().getToggleState()

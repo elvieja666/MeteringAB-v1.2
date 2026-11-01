@@ -111,6 +111,7 @@ public:
             setMouseCursor (isOverClickable() ? juce::MouseCursor::PointingHandCursor
                             : isZoomed()      ? juce::MouseCursor::DraggingHandCursor
                                               : juce::MouseCursor::NormalCursor);
+        updateMouseCursor();                                // que se vea ya (también en medio de un arrastre)
     }
     bool isGrabbingForTests() const { return grabbing; }
     juce::Rectangle<float> getHoverTagAreaForTests (float y) const
