@@ -37,7 +37,7 @@ El plugin se compila en GitHub, en una Mac en la nube: vos no instalás nada de 
 bash ~/Downloads/MeteringAB-mac/instalar.command
 ```
 
-Cuando dice **✅ Listo**, pasá a **Usarlo en Logic**, más abajo.
+Cuando dice **Listo**, pasá a **Usarlo en Logic**, más abajo. (También podés hacer doble clic en `instalar.command`.)
 
 Se instala en tu usuario (no pide contraseña). Para **desinstalarlo**, con Logic cerrado:
 

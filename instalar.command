@@ -1,39 +1,38 @@
 #!/bin/bash
-# ---------------------------------------------------------------------------
-#  Instala Metering A/B (ya compilado por GitHub) en tu Mac.
-#  Uso: doble clic, o en la Terminal:  bash ~/Downloads/MeteringAB-mac/instalar.command
-#  Se instala en tu usuario (~/Library/Audio/Plug-Ins): no pide contraseña.
-# ---------------------------------------------------------------------------
-set -e
-cd "$(dirname "$0")"
+# Instalador de Metering A/B para Mac. Dejalo en la misma carpeta que "Metering AB.component" y
+# "Metering AB.vst3" (la carpeta que sale del zip) y hace doble clic. Se instala en tu usuario.
+cd "$(dirname "$0")" || exit 1
 
-AU_DIR="$HOME/Library/Audio/Plug-Ins/Components"
 VST3_DIR="$HOME/Library/Audio/Plug-Ins/VST3"
-mkdir -p "$AU_DIR" "$VST3_DIR"
+AU_DIR="$HOME/Library/Audio/Plug-Ins/Components"
+mkdir -p "$VST3_DIR" "$AU_DIR"
 
-if [ ! -d "Metering AB.component" ]; then
-    echo "❌ No encuentro 'Metering AB.component' en esta carpeta."
-    echo "   Asegurate de haber descomprimido MeteringAB-mac.zip."
-    exit 1
-fi
+instalados=0
+while IFS= read -r -d '' p; do
+  nombre=$(basename "$p")
+  case "$nombre" in
+    *.vst3) destino="$VST3_DIR" ;;
+    *.component) destino="$AU_DIR" ;;
+    *) continue ;;
+  esac
+  echo "Instalando $nombre en $destino ..."
+  rm -rf "$destino/$nombre"
+  cp -R "$p" "$destino/"
+  xattr -cr "$destino/$nombre"                                      # saca el bloqueo de macOS (descargado de internet)
+  codesign --force --deep --sign - "$destino/$nombre" 2>/dev/null   # firma local, para que macOS lo deje cargar
+  instalados=$((instalados+1))
+done < <(find . -maxdepth 3 \( -name "Metering AB.vst3" -o -name "Metering AB.component" \) -print0)
 
-echo "📦 Copiando los plugins..."
-rm -rf "$AU_DIR/Metering AB.component" "$VST3_DIR/Metering AB.vst3"
-cp -R "Metering AB.component" "$AU_DIR/"
-[ -d "Metering AB.vst3" ] && cp -R "Metering AB.vst3" "$VST3_DIR/"
-
-# Los archivos bajados de internet quedan "en cuarentena": esto se la saca.
-xattr -dr com.apple.quarantine "$AU_DIR/Metering AB.component" 2>/dev/null || true
-xattr -dr com.apple.quarantine "$VST3_DIR/Metering AB.vst3" 2>/dev/null || true
-
-# Avisarle a macOS que hay un Audio Unit nuevo.
-killall -9 AudioComponentRegistrar >/dev/null 2>&1 || true
-sleep 1
-
-echo "🔍 Validando (lo mismo que hace Logic)..."
-if auval -v aufx Mtab Ms06 2>&1 | grep -q "AU VALIDATION SUCCEEDED"; then
-    echo "✅ Listo. Abrí Logic y buscalo en Audio Units > 0600musica > Metering A/B."
+if [ "$instalados" -eq 0 ]; then
+  echo "No encontre Metering AB.component ni Metering AB.vst3 al lado de este archivo."
 else
-    echo "⚠️  Quedó instalado, pero la validación no dio OK todavía."
-    echo "   Abrí Logic igual; si no aparece, mandame lo que dice:  auval -v aufx Mtab Ms06"
+  # que Logic vuelva a leer los plugins
+  killall -9 AudioComponentRegistrar 2>/dev/null
+  echo ""
+  echo "Listo, Metering A/B instalado ($instalados archivos)."
+  echo "Abri Logic y buscalo en Audio Units > 0600musica > Metering A/B."
+  echo "Si no aparece: Logic Pro > Settings > Plug-in Manager > Reset & Rescan All."
+  echo "Arquitectura de esta Mac: $(uname -m)"
 fi
+echo ""
+read -n 1 -s -r -p "Toca una tecla para cerrar..."

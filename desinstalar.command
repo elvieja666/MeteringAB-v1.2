@@ -1,24 +1,27 @@
 #!/bin/bash
-# ---------------------------------------------------------------------------
-#  Desinstala Metering A/B de tu usuario (lo que puso instalar.command).
-#  Uso: doble clic, o en la Terminal:  bash ~/Downloads/MeteringAB-mac/desinstalar.command
-#  Tus proyectos de Logic no se tocan: solo se borran los plugins.
-# ---------------------------------------------------------------------------
+# Desinstalador de Metering A/B para Mac: hace doble clic. Borra el plugin de las carpetas de
+# plugins de tu usuario. Tus proyectos de Logic no se tocan.
 
-AU_DIR="$HOME/Library/Audio/Plug-Ins/Components"
 VST3_DIR="$HOME/Library/Audio/Plug-Ins/VST3"
-borrados=0
+AU_DIR="$HOME/Library/Audio/Plug-Ins/Components"
 
-for p in "$AU_DIR/Metering AB.component" "$VST3_DIR/Metering AB.vst3"; do
-    if [ -e "$p" ]; then
-        rm -rf "$p" && echo "🗑  Borrado: $p" && borrados=$((borrados + 1))
-    fi
+borrados=0
+for p in "$VST3_DIR/Metering AB.vst3" "$AU_DIR/Metering AB.component"; do
+  if [ -e "$p" ]; then
+    echo "Borrando $p ..."
+    rm -rf "$p"
+    borrados=$((borrados+1))
+  fi
 done
 
 if [ "$borrados" -eq 0 ]; then
-    echo "ℹ️  Metering A/B no estaba instalado en tu usuario."
+  echo "No encontre Metering A/B instalado en las carpetas de tu usuario."
 else
-    # Avisarle a macOS que el Audio Unit ya no está.
-    killall -9 AudioComponentRegistrar >/dev/null 2>&1 || true
-    echo "✅ Listo: Metering A/B quedó desinstalado. Si Logic estaba abierto, cerralo y volvé a abrirlo."
+  # que Logic vuelva a leer los plugins
+  killall -9 AudioComponentRegistrar 2>/dev/null
+  echo ""
+  echo "Listo, Metering A/B desinstalado ($borrados archivos). Si Logic todavia lo muestra:"
+  echo "Logic Pro > Settings > Plug-in Manager > Reset & Rescan All."
 fi
+echo ""
+read -n 1 -s -r -p "Toca una tecla para cerrar..."
