@@ -74,7 +74,7 @@ bash ~/Downloads/MeteringAB-mac/desinstalar.command
 
 ### Tamaño de la ventana
 
-Con el osciloscopio abierto, arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achicarlo (con el osciloscopio cerrado la esquina no está y se mantiene el tamaño elegido): todo crece en proporción, de 40% a 150%. Al 100% el plugin mide 1400 × 650 con el osciloscopio abierto (la columna gris de 350 y el osciloscopio de 1050, tres veces la columna) y 350 × 650 cerrado; por defecto se abre un poco más chico (522 px de alto). **Clic derecho en esa esquina** (o Ctrl + clic) abre un menú con **Reset size**, para volver al tamaño por defecto. El tamaño queda guardado con el proyecto. En Send el plugin es la parte de arriba de la columna gris (hasta antes de los números), al mismo tamaño que en el Receive, y no tiene esquina para escalar.
+Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achicarlo, con el osciloscopio abierto o cerrado (los dos usan la misma escala): todo crece en proporción, de 40% a 150%. Al 100% el plugin mide 1400 × 650 con el osciloscopio abierto (la columna gris de 350 y el osciloscopio de 1050, tres veces la columna) y 350 × 650 cerrado; por defecto se abre un poco más chico (522 px de alto). **Clic derecho en esa esquina** (o Ctrl + clic) abre un menú con **Reset size**, para volver al tamaño por defecto. El tamaño queda guardado con el proyecto. En Send el plugin es la parte de arriba de la columna gris (hasta antes de los números), al mismo tamaño que en el Receive, y no tiene esquina para escalar.
 
 ### Osciloscopio
 
