@@ -592,27 +592,6 @@ int main (int argc, char** argv)
             }
 
         }
-        {   // "Reset size" (menú de la esquina) al lado de Freeze, para comparar
-            MeteringABProcessor m; setParam (m, ParamIDs::mode, 1);
-            std::unique_ptr<juce::AudioProcessorEditor> me (m.createEditor());
-            auto* outer = dynamic_cast<MeteringABEditor*> (me.get());
-            auto& fz = panelOf (me)->getFreezeButtonForTests();
-            constexpr float k = 3.0f;
-            const int w = 103 + 16 + 103 + 20, h = 24 + 20;
-            juce::Image img (juce::Image::ARGB, (int) (w * k), (int) (h * k), true);
-            {
-                juce::Graphics g (img);
-                g.fillAll (Theme::darkBg);
-                g.drawImageAt (fz.createComponentSnapshot (fz.getLocalBounds(), true, k), (int) (10 * k), (int) (10 * k));
-                g.addTransform (juce::AffineTransform::scale (k));
-                g.setOrigin (10 + 103 + 16, 10);
-                auto& lf = outer->getSizeMenuLookAndFeelForTests();
-                lf.drawPopupMenuBackground (g, 103, 24);
-                lf.drawPopupMenuItem (g, { 0, 0, 103, 24 }, false, true, false, false, false, "Reset size", {}, nullptr, nullptr);
-            }
-            juce::File f (juce::String (argv[1]) + "/reset-size.png");
-            f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
-        }
         return 0;
     }
 
@@ -786,15 +765,18 @@ int main (int argc, char** argv)
                "Escalable: al 150% todo crece en proporción (alto px)", ed->getHeight());
         check (std::abs (outer->getPanel().getTransform().mat00 - 1.5f) < 1.0e-4f, "Escalable: el contenido se dibuja al 150%", outer->getPanel().getTransform().mat00);
         {
-            // Clic derecho en la esquina de escalar: menú "Reset size".
+            // Option + clic en la esquina de escalar: vuelve al tamaño por defecto.
             auto* corner = outer->resizableCorner.get();
-            const juce::ModifierKeys right (juce::ModifierKeys::rightButtonModifier);
-            juce::MouseEvent ev (juce::Desktop::getInstance().getMainMouseSource(), { 3.0f, 3.0f }, right, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                                 corner, corner, juce::Time::getCurrentTime(), { 3.0f, 3.0f }, juce::Time::getCurrentTime(), 1, false);
-            if (corner != nullptr) outer->mouseDown (ev);
-            check (corner != nullptr && outer->sizeMenuOpenedForTests == 1, "Clic derecho en la esquina: menú Reset size", outer->sizeMenuOpenedForTests);
-            outer->setUiScale (MeteringABEditor::defaultScale);    // lo que hace "Reset size"
-            check (std::abs (outer->getUiScale() - MeteringABEditor::defaultScale) < 1.0e-4f, "Reset size: vuelve al tamaño por defecto", outer->getUiScale());
+            auto click = [&] (juce::ModifierKeys mods)
+            {
+                juce::MouseEvent ev (juce::Desktop::getInstance().getMainMouseSource(), { 3.0f, 3.0f }, mods, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                     corner, corner, juce::Time::getCurrentTime(), { 3.0f, 3.0f }, juce::Time::getCurrentTime(), 1, false);
+                if (corner != nullptr) outer->mouseUp (ev);
+            };
+            click ({});
+            check (corner != nullptr && std::abs (outer->getUiScale() - 1.5f) < 1.0e-4f, "Clic solo en la esquina: no cambia el tamaño", outer->getUiScale());
+            click (juce::ModifierKeys (juce::ModifierKeys::altModifier));
+            check (std::abs (outer->getUiScale() - MeteringABEditor::defaultScale) < 1.0e-4f, "Option + clic en la esquina: vuelve al tamaño por defecto", outer->getUiScale());
         }
         outer->setUiScale (1.5f);
         setParam (a, ParamIDs::mode, 0); panelOf (ed)->refreshNow();
@@ -867,12 +849,12 @@ int main (int argc, char** argv)
             ed->setSize (juce::roundToInt (MeteringABPanel::sideWidth * 1.2f), juce::roundToInt (MeteringABPanel::receiveHeight * 1.2f));   // arrastrar la esquina
             check (std::abs (outer->getUiScale() - 1.2f) < 2.0e-3f, "Scope cerrado: arrastrar la esquina cambia la escala", outer->getUiScale());
             auto* corner = outer->resizableCorner.get();
-            const juce::ModifierKeys right (juce::ModifierKeys::rightButtonModifier);
-            const int opened = outer->sizeMenuOpenedForTests;
-            juce::MouseEvent ev (juce::Desktop::getInstance().getMainMouseSource(), { 3.0f, 3.0f }, right, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                                 corner, corner, juce::Time::getCurrentTime(), { 3.0f, 3.0f }, juce::Time::getCurrentTime(), 1, false);
-            if (corner != nullptr) outer->mouseDown (ev);
-            check (corner != nullptr && outer->sizeMenuOpenedForTests == opened + 1, "Scope cerrado: clic derecho en la esquina abre Reset size", outer->sizeMenuOpenedForTests);
+            juce::MouseEvent ev (juce::Desktop::getInstance().getMainMouseSource(), { 3.0f, 3.0f }, juce::ModifierKeys (juce::ModifierKeys::altModifier),
+                                 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, corner, corner, juce::Time::getCurrentTime(), { 3.0f, 3.0f }, juce::Time::getCurrentTime(), 1, false);
+            if (corner != nullptr) outer->mouseUp (ev);
+            check (corner != nullptr && std::abs (outer->getUiScale() - MeteringABEditor::defaultScale) < 1.0e-4f
+                       && ed->getWidth() == juce::roundToInt ((float) MeteringABPanel::sideWidth * MeteringABEditor::defaultScale),
+                   "Scope cerrado: Option + clic en la esquina vuelve al tamaño por defecto", ed->getWidth());
             outer->setUiScale (before);
         }
         p->getScopeToggleForTests().onClick();
