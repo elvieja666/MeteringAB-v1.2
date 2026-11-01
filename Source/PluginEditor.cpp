@@ -1457,6 +1457,43 @@ void MeteringABEditor::mouseDown (const juce::MouseEvent& e)
         showSizeMenu();
 }
 
+// ---- "Reset size": píldora igual a Freeze ----
+MeteringABEditor::SizeMenuLookAndFeel::SizeMenuLookAndFeel()
+{
+    setColour (juce::PopupMenu::backgroundColourId, juce::Colours::transparentBlack);   // ventana sin fondo: se ve solo la píldora
+}
+
+void MeteringABEditor::SizeMenuLookAndFeel::drawPopupMenuBackground (juce::Graphics& g, int, int)
+{
+    g.fillAll (juce::Colours::transparentBlack);
+}
+
+void MeteringABEditor::SizeMenuLookAndFeel::getIdealPopupMenuItemSize (const juce::String&, bool, int, int& idealWidth, int& idealHeight)
+{
+    idealWidth = MeteringABPanel::windowValueWidth;      // 103 x 24, como Freeze
+    idealHeight = MeteringABPanel::windowValueHeight;
+}
+
+void MeteringABEditor::SizeMenuLookAndFeel::drawPopupMenuItem (juce::Graphics& g, const juce::Rectangle<int>& area, bool, bool isActive, bool isHighlighted,
+                                                                bool, bool, const juce::String& text, const juce::String&,
+                                                                const juce::Drawable*, const juce::Colour*)
+{
+    const auto r = area.toFloat().reduced (0.5f);
+    const float radius = r.getHeight() * 0.5f;
+    g.setColour (Theme::darkBg.brighter (isHighlighted && isActive ? 0.06f : 0.0f));
+    g.fillRoundedRectangle (r, radius);
+    g.setColour (Theme::chipLine.brighter (isHighlighted && isActive ? 0.25f : 0.0f));
+    g.drawRoundedRectangle (r, radius, 1.0f);
+    g.setColour (isActive ? Theme::chipText : Theme::chipText.withMultipliedAlpha (0.45f));
+    g.setFont (getPopupMenuFont());
+    g.drawText (text, area, juce::Justification::centred, false);
+}
+
+juce::Font MeteringABEditor::SizeMenuLookAndFeel::getPopupMenuFont()
+{
+    return Theme::font (12.0f, 400);                     // como Gain / Freeze / Options
+}
+
 void MeteringABEditor::showSizeMenu()
 {
     ++sizeMenuOpenedForTests;
@@ -1465,6 +1502,7 @@ void MeteringABEditor::showSizeMenu()
         return;
 
     juce::PopupMenu menu;
+    menu.setLookAndFeel (&sizeMenuLookAndFeel);          // la píldora, como Freeze
     menu.addItem (1, "Reset size", std::abs (scale - defaultScale) > 0.005f);
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (resizableCorner.get()),
                         [safe = juce::Component::SafePointer<MeteringABEditor> (this)] (int result)

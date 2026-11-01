@@ -225,6 +225,7 @@ private:
 class MeteringABEditor : public juce::AudioProcessorEditor
 {
 public:
+    juce::LookAndFeel& getSizeMenuLookAndFeelForTests()   { return sizeMenuLookAndFeel; }
     static constexpr int mainHeight = MeteringABPanel::receiveHeight;
     static constexpr int sendHeight = MeteringABPanel::sendHeight;
     static constexpr int baseWidth  = MeteringABPanel::receiveWidth;
@@ -261,6 +262,19 @@ private:
         void drawCornerResizer (juce::Graphics&, int, int, bool, bool) override {}
     };
     InvisibleCornerLookAndFeel cornerLookAndFeel;
+    // El menú de la esquina ("Reset size"): una píldora igual a Freeze (103 x 24, oscura, 12 regular).
+    struct SizeMenuLookAndFeel : juce::LookAndFeel_V4
+    {
+        SizeMenuLookAndFeel();
+        void drawPopupMenuBackground (juce::Graphics&, int width, int height) override;
+        int getPopupMenuBorderSize() override { return 0; }
+        void getIdealPopupMenuItemSize (const juce::String&, bool isSeparator, int standardHeight, int& idealWidth, int& idealHeight) override;
+        void drawPopupMenuItem (juce::Graphics&, const juce::Rectangle<int>& area, bool isSeparator, bool isActive, bool isHighlighted,
+                                bool isTicked, bool hasSubMenu, const juce::String& text, const juce::String& shortcutKeyText,
+                                const juce::Drawable* icon, const juce::Colour* textColour) override;
+        juce::Font getPopupMenuFont() override;
+    };
+    SizeMenuLookAndFeel sizeMenuLookAndFeel;
     float scale = 1.0f;                               // escala del Receive (la que elegís con la esquina)
     float shownScale = 1.0f;                          // la que se usa ahora (Send: la misma que el Receive)
     bool fitting = false;

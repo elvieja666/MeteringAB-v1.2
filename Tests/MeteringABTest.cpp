@@ -596,6 +596,27 @@ int main (int argc, char** argv)
             }
 
         }
+        {   // "Reset size" (menú de la esquina) al lado de Freeze, para comparar
+            MeteringABProcessor m; setParam (m, ParamIDs::mode, 1);
+            std::unique_ptr<juce::AudioProcessorEditor> me (m.createEditor());
+            auto* outer = dynamic_cast<MeteringABEditor*> (me.get());
+            auto& fz = panelOf (me)->getFreezeButtonForTests();
+            constexpr float k = 3.0f;
+            const int w = 103 + 16 + 103 + 20, h = 24 + 20;
+            juce::Image img (juce::Image::ARGB, (int) (w * k), (int) (h * k), true);
+            {
+                juce::Graphics g (img);
+                g.fillAll (Theme::darkBg);
+                g.drawImageAt (fz.createComponentSnapshot (fz.getLocalBounds(), true, k), (int) (10 * k), (int) (10 * k));
+                g.addTransform (juce::AffineTransform::scale (k));
+                g.setOrigin (10 + 103 + 16, 10);
+                auto& lf = outer->getSizeMenuLookAndFeelForTests();
+                lf.drawPopupMenuBackground (g, 103, 24);
+                lf.drawPopupMenuItem (g, { 0, 0, 103, 24 }, false, true, false, false, false, "Reset size", {}, nullptr, nullptr);
+            }
+            juce::File f (juce::String (argv[1]) + "/reset-size.png");
+            f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+        }
         return 0;
     }
 
