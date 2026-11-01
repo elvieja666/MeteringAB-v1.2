@@ -1,18 +1,18 @@
 #pragma once
+#include <juce_gui_basics/juce_gui_basics.h>
 
 // ---------------------------------------------------------------------------
-//  Manos nativas de macOS (las mismas de Finder, Mapas, etc.).
-//  JUCE trae la mano abierta pero no la cerrada: la cerrada se pide directo a macOS
-//  mientras arrastrás, y al soltar se vuelve a poner la abierta.
-//  En otras plataformas (las pruebas en Linux) no hacen nada.
+//  La mano cerrada nativa de macOS (la misma de Finder, Mapas, etc.).
+//  JUCE trae la mano abierta pero no la cerrada: acá se arma un cursor de JUCE con
+//  la imagen y el punto de la cerrada de macOS, así JUCE la maneja como cualquier
+//  otro cursor (no titila al arrastrar y al soltar vuelve sola la abierta).
+//  En otras plataformas (las pruebas en Linux) es la mano de JUCE.
 // ---------------------------------------------------------------------------
 namespace NativeCursor
 {
 #if defined (__APPLE__)
-    void showClosedHand();
-    void showOpenHand();
+    juce::MouseCursor closedHand();
 #else
-    inline void showClosedHand() {}
-    inline void showOpenHand() {}
+    inline juce::MouseCursor closedHand() { return juce::MouseCursor::DraggingHandCursor; }
 #endif
 }
