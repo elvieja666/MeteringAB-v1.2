@@ -276,7 +276,7 @@ void MeteringABLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Lab
 
 juce::Font MeteringABLookAndFeel::getPopupMenuFont()
 {
-    return Theme::font (14.0f, 400);
+    return Theme::font (popupFontSize, 400);
 }
 
 juce::Label* MeteringABLookAndFeel::createSliderTextBox (juce::Slider& slider)
@@ -580,6 +580,8 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     scopeOpen = (bool) apvts.state.getProperty ("scopeOpenNow", scopeOpenOnStart);
 
     zoomBox.getProperties().set ("kind", "chip");
+    chipLnf.popupFontSize = 12.0f;                 // su menú, con la letra de la píldora (12 regular)
+    zoomBox.setLookAndFeel (&chipLnf);
 
     // El osciloscopio sigue a la escucha: muestra solo la onda que suena.
     syncWavesToListen();
@@ -614,6 +616,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 MeteringABPanel::~MeteringABPanel()
 {
     stopTimer();
+    zoomBox.setLookAndFeel (nullptr);
     setLookAndFeel (nullptr);
 }
 
@@ -714,7 +717,9 @@ void MeteringABPanel::showStyleMenu (juce::Component& anchor)
     if (! anchor.isShowing())                      // fuera de pantalla (tests): no hay dónde mostrarlo
         return;
 
-    buildStyleMenu().showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&anchor),
+    auto menu = buildStyleMenu();
+    menu.setLookAndFeel (&chipLnf);                // letra como la de la píldora Options (12 regular)
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&anchor),
                                           [safe = juce::Component::SafePointer<MeteringABPanel> (this)] (int result)
     {
         if (safe != nullptr)

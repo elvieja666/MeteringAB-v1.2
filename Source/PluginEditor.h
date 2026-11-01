@@ -37,6 +37,7 @@ public:
     juce::Font getComboBoxFont (juce::ComboBox&) override;
     void positionComboBoxText (juce::ComboBox&, juce::Label&) override;
     juce::Font getPopupMenuFont() override;
+    float popupFontSize = 14.0f;                      // menús: el tamaño de la letra de lo que los abre
     juce::Label* createSliderTextBox (juce::Slider&) override;
     // Perilla con lugar propio (propiedades "knobCentreX" y "knobSize"): la perilla
     // centrada ahí y el valor contra el borde derecho.
@@ -101,6 +102,8 @@ public:
     void refreshNow() { timerCallback(); }
     const ScopeView& getScopeForTests() const { return scope; }
     ScopeView& getScopeForTests()             { return scope; }
+    juce::ComboBox& getZoomBoxForTests()      { return zoomBox; }
+    juce::LookAndFeel& getChipLookAndFeelForTests() { return chipLnf; }
     juce::String getStatusTextForTests() const { return statusLabel.getText(); }
     bool statusFitsForTests() const
     {
@@ -156,6 +159,7 @@ private:
 
     MeteringABProcessor& processor;
     MeteringABLookAndFeel lnf;
+    MeteringABLookAndFeel chipLnf;                    // igual, con los menús en 12 (como las píldoras del osciloscopio)
 
     juce::ComboBox modeBox;
     PreciseSlider linkSlider, windowSlider, windowSyncSlider;

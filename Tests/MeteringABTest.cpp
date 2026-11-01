@@ -429,7 +429,7 @@ int main (int argc, char** argv)
                 sc.resetZoom();
                 if (std::getenv ("MENU_SHOT"))          // cómo se ve el menú de Options (dibujado con el estilo del plugin)
                 {
-                    auto& lf = panel->getLookAndFeel();
+                    auto& lf = panel->getChipLookAndFeelForTests();
                     auto drawMenu = [&] (const juce::PopupMenu& m, int highlight, const char* file)
                     {
                         struct Row { juce::String text; bool sep, ticked, sub; };
@@ -793,6 +793,20 @@ int main (int argc, char** argv)
         outer->setUiScale (1.0f);
         std::unique_ptr<juce::AudioProcessorEditor> ed2 (a.createEditor());
         check (ed2->getWidth() == MeteringABPanel::receiveWidth, "Escalable: al reabrir el plugin recuerda el tamaño (ancho px)", ed2->getWidth());
+    }
+    {
+        // Los menús de las píldoras del osciloscopio (largo y Options) con la misma letra que la píldora.
+        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+        auto* p = panelOf (ed);
+        auto& zb = p->getZoomBoxForTests();
+        const auto pill = zb.getLookAndFeel().getComboBoxFont (zb);
+        const auto zoomMenu = zb.getLookAndFeel().getPopupMenuFont();
+        const auto optionsMenu = p->getChipLookAndFeelForTests().getPopupMenuFont();
+        check (zoomMenu.getHeight() == pill.getHeight() && zoomMenu.getTypefaceStyle() == pill.getTypefaceStyle()
+                   && optionsMenu.getHeight() == pill.getHeight(),
+               "Menú del largo y de Options: misma letra que la píldora", zoomMenu.getHeight());
+        check (p->getLookAndFeel().getPopupMenuFont().getHeight() > pill.getHeight(), "Los otros menús siguen en 14", 1);
     }
     {
         // Options > Grid: resolución fija de la grilla (Auto, 1/4 ... 1/64), se guarda con el proyecto.
