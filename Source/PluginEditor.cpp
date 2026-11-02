@@ -1215,13 +1215,13 @@ void MeteringABPanel::paint (juce::Graphics& g)
         g.fillRect (sideW, 0, getWidth() - sideW, getHeight());
     }
 
-    // Título "UNISON A/B" en Akira Expanded, mayúsculas de titleCapHeight px, a la misma
+    // Título "UNISON" en Akira Expanded, mayúsculas de titleCapHeight px, a la misma
     // distancia del borde de arriba que de la píldora Receive / Send.
     {
         g.setColour (juce::Colour (0xff3a3d42));
         const float cap = titleCapHeight;
         juce::GlyphArrangement ga;
-        ga.addLineOfText (Theme::titleFont (cap), "UNISON A/B", 0.0f, 0.0f);
+        ga.addLineOfText (Theme::titleFont (cap), "UNISON", 0.0f, 0.0f);
         juce::Path text, firstLetter;
         ga.createPath (text);
         juce::GlyphArrangement u;
@@ -1464,7 +1464,7 @@ void MeteringABPanel::resized()
     auto headerArea = section.withHeight (scopeTop);                 // la barra de arriba (hasta el gráfico)
     // Gain, Freeze, Options y el largo: del tamaño de la burbuja de Link ID (103 x 24) y
     // en el medio (de arriba abajo) entre el borde de arriba y la línea del 1.er cuarto de la
-    // primera parte (y 37,5): a la altura del título "UNISON A/B".
+    // primera parte (y 37,5): a la altura del título "UNISON".
     {
         const float centreY = (float) sectionHeights[0] / 8.0f;        // 18,75
         auto row = headerArea.withHeight (windowValueHeight).withY (juce::roundToInt (centreY - (float) windowValueHeight * 0.5f));

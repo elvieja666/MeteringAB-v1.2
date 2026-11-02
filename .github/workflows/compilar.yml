@@ -1,9 +1,9 @@
 # ---------------------------------------------------------------------------
-#  GitHub compila Unison A/B en una Mac en la nube cada vez que subís
+#  GitHub compila Unison en una Mac en la nube cada vez que subís
 #  cambios (o cuando tocás "Run workflow" en la pestaña Actions).
 #  El plugin terminado aparece en la sección "Releases" del repositorio.
 # ---------------------------------------------------------------------------
-name: Compilar Unison A/B
+name: Compilar Unison
 
 on:
   push:
@@ -33,15 +33,15 @@ jobs:
           set -e
           ART="build/MeteringAB_artefacts/Release"
           mkdir -p salida
-          cp -R "$ART/AU/Unison AB.component" salida/
-          cp -R "$ART/VST3/Unison AB.vst3" salida/
-          codesign --force --deep -s - "salida/Unison AB.component"
-          codesign --force --deep -s - "salida/Unison AB.vst3"
+          cp -R "$ART/AU/Unison.component" salida/
+          cp -R "$ART/VST3/Unison.vst3" salida/
+          codesign --force --deep -s - "salida/Unison.component"
+          codesign --force --deep -s - "salida/Unison.vst3"
           cp instalar.command desinstalar.command salida/
           cp Resources/Fonts/OFL.txt "salida/Licencia letra Inter (OFL).txt"
           chmod +x salida/instalar.command salida/desinstalar.command
           cd salida
-          ditto -c -k --sequesterRsrc . ../UnisonAB-mac.zip
+          ditto -c -k --sequesterRsrc . ../Unison-mac.zip
 
       - name: Validar el Audio Unit (igual que Logic)
         continue-on-error: true
@@ -55,13 +55,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete ultima --cleanup-tag -y || true
-          gh release create ultima UnisonAB-mac.zip \
-            --title "Unison A/B (última versión)" \
-            --notes "Bajá UnisonAB-mac.zip y seguí el paso A3 del LEEME para instalarlo." \
+          gh release create ultima Unison-mac.zip \
+            --title "Unison (última versión)" \
+            --notes "Bajá Unison-mac.zip y seguí el paso A3 del LEEME para instalarlo." \
             --target "$GITHUB_SHA"
 
       - name: Guardar también como artefacto
         uses: actions/upload-artifact@v4
         with:
-          name: UnisonAB-mac
-          path: UnisonAB-mac.zip
+          name: Unison-mac
+          path: Unison-mac.zip
