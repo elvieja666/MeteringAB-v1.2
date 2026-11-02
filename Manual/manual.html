@@ -101,18 +101,17 @@ td:first-child { width: 30%; font-weight: 500; }
 <section class="page">
   <h2>2. Puesta en marcha (en 1 minuto)</h2>
   <ol class="steps">
-    <li>En la pista que querés comparar, en el <b>primer slot</b>, cargá Unison y elegí <span class="ui">Send (before FX)</span>. Dejá el <b>Link ID</b> en 1.</li>
+    <li>En la pista que querés comparar, en el <b>primer slot</b>, cargá Unison y elegí <span class="ui">Send (before FX)</span>. Dejá el <b>Link ID</b> en 1.
+      <figure style="margin:6pt 0 4pt">
+        <img src="send.png" alt="" style="width:70%">
+        <figcaption>El Send: solo muestra el modo, el Link ID y su estado. No toca el audio.</figcaption>
+      </figure></li>
     <li>Debajo, tus efectos, los que quieras.</li>
     <li>En el <b>último slot</b>, cargá otro Unison y elegí <span class="ui">Receive (after FX)</span>, con el mismo <b>Link ID</b> (1).</li>
     <li>Dale play. En el Receive tiene que aparecer en azul <b>“Connected to the Send on Link ID 1.”</b></li>
     <li>Si tus efectos agregan latencia (EQ de fase lineal, limitadores con lookahead, oversampling), tocá <span class="ui">Measure</span> con el tema sonando.</li>
     <li>Tocá el botón grande para alternar entre <b>PRE FX</b> y <b>POST FX</b>. Los dos suenan al mismo volumen.</li>
   </ol>
-
-  <figure>
-    <img src="send.png" alt="" style="width:62%">
-    <figcaption>El Send: solo muestra el modo, el Link ID y su estado. No toca el audio.</figcaption>
-  </figure>
 
   <h3>Mensajes de estado (en el Receive)</h3>
   <table>
