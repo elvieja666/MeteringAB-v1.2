@@ -53,6 +53,16 @@ namespace Theme
         }
     }
 
+    // Letra del título: Ethereal Black (demo de Kereatype Studio, solo uso personal).
+    // Mayúsculas de 0,7 em; JUCE mide la letra como ascendente + descendente = 1,25 em.
+    inline juce::Typeface::Ptr titleTypeface()
+    {
+        static juce::Typeface::Ptr t = juce::Typeface::createSystemTypefaceFor (BinaryData::EtherealDemoBlack_otf, BinaryData::EtherealDemoBlack_otfSize);
+        return t;
+    }
+    constexpr float titleCapPerHeight = 0.70f / 1.25f;
+    constexpr float titleStemPerCap   = 0.18f;          // grosor del trazo vertical / alto de mayúscula
+
     // Todos los textos un 22% más grandes que el diseño base (más legibles).
     constexpr float textScale = 1.22f;
 

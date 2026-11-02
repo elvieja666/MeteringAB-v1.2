@@ -95,6 +95,7 @@ public:
     // Las burbujas chicas (Link ID, ms|Sync, el valor, Gain, Freeze, Options, el largo): 103 x 24.
     static constexpr int windowValueWidth = measureWidth, windowValueHeight = 24;
     static constexpr int sendWidth = sideWidth, sendHeight = 150;    // Send: solo la primera parte (= sectionHeights[0])
+    static constexpr float titleCapHeight = 14.0f;    // alto de las mayúsculas del título (UNISON A/B)
     static constexpr int mainHeight = receiveHeight;  // (compatibilidad)
 
     explicit MeteringABPanel (MeteringABProcessor&);

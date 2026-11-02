@@ -42,7 +42,8 @@ juce_add_binary_data(MeteringABFonts SOURCES
     Resources/Fonts/Inter-Light.otf
     Resources/Fonts/Inter-Regular.otf
     Resources/Fonts/Inter-Medium.otf
-    Resources/Fonts/Inter-SemiBold.otf)
+    Resources/Fonts/Inter-SemiBold.otf
+    Resources/Fonts/EtherealDemo-Black.otf)       # título (Ethereal, Kereatype: licencia demo, uso personal)
 set_target_properties(MeteringABFonts PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 target_sources(MeteringAB PRIVATE
