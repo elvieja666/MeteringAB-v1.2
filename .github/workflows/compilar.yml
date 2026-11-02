@@ -41,7 +41,7 @@ jobs:
           cp Resources/Fonts/OFL.txt "salida/Licencia letra Inter (OFL).txt"
           chmod +x salida/instalar.command salida/desinstalar.command
           cd salida
-          ditto -c -k --sequesterRsrc . ../MeteringAB-mac.zip
+          ditto -c -k --sequesterRsrc . ../UnisonAB-mac.zip
 
       - name: Validar el Audio Unit (igual que Logic)
         continue-on-error: true
@@ -55,13 +55,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete ultima --cleanup-tag -y || true
-          gh release create ultima MeteringAB-mac.zip \
+          gh release create ultima UnisonAB-mac.zip \
             --title "Unison A/B (última versión)" \
-            --notes "Bajá MeteringAB-mac.zip y seguí el paso A3 del LEEME para instalarlo." \
+            --notes "Bajá UnisonAB-mac.zip y seguí el paso A3 del LEEME para instalarlo." \
             --target "$GITHUB_SHA"
 
       - name: Guardar también como artefacto
         uses: actions/upload-artifact@v4
         with:
-          name: MeteringAB-mac
-          path: MeteringAB-mac.zip
+          name: UnisonAB-mac
+          path: UnisonAB-mac.zip

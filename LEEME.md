@@ -32,11 +32,11 @@ El plugin se compila en GitHub, en una Mac en la nube: vos no instalás nada de 
 ## 3. Bajar e instalar el plugin
 
 1. Volvé a la página principal del repositorio. A la derecha, en **Releases**, tocá **Unison A/B (última versión)**.
-2. Bajá **MeteringAB-mac.zip**. Si Safari no lo descomprime solo, hacé doble clic: queda una carpeta **MeteringAB-mac** en Descargas.
+2. Bajá **UnisonAB-mac.zip**. Si Safari no lo descomprime solo, hacé doble clic: queda una carpeta **UnisonAB-mac** en Descargas.
 3. Abrí la **Terminal** (Cmd + Espacio, escribí "Terminal"), pegá esto y apretá Enter:
 
 ```
-bash ~/Downloads/MeteringAB-mac/instalar.command
+bash ~/Downloads/UnisonAB-mac/instalar.command
 ```
 
 Cuando dice **Listo**, pasá a **Usarlo en Logic**, más abajo. (También podés hacer doble clic en `instalar.command`.)
@@ -44,7 +44,7 @@ Cuando dice **Listo**, pasá a **Usarlo en Logic**, más abajo. (También podés
 Se instala en tu usuario (no pide contraseña). Para **desinstalarlo**, con Logic cerrado:
 
 ```
-bash ~/Downloads/MeteringAB-mac/desinstalar.command
+bash ~/Downloads/UnisonAB-mac/desinstalar.command
 ```
 
 ## Cuando haya una versión nueva
