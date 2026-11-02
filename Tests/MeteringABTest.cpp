@@ -497,7 +497,7 @@ int main (int argc, char** argv)
         return 0;
     }
 
-    if (argc > 1) // Metering A/BTests <carpeta>: guarda capturas de la interfaz
+    if (argc > 1) // MeteringABTests <carpeta>: guarda capturas de la interfaz
     {
         const char* names[] = { "/send.png", "/receive.png", "/receive-long.png", "/receive-closed.png",
                                 "/paleta-greys.png", "/paleta-blue-pink.png", "/canales-split.png", "/link-cambio.png" };

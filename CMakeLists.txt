@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-#  Metering A/B - plugin de matcheo de loudness Send/Receive
+#  Unison A/B (antes Metering A/B) - plugin de matcheo de loudness Send/Receive
 #  Este archivo le dice a CMake cómo armar el plugin. Descarga JUCE solo,
 #  así que no hace falta instalar JUCE a mano.
 # ---------------------------------------------------------------------------
@@ -28,8 +28,8 @@ juce_add_plugin(MeteringAB
     BUNDLE_ID                "com.0600musica.meteringab"
     PLUGIN_MANUFACTURER_CODE Ms06        # 4 letras, al menos una mayúscula
     PLUGIN_CODE              Mtab        # 4 letras, única para este plugin
-    PRODUCT_NAME             "Metering AB"   # nombre del archivo (sin /)
-    PLUGIN_NAME              "Metering A/B"  # nombre que muestra Logic
+    PRODUCT_NAME             "Unison AB"     # nombre del archivo (sin /)
+    PLUGIN_NAME              "Unison A/B"    # nombre que muestra Logic (los códigos Ms06/Mtab no cambian: los proyectos viejos lo siguen abriendo)
     FORMATS                  AU VST3     # AU es el que usa Logic
     IS_SYNTH                 FALSE
     NEEDS_MIDI_INPUT         FALSE
@@ -78,7 +78,7 @@ if(METERINGAB_TESTS)
         Source/PluginEditor.cpp)
     target_include_directories(MeteringABTests PRIVATE Source)
     target_compile_definitions(MeteringABTests PRIVATE
-        JucePlugin_Name="Metering A/B" JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+        JucePlugin_Name="Unison A/B" JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
     target_link_libraries(MeteringABTests PRIVATE
         MeteringABFonts juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

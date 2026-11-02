@@ -1219,7 +1219,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
     g.setColour (juce::Colour (0xff3a3d42));
     g.setFont (Theme::font (14.0f, 600, 0.3f));
     // En el medio (de arriba abajo) del primer cuarto de la primera parte.
-    g.drawText ("METERING A/B", juce::Rectangle<float> (20.0f, 0.0f, 240.0f, (float) sectionHeights[0] / 4.0f), juce::Justification::centredLeft);
+    g.drawText ("UNISON A/B", juce::Rectangle<float> (20.0f, 0.0f, 240.0f, (float) sectionHeights[0] / 4.0f), juce::Justification::centredLeft);
 
     // Pastilla del Link ID (− 1 +)
     {
@@ -1453,7 +1453,7 @@ void MeteringABPanel::resized()
     auto headerArea = section.withHeight (scopeTop);                 // la barra de arriba (hasta el gráfico)
     // Gain, Freeze, Options y el largo: del tamaño de la burbuja de Link ID (103 x 24) y
     // en el medio (de arriba abajo) entre el borde de arriba y la línea del 1.er cuarto de la
-    // primera parte (y 37,5): a la altura del título "METERING A/B".
+    // primera parte (y 37,5): a la altura del título "UNISON A/B".
     {
         const float centreY = (float) sectionHeights[0] / 8.0f;        // 18,75
         auto row = headerArea.withHeight (windowValueHeight).withY (juce::roundToInt (centreY - (float) windowValueHeight * 0.5f));

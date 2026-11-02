@@ -1,9 +1,9 @@
 # ---------------------------------------------------------------------------
-#  GitHub compila Metering A/B en una Mac en la nube cada vez que subís
+#  GitHub compila Unison A/B en una Mac en la nube cada vez que subís
 #  cambios (o cuando tocás "Run workflow" en la pestaña Actions).
 #  El plugin terminado aparece en la sección "Releases" del repositorio.
 # ---------------------------------------------------------------------------
-name: Compilar Metering A/B
+name: Compilar Unison A/B
 
 on:
   push:
@@ -33,10 +33,10 @@ jobs:
           set -e
           ART="build/MeteringAB_artefacts/Release"
           mkdir -p salida
-          cp -R "$ART/AU/Metering AB.component" salida/
-          cp -R "$ART/VST3/Metering AB.vst3" salida/
-          codesign --force --deep -s - "salida/Metering AB.component"
-          codesign --force --deep -s - "salida/Metering AB.vst3"
+          cp -R "$ART/AU/Unison AB.component" salida/
+          cp -R "$ART/VST3/Unison AB.vst3" salida/
+          codesign --force --deep -s - "salida/Unison AB.component"
+          codesign --force --deep -s - "salida/Unison AB.vst3"
           cp instalar.command desinstalar.command salida/
           cp Resources/Fonts/OFL.txt "salida/Licencia letra Inter (OFL).txt"
           chmod +x salida/instalar.command salida/desinstalar.command
@@ -56,7 +56,7 @@ jobs:
         run: |
           gh release delete ultima --cleanup-tag -y || true
           gh release create ultima MeteringAB-mac.zip \
-            --title "Metering A/B (última versión)" \
+            --title "Unison A/B (última versión)" \
             --notes "Bajá MeteringAB-mac.zip y seguí el paso A3 del LEEME para instalarlo." \
             --target "$GITHUB_SHA"
 

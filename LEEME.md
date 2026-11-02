@@ -1,6 +1,8 @@
-# Metering A/B
+# Unison A/B
 
-Plugin de matcheo de loudness Send/Receive para Logic. El volumen se iguala siempre automáticamente. Ponés un Metering A/B antes de tu cadena de efectos y otro después: el segundo iguala automáticamente el volumen, así comparás el sonido con y sin efectos sin que te engañe el "más fuerte suena mejor". Todas las perillas aceptan valores exactos escritos con el teclado.
+*(Antes se llamaba Metering A/B. Es el mismo plugin: los proyectos de Logic que lo usaban lo siguen abriendo, y el instalador borra solo la versión vieja.)*
+
+Plugin de matcheo de loudness Send/Receive para Logic. El volumen se iguala siempre automáticamente. Ponés un Unison A/B antes de tu cadena de efectos y otro después: el segundo iguala automáticamente el volumen, así comparás el sonido con y sin efectos sin que te engañe el "más fuerte suena mejor". Todas las perillas aceptan valores exactos escritos con el teclado.
 
 ---
 
@@ -24,12 +26,12 @@ El plugin se compila en GitHub, en una Mac en la nube: vos no instalás nada de 
 ## 2. Esperar la compilación
 
 1. Arriba en tu repositorio tocá la pestaña **Actions**.
-2. Vas a ver "Compilar Metering A/B" con un círculo amarillo girando: está compilando y corriendo las pruebas automáticas. Tarda unos 10 a 15 minutos.
+2. Vas a ver "Compilar Unison A/B" con un círculo amarillo girando: está compilando y corriendo las pruebas automáticas. Tarda unos 10 a 15 minutos.
 3. Cuando aparece un tilde verde ✅, está listo. Si aparece una cruz roja ❌, tocala, sacá una captura y mandámela.
 
 ## 3. Bajar e instalar el plugin
 
-1. Volvé a la página principal del repositorio. A la derecha, en **Releases**, tocá **Metering A/B (última versión)**.
+1. Volvé a la página principal del repositorio. A la derecha, en **Releases**, tocá **Unison A/B (última versión)**.
 2. Bajá **MeteringAB-mac.zip**. Si Safari no lo descomprime solo, hacé doble clic: queda una carpeta **MeteringAB-mac** en Descargas.
 3. Abrí la **Terminal** (Cmd + Espacio, escribí "Terminal"), pegá esto y apretá Enter:
 
@@ -56,11 +58,11 @@ bash ~/Downloads/MeteringAB-mac/desinstalar.command
 ## Usarlo en Logic
 
 1. Abrí Logic. Si te pregunta por plugins nuevos, dejá que los valide.
-   Si no aparece: menú **Logic Pro > Configuración (Settings) > Plug-in Manager**, buscá Metering A/B y tocá **Reset & Rescan Selection**.
+   Si no aparece: menú **Logic Pro > Configuración (Settings) > Plug-in Manager**, buscá Unison A/B y tocá **Reset & Rescan Selection**.
 2. En la pista donde querés comparar:
-   - **Primer slot:** Metering A/B → modo **Send (antes de FX)**, Link ID **1**.
+   - **Primer slot:** Unison A/B → modo **Send (antes de FX)**, Link ID **1**.
    - **En el medio:** tus efectos (compresor, EQ, saturador, lo que sea).
-   - **Último slot:** otro Metering A/B → modo **Receive (después de FX)**, Link ID **1**.
+   - **Último slot:** otro Unison A/B → modo **Receive (después de FX)**, Link ID **1**.
 3. Dale play. En el Receive tiene que decir en verde **Conectado al Send**.
 
 ### Los controles (en el Receive)
@@ -106,7 +108,7 @@ Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al vo
 
 ### Tips
 
-- **Cada pista con su propio Link ID** (1 a 16). Si dos Send usan el mismo número, Metering A/B te avisa en rojo.
+- **Cada pista con su propio Link ID** (1 a 16). Si dos Send usan el mismo número, Unison A/B te avisa en rojo.
 - **Latencia:** usá el botón **Medir** con el tema sonando. Si cambiás de efectos, volvé a medir.
 - El Send no cambia el audio para nada; solo lo "mira".
 - **Ventana recomendada:** Sync con 1 o 2 bars para comparar sobre un loop; en ms, unos 3000 ms. Evitá ventanas muy cortas (menos de 1 segundo): la corrección se movería con cada golpe y alteraría la comparación.

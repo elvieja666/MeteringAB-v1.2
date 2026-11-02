@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 //  SharedBus: el "cable invisible" entre la instancia Send y la Receive.
 //
-//  Todas las instancias de Metering A/B que carga Logic viven en el mismo proceso,
+//  Todas las instancias de Unison A/B que carga Logic viven en el mismo proceso,
 //  así que pueden compartir este objeto. Hay 16 "canales de enlace" (Link ID).
 //  El Send copia acá el audio original (antes de tus efectos) y el Receive lo
 //  lee para medirlo, compararlo y poder escucharlo en el A/B.
