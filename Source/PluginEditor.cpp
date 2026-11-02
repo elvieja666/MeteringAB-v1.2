@@ -737,6 +737,56 @@ struct LiveMenuItem : juce::PopupMenu::CustomComponent
 };
 }
 
+// ---- Menú del largo (bars): las opciones se aplican sin cerrar el menú ----
+juce::PopupMenu ToggleComboBox::buildLiveMenu()
+{
+    auto group = std::make_shared<LiveMenuItem::Group>();
+    juce::Component::SafePointer<ToggleComboBox> safe (this);
+    juce::PopupMenu menu;
+
+    for (juce::PopupMenu::MenuItemIterator it (*getRootMenu()); it.next();)
+    {
+        const auto& src = it.getItem();
+        if (src.itemID == 0)
+        {
+            menu.addSeparator();
+            continue;
+        }
+        const int id = src.itemID;
+        const juce::String text = src.text;
+        juce::PopupMenu::Item item (text);
+        item.itemID = id;
+        item.isTicked = getSelectedId() == id;
+        item.customComponent = new LiveMenuItem (group, getLookAndFeel(), getHeight(), false,
+                                                 [text] { return text; },
+                                                 [safe, id] { return safe != nullptr && safe->getSelectedId() == id; },
+                                                 [safe, id] { if (safe != nullptr) safe->setSelectedId (id, juce::sendNotificationSync); });
+        menu.addItem (std::move (item));
+    }
+    return menu;
+}
+
+void ToggleComboBox::showPopup()
+{
+    if (juce::Time::getMillisecondCounter() - closedAtMs < 300)   // el clic que acaba de cerrarlo
+    {
+        hidePopup();
+        return;
+    }
+
+    auto menu = buildLiveMenu();
+    menu.setLookAndFeel (&getLookAndFeel());
+    juce::Label unused;
+    menu.showMenuAsync (getLookAndFeel().getOptionsForComboBoxPopupMenu (*this, unused),
+                        [safe = juce::Component::SafePointer<ToggleComboBox> (this)] (int)
+                        {
+                            if (safe == nullptr)
+                                return;
+                            safe->closedAtMs = juce::Time::getMillisecondCounter();
+                            safe->hidePopup();
+                        });
+}
+
 // Menú del botón Options: canales y grilla. Las opciones se aplican sin cerrar el menú.
 juce::PopupMenu MeteringABPanel::buildStyleMenu() const
 {

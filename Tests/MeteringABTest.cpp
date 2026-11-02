@@ -1847,6 +1847,27 @@ int main (int argc, char** argv)
             zb.markClosedForTests();                     // el menú de bars se acaba de cerrar con un clic sobre la píldora
             zb.showPopup();                              // ese mismo clic
             check (! zb.isPopupActive(), "Bars: el clic que cierra el menú no lo vuelve a abrir", zb.isPopupActive() ? 1 : 0);
+            // Elegir un largo no cierra el menú: se aplica y el tilde se mueve.
+            const auto liveMenu = zb.buildLiveMenuForTests();
+            juce::PopupMenu::CustomComponent* twoBars = nullptr;
+            int items = 0;
+            for (juce::PopupMenu::MenuItemIterator it (liveMenu); it.next();)
+            {
+                ++items;
+                if (it.getItem().itemID == 4) twoBars = it.getItem().customComponent.get();   // 2 bars
+            }
+            const int before = zb.getSelectedId();
+            if (twoBars != nullptr)
+            {
+                twoBars->setSize (103, 24);
+                juce::MouseEvent ev (juce::Desktop::getInstance().getMainMouseSource(), { 10.0f, 10.0f }, {}, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                     twoBars, twoBars, juce::Time::getCurrentTime(), { 10.0f, 10.0f }, juce::Time::getCurrentTime(), 1, false);
+                twoBars->mouseUp (ev);
+            }
+            check (items == zb.getNumItems() && twoBars != nullptr && ! twoBars->isTriggeredAutomatically() && zb.getSelectedId() == 4
+                       && (int) panel->getProcessorStateForTests().getProperty ("scopeLength") == 3,
+                   "Bars: elegir un largo lo aplica sin cerrar el menú", zb.getSelectedId());
+            zb.setSelectedId (before);
         }
         std::set<int> ids;
         std::function<void (const juce::PopupMenu&)> walk = [&] (const juce::PopupMenu& m)

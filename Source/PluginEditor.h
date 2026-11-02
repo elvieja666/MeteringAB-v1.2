@@ -24,31 +24,19 @@ public:
 //   plain   = solo texto (− y + de Link ID)
 //   bypass  = pastilla de Match Gain Bypass (prendida = naranja)
 //   scopetoggle = pastilla de Scope con el triángulo (abierto = azul)
-// Selector cuyo menú se cierra con un clic sobre él y no se vuelve a abrir con ese mismo clic.
-class ToggleComboBox : public juce::ComboBox, private juce::Timer
+// Selector (el largo del osciloscopio) cuyo menú, como el de Options:
+//  - no se cierra al elegir una opción (se aplica al instante y el tilde se mueve);
+//  - se cierra con un clic afuera, con Esc o con un clic sobre la píldora, y ese clic no lo
+//    vuelve a abrir.
+class ToggleComboBox : public juce::ComboBox
 {
 public:
-    void showPopup() override
-    {
-        if (juce::Time::getMillisecondCounter() - closedAtMs < 300)   // el clic que acaba de cerrarlo
-        {
-            hidePopup();
-            return;
-        }
-        juce::ComboBox::showPopup();
-        startTimer (30);                              // para saber cuándo se cierra
-    }
+    void showPopup() override;
     void markClosedForTests()                         { closedAtMs = juce::Time::getMillisecondCounter(); }
+    juce::PopupMenu buildLiveMenuForTests()           { return buildLiveMenu(); }
 
 private:
-    void timerCallback() override
-    {
-        if (! isPopupActive())
-        {
-            closedAtMs = juce::Time::getMillisecondCounter();
-            stopTimer();
-        }
-    }
+    juce::PopupMenu buildLiveMenu();
     juce::uint32 closedAtMs = 0;
 };
 
