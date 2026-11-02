@@ -1,26 +1,6 @@
 #include "PluginEditor.h"
 #include "Text.h"
 
-// Selector de color que avisa en vivo mientras lo movés.
-class LiveColourSelector : public juce::ColourSelector, private juce::ChangeListener
-{
-public:
-    explicit LiveColourSelector (juce::Colour initial, std::function<void (juce::Colour)> callback)
-        : juce::ColourSelector (juce::ColourSelector::showColourspace | juce::ColourSelector::showSliders),
-          onColour (std::move (callback))
-    {
-        setCurrentColour (initial);
-        setSize (300, 260);
-        addChangeListener (this);
-    }
-
-    ~LiveColourSelector() override { removeChangeListener (this); }
-
-private:
-    void changeListenerCallback (juce::ChangeBroadcaster*) override { if (onColour) onColour (getCurrentColour()); }
-    std::function<void (juce::Colour)> onColour;
-};
-
 // Colores de la parte de arriba (clara). El osciloscopio usa los de Theme oscuros.
 namespace Colours
 {
@@ -674,13 +654,6 @@ void MeteringABPanel::applyScopeLook()
                           juce::Colour (ScopeView::palettes[(size_t) palette].post));
 }
 
-// Colores para elegir por onda (los de las paletas, sin repetir).
-static const std::array<std::pair<const char*, juce::uint32>, 9> waveColours {{
-    { "Grey",        0xffa9aeb6 }, { "Dark grey",   0xff6c7077 }, { "Light grey", 0xffb8bbc1 },
-    { "White",       0xffd9d7d3 }, { "Blue",        0xff5aa9ff }, { "Pink",       0xffff6fa8 },
-    { "Red",         0xffeb5757 }, { "Violet",      0xff9b8cff }, { "Lime",       0xffb5e655 },
-}};
-
 // Fila del menú de Options que NO cierra el menú al tocarla: aplica la opción y se
 // redibuja (y también las demás filas del menú, para que los tildes y los textos
 // "Grid: ..." / "Channels: ..." muestren el estado nuevo al instante).
@@ -841,27 +814,11 @@ void MeteringABPanel::applyStyleMenuResult (int result)
 
     auto& st = processor.apvts.state;
 
-    // Color de una sola onda: pasa a "personalizado" conservando el de la otra.
-    auto setWaveColour = [&] (bool pre, juce::Colour c)
-    {
-        st.setProperty ("scopeCustomPre",  (pre ? c : scope.getPreColour()).toString(),  nullptr);
-        st.setProperty ("scopeCustomPost", (pre ? scope.getPostColour() : c).toString(), nullptr);
-        st.setProperty ("scopePalette", ScopeView::customPalette, nullptr);
-    };
-
-    if (result >= 100 && result < 150)      st.setProperty ("scopeStylePre", result - 100, nullptr);
-    else if (result >= 150 && result < 200) st.setProperty ("scopeStylePost", result - 150, nullptr);
-    else if (result == 300 || result == 301) { pickCustomColour (result == 300); return; }
-    else if (result == 400)                 st.setProperty ("scopeGrid", ! scope.getShowGrid(), nullptr);
+    if (result == 400)                      st.setProperty ("scopeGrid", ! scope.getShowGrid(), nullptr);
     else if (result == 401)                 st.setProperty ("scopeGridTriplets", ! scope.getTripletGrid(), nullptr);
     else if (result >= 410 && result < 410 + (int) ScopeView::gridDivisions.size())
         st.setProperty ("scopeGridDivision", ScopeView::gridDivisions[(size_t) (result - 410)], nullptr);
     else if (result >= 500 && result < 600) st.setProperty ("scopeChannels", result - 500, nullptr);
-    else if (result >= 600 && result < 700) st.setProperty ("scopeStyleLink", result - 601, nullptr);   // 600 = -1 (igual)
-    else if (result >= 700 && result < 700 + (int) waveColours.size())
-        setWaveColour (true,  juce::Colour (waveColours[(size_t) (result - 700)].second));
-    else if (result >= 750 && result < 750 + (int) waveColours.size())
-        setWaveColour (false, juce::Colour (waveColours[(size_t) (result - 750)].second));
 
     applyScopeLook();
 }
@@ -887,7 +844,6 @@ void MeteringABPanel::showStyleMenu (juce::Component& anchor)
     if (juce::Time::getMillisecondCounter() - styleMenuClosedAtMs < 300)
         return;
 
-    styleMenuAnchor = &anchor;
     ++styleMenuOpenedForTests;
 
     if (! anchor.isShowing())                      // fuera de pantalla (tests): no hay dónde mostrarlo
@@ -906,39 +862,6 @@ void MeteringABPanel::showStyleMenu (juce::Component& anchor)
         safe->applyStyleMenuResult (result);
     });
 }
-
-// Abre un selector de color; elegir un color pasa a la paleta "Personalizado".
-void MeteringABPanel::pickCustomColour (bool forPre)
-{
-    auto& state = processor.apvts.state;
-
-    if ((int) state.getProperty ("scopePalette", 0) != ScopeView::customPalette)
-    {
-        // Arrancar el personalizado desde los colores que se ven ahora.
-        state.setProperty ("scopeCustomPre",  scope.getPreColour().toString(),  nullptr);
-        state.setProperty ("scopeCustomPost", scope.getPostColour().toString(), nullptr);
-        state.setProperty ("scopePalette", ScopeView::customPalette, nullptr);
-        applyScopeLook();
-    }
-
-    const auto initial = forPre ? scope.getPreColour() : scope.getPostColour();
-    auto selector = std::make_unique<LiveColourSelector> (initial,
-        [this, forPre, safe = juce::Component::SafePointer<MeteringABPanel> (this)] (juce::Colour c)
-        {
-            if (safe == nullptr)
-                return;
-
-            processor.apvts.state.setProperty (forPre ? "scopeCustomPre" : "scopeCustomPost", c.toString(), nullptr);
-            applyScopeLook();
-        });
-
-    // Funciona tanto en el plugin como en la ventana aparte.
-    auto* anchor = styleMenuAnchor != nullptr ? styleMenuAnchor : static_cast<juce::Component*> (&optionsButton);
-    auto* host = anchor->getTopLevelComponent();
-    juce::CallOutBox::launchAsynchronously (std::move (selector),
-                                            host->getLocalArea (anchor, anchor->getLocalBounds()), host);
-}
-
 
 // Muestra u oculta la sección del osciloscopio y ajusta el alto de la ventana.
 void MeteringABPanel::setScopeOpen (bool open)
@@ -1552,10 +1475,10 @@ void MeteringABPanel::resized()
 //  Ventana escalable
 // ---------------------------------------------------------------------------
 MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
-    : AudioProcessorEditor (&p), processor (p), panel (p)
+    : AudioProcessorEditor (&p), meteringProcessor (p), panel (p)
 {
     addAndMakeVisible (panel);
-    scale = juce::jlimit (minScale, maxScale, (float) (double) processor.apvts.state.getProperty ("uiScaleV6", (double) defaultScale));
+    scale = juce::jlimit (minScale, maxScale, (float) (double) meteringProcessor.apvts.state.getProperty ("uiScaleV6", (double) defaultScale));
 
     // Esquina para arrastrar; mantiene la proporción del plugin.
     setResizable (true, true);
@@ -1628,7 +1551,7 @@ void MeteringABEditor::resized()
         // El usuario arrastró la esquina: la escala sale del ancho.
         scale = juce::jlimit (minScale, maxScale, (float) getWidth() / (float) juce::jmax (1, panel.getWidth()));
         shownScale = scale;
-        processor.apvts.state.setProperty ("uiScaleV6", scale, nullptr);
+        meteringProcessor.apvts.state.setProperty ("uiScaleV6", scale, nullptr);
     }
 
     panel.setTransform (juce::AffineTransform::scale (shownScale));
@@ -1638,7 +1561,7 @@ void MeteringABEditor::resized()
 void MeteringABEditor::setUiScale (float newScale)
 {
     scale = juce::jlimit (minScale, maxScale, newScale);
-    processor.apvts.state.setProperty ("uiScaleV6", scale, nullptr);
+    meteringProcessor.apvts.state.setProperty ("uiScaleV6", scale, nullptr);
     fitToPanel();
 }
 

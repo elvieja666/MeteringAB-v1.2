@@ -72,7 +72,7 @@ bash ~/Downloads/Unison-mac/desinstalar.command
 | **Números (Original, Ganancia, Procesado)** | Miden en LUFS mientras suena el tema. Al poner **pausa** en Logic, Original y Procesado bajan de a poco y llegan juntos a -∞ (en menos de un segundo; el más bajo cae más despacio para llegar al mismo tiempo) pero la medición no se borra: al dar play sigue con la ventana de antes y el audio nuevo va reemplazando al viejo, así la ganancia arranca estable (sin saltos al principio); la **Ganancia aplicada** queda a la vista con su último valor. **Clic sobre los números** = borrar la medición y medir de cero; la ganancia se queda quieta hasta tener media ventana de audio y ahí toma el valor nuevo. El volumen sigue igualado en todo momento. |
 | **PRE FX / POST FX** | Un solo botón: cada clic alterna. Arranca en **PRE FX**. **POST FX** (azul) = con tus efectos, al mismo volumen que el original. **PRE FX** (gris) = la señal antes de los efectos. Es un parámetro de Logic, así que lo podés asignar a una tecla o control MIDI. Al cambiar hace un crossfade de 10 ms, imperceptible, para que no haya clicks. El volumen se iguala siempre solo, midiendo en **LUFS (filtro K)**, con un máximo de 24 dB para arriba o para abajo. |
 | **Ventana (ms / Sync)** | Cuánto tiempo promedia la medición. En **ms** elegís milisegundos. En **Sync** elegís compases (1/4 bar a 8 bars) según el tempo y el compás del proyecto, y el promedio toma compases exactos, así la lectura de un loop queda quieta. Al pasar de Sync a ms se convierte al tiempo equivalente; al volver a Sync se acomoda al valor musical más cercano. Debajo de la perilla ves la equivalencia. |
-| **Latencia + Medir** | Compensa efectos que retrasan el audio (EQ de fase lineal, oversampling, limitadores con lookahead). Dale play y tocá **Medir**: en unos 3 segundos el plugin encuentra el retraso exacto, **con decimales** (por ejemplo 64,50 muestras, porque muchos plugins retrasan "medio sample"), y lo muestra en grande con su equivalente en ms. Si el sonido procesado no se parece lo suficiente al original (por ejemplo, una reverb 100% wet), te avisa en vez de poner un valor dudoso. Si cambiás los efectos de la cadena, volvé a medir. |
+| **Latencia + Measure** | Compensa efectos que retrasan el audio (EQ de fase lineal, oversampling, limitadores con lookahead). Dale play y tocá **Measure**: en unos 3 segundos el plugin encuentra el retraso exacto, **con decimales** (por ejemplo 64,50 muestras, porque muchos plugins retrasan "medio sample"), y lo muestra en grande con su equivalente en ms. Si el sonido procesado no se parece lo suficiente al original (por ejemplo, una reverb 100% wet), te avisa en vez de poner un valor dudoso. Si cambiás los efectos de la cadena, volvé a medir. |
 
 ### Tamaño de la ventana
 
@@ -82,15 +82,15 @@ Arrastrá la **esquina de abajo a la derecha** del plugin para agrandarlo o achi
 
 Está a la derecha de la columna gris, a toda la altura del plugin. El botón **Scope** (al pie de la columna gris) lo cierra y lo abre; cerrado queda solo la columna gris. Un plugin nuevo arranca con el osciloscopio cerrado; después se abre como lo dejaste (también al abrir el proyecto). La columna gris tiene 5 partes, de arriba a abajo: título, modo, Link ID y estado (150 px), los tres números (150), Ventana (100), Latencia (100) y Escuchar (150: "Listen" con la nota de LUFS al lado, el botón grande PRE/POST FX y a su derecha Bypass y Scope, uno arriba del otro).
 
-Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al volumen del original, así ves solo lo que cambió.
+Muestra la onda que estás escuchando: **PRE FX** (gris) o **POST FX** (azul), este último ya nivelado al volumen del original.
 
 - Está **sincronizado al tempo del proyecto**: el ancho es un largo musical que elegís arriba a la derecha (1/4 bar, 1/2 bar, 1 bar, 2 bars o 4 bars). Arriba tiene la grilla de tiempos (0, 1/4, 2/4, 3/4, 4/4) con subdivisiones.
 - **Barre de izquierda a derecha** siguiendo la canción (la línea blanca es el cabezal). Al llegar al final vuelve a empezar y va reemplazando lo del compás anterior, así cada compás va cambiando. Está sincronizado con Logic: con Logic en pausa el osciloscopio se queda quieto (y si movés el cursor, el cabezal lo sigue); al dar play se limpia y dibuja desde esa posición.
 - **Escala fija en dB**: 0 arriba y abajo, −6, −12, −18 y −∞ en el centro.
-- **El osciloscopio sigue a la escucha, siempre**: cada vez que alternás PRE FX / POST FX (botón grande, tecla asignada o automatización), pasa a mostrar la onda que suena, y la nueva va apareciendo a medida que avanza el cabezal, desde donde tocaste el botón; lo de atrás y lo de adelante quedan como estaban hasta que el cabezal pase. Siguiendo la escucha se dibuja siempre en **Detallado (picos)**. Si elegís a mano una onda con PRE FX / POST FX, se dibuja con la forma de ese botón (clic derecho) y queda así hasta el próximo cambio de escucha.
-- **Botón Options** (a la derecha de Freeze; la barra va Gain, Freeze, Options): menú con **Channels** (L + R suma, solo L, solo R, L y R separados) y **Grid**, que tiene la resolución de la grilla: *Auto*, que se va achicando con el zoom, o fija en 1/4, 1/8, 1/16, 1/32 o 1/64; con Triplet grid, 1/8T, 1/16T...; si en el ancho que se ve las líneas quedarían a menos de 3 px, muestra la siguiente más grande hasta que hagas zoom; y, abajo, **Show grid** y **Triplet grid** (grilla en tresillos: 3 por tiempo, 6 con zoom, con los números de tresillo arriba).
-  - *Canales* (submenú): **L + R (suma)** (los dos canales sumados y promediados, así lo que está al centro se ve a su nivel real), **Solo L**, **Solo R** o **L y R separados** (L arriba, R abajo, cada uno con su escala).
-  - *Color PRE FX* / *Color POST FX* (cada uno en su menú): Gris, Gris oscuro, Gris claro, Blanco, Azul, Rosa, Rojo, Violeta o Lima, o **Elegir otro color…** con un selector. Cambiar uno no toca el otro. Los botones PRE FX / POST FX toman los mismos colores.
+- **El osciloscopio sigue a la escucha, siempre**: cada vez que alternás PRE FX / POST FX (botón grande, tecla asignada o automatización), pasa a mostrar la onda que suena, y la nueva va apareciendo a medida que avanza el cabezal, desde donde tocaste el botón; lo de atrás y lo de adelante quedan como estaban hasta que el cabezal pase.
+- **Botón Options** (la barra de arriba va Gain, Freeze, Options y el largo): menú con **Channels** (L + R suma, solo L, solo R, L y R separados) y **Grid**, que tiene la resolución de la grilla: *Auto*, que se va achicando con el zoom, o fija en 1/4, 1/8, 1/16, 1/32 o 1/64; con Triplet grid, 1/8T, 1/16T...; si en el ancho que se ve las líneas quedarían a menos de 3 px, muestra la siguiente más grande hasta que hagas zoom; y, abajo, **Show grid** y **Triplet grid** (grilla en tresillos: 3 por tiempo, 6 con zoom, con los números de tresillo arriba).
+  - Los menús de Options y del largo **no se cierran al elegir una opción**: se aplica al instante y podés probar varias seguidas. Se cierran con un clic afuera, con Esc o con otro clic sobre la píldora.
+  - *Channels* (submenú): **L + R (suma)** (los dos canales sumados y promediados, así lo que está al centro se ve a su nivel real), **Solo L**, **Solo R** o **L y R separados** (L arriba, R abajo, cada uno con su escala).
   - *Show grid* (dentro de Grid): prende o apaga las líneas de fondo (las de cada compás quedan siempre).
   - Todo se guarda con el proyecto.
 - **Bypass** (Match Gain Bypass; a la derecha del botón grande, arriba de Scope): prendido (naranja), POST FX suena con su nivel real, sin la ganancia de matcheo. La ganancia se sigue midiendo y se ve en gris; al lado de "Listen" dice "Match gain bypassed (real level)". Se puede automatizar y se guarda con el proyecto.
@@ -109,7 +109,7 @@ Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al vo
 ### Tips
 
 - **Cada pista con su propio Link ID** (1 a 16). Si dos Send usan el mismo número, Unison te avisa en rojo.
-- **Latencia:** usá el botón **Medir** con el tema sonando. Si cambiás de efectos, volvé a medir.
+- **Latencia:** usá el botón **Measure** con el tema sonando. Si cambiás de efectos, volvé a medir.
 - El Send no cambia el audio para nada; solo lo "mira".
 - **Ventana recomendada:** Sync con 1 o 2 bars para comparar sobre un loop; en ms, unos 3000 ms. Evitá ventanas muy cortas (menos de 1 segundo): la corrección se movería con cada golpe y alteraría la comparación.
 
@@ -120,7 +120,7 @@ Muestra el **PRE FX** (gris) y, encima, el **POST FX** (azul), ya nivelado al vo
 - `Source/PluginProcessor.cpp` · el procesamiento de audio (Send y Receive).
 - `Source/LoudnessMeter.h` · el medidor LUFS (filtro K de la norma ITU-R BS.1770).
 - `Source/SharedBus.h` · el "cable invisible" que conecta el Send con el Receive.
-- `Source/LatencyMeasurer.h` · la medición automática de latencia (botón Medir).
+- `Source/LatencyMeasurer.h` · la medición automática de latencia (botón Measure).
 - `Source/PluginEditor.cpp` · la interfaz (perillas, botones, colores).
 - `Source/Scope.h` · el osciloscopio.
 - `Source/Theme.h` · colores y letra. La letra es **Inter** (licencia libre OFL, ver `Resources/Fonts/OFL.txt`), incluida dentro del plugin.

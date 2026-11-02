@@ -223,7 +223,6 @@ public:
     juce::PopupMenu buildStyleMenu() const;          // canales y grilla
     void applyStyleMenuResult (int result);
 private:
-    juce::Component* styleMenuAnchor = nullptr;
     int styleMenuOpenedForTests = 0;
     bool styleMenuOpen = false;                       // el menú de Options está abierto
     juce::uint32 styleMenuClosedAtMs = 0;             // cuándo se cerró (para no reabrirlo con el mismo clic)
@@ -231,7 +230,6 @@ public:
     void markStyleMenuClosedForTests()          { styleMenuClosedAtMs = juce::Time::getMillisecondCounter(); }
 private:
     void applyScopeLook();                            // lee estilo y colores guardados
-    void pickCustomColour (bool forPre);
     void updateScopeSection();
 
     juce::Component* scopeParts[5] = { &scope, &zoomBox, &freezeButton, &gainLineButton, &optionsButton };
@@ -292,7 +290,7 @@ public:
 private:
     void fitToPanel();                                // tamaño de la ventana = panel x escala
 
-    MeteringABProcessor& processor;
+    MeteringABProcessor& meteringProcessor;           // (AudioProcessorEditor ya tiene uno llamado "processor")
     MeteringABPanel panel;
     static void disableKeyboardFocus (juce::Component&);
     juce::ComponentBoundsConstrainer constrainer;
