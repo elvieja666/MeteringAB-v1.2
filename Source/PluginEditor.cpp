@@ -281,7 +281,14 @@ void MeteringABLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Lab
 
 juce::PopupMenu::Options MeteringABLookAndFeel::getOptionsForComboBoxPopupMenu (juce::ComboBox& box, juce::Label& label)
 {
-    return LookAndFeel_V4::getOptionsForComboBoxPopupMenu (box, label).withStandardItemHeight (box.getHeight());
+    // Abajo de la píldora, como el menú de Options (JUCE por defecto lo encima a la píldora para
+    // que la opción elegida quede sobre ella).
+    juce::ignoreUnused (label);
+    return juce::PopupMenu::Options().withTargetComponent (&box)
+                                     .withInitiallySelectedItem (box.getSelectedId())
+                                     .withMinimumWidth (box.getWidth())
+                                     .withMaximumNumColumns (1)
+                                     .withStandardItemHeight (box.getHeight());
 }
 
 void MeteringABLookAndFeel::getIdealPopupMenuItemSize (const juce::String& text, bool isSeparator, int standardHeight, int& idealWidth, int& idealHeight)

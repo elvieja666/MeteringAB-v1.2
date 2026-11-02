@@ -814,6 +814,8 @@ int main (int argc, char** argv)
             const int modeRow = mb.getLookAndFeel().getOptionsForComboBoxPopupMenu (mb, l).getStandardItemHeight();
             const int optionsRow = p->styleMenuOptions (p->getOptionsButtonForTests()).getStandardItemHeight();
             check (zoomRow == zb.getHeight() && zoomRow == 24, "Menú del largo: filas del alto de la píldora (24)", zoomRow);
+            check (zb.getLookAndFeel().getOptionsForComboBoxPopupMenu (zb, l).getItemThatMustBeVisible() == 0,
+                   "Menú del largo: se abre abajo de la píldora (como Options), no encima", 1);
             check (optionsRow == p->getOptionsButtonForTests().getHeight() && optionsRow == 24, "Menú de Options: filas del alto de la píldora (24)", optionsRow);
             const int optionsWidth = p->styleMenuOptions (p->getOptionsButtonForTests()).getMinimumWidth();
             check (optionsWidth == zb.getRight() - p->getOptionsButtonForTests().getX() && optionsWidth == 103 + 6 + 103,
