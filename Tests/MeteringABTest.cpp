@@ -1675,20 +1675,21 @@ int main (int argc, char** argv)
                 const bool noRuler = ! sc.isHoverLineShownForTests();
                 const juce::Point<float> mid { pl.getCentreX(), pl.getCentreY() - 40.0f };
                 sc.mouseMove (mouse (mid.x).withNewPosition (mid));
-                const bool dragHand = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::DraggingHandCursor);
-                check (hand && noRuler && dragHand, "Show all: con el mouse encima, manito de clic (y sin la regla)", hand);
-                // Agarrar para moverse: mano cerrada mientras está apretado; al soltar, abierta.
+                const bool arrowOnWave = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
+                check (hand && noRuler && arrowOnWave, "Show all: con el mouse encima, manito de clic (y sin la regla); sobre la onda, la flecha", hand);
+                // Arrastrar para moverse: siempre con la flecha (sin manos abierta / cerrada).
+                const double startView = sc.getViewStart();
                 sc.mouseDown (mouse (mid.x).withNewPosition (mid));
-                const bool closedOnPress = sc.isGrabbingForTests() && sc.isClosedHandShownForTests();
-                const juce::Point<float> moved { mid.x - 60.0f, mid.y };
+                const bool arrowOnPress = sc.isGrabbingForTests() && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
+                const juce::Point<float> moved { mid.x + 60.0f, mid.y };   // a la derecha (la vista está al final del loop)
                 sc.mouseDrag (mouse (moved.x).withNewPosition (moved));
-                const bool closedWhileDragging = sc.isClosedHandShownForTests();
+                const bool arrowWhileDragging = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
+                const bool panned = std::abs (sc.getViewStart() - startView) > 1.0e-9;
                 sc.mouseUp (mouse (moved.x).withNewPosition (moved));
-                const bool openAfter = ! sc.isGrabbingForTests() && ! sc.isClosedHandShownForTests() && sc.cursorReassertsForTests > 0
-                                       && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::DraggingHandCursor);
-                check (closedOnPress && closedWhileDragging && openAfter,
-                       "Zoom: al agarrar y arrastrar, mano cerrada; al soltar, mano abierta", closedOnPress * 100 + closedWhileDragging * 10 + openAfter);
-                // Sobre la cajita de la regla: el dedo, al pasar y al clickear (no la mano cerrada).
+                const bool arrowAfter = ! sc.isGrabbingForTests() && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
+                check (arrowOnPress && arrowWhileDragging && arrowAfter && panned,
+                       "Zoom: arrastrar mueve la onda, siempre con la flecha", arrowOnPress * 1000 + arrowWhileDragging * 100 + arrowAfter * 10 + panned);
+                // Sobre la cajita de la regla: el dedo, al pasar y al clickear.
                 sc.setMarkerDb (-6.0f);
                 const auto tag = sc.getMarkerTagAreaForTests().getCentre();
                 sc.mouseMove (mouse (tag.x).withNewPosition (tag));

@@ -5,7 +5,6 @@
 #include "PluginProcessor.h"
 #include "Text.h"
 #include "Theme.h"
-#include "NativeCursor.h"
 
 // ---------------------------------------------------------------------------
 //  Osciloscopio sincronizado al tempo del proyecto.
@@ -106,9 +105,7 @@ public:
         repaint();
     }
 
-    // Puntero, solo con zoom: el dedo sobre lo que se clickea ("Show all" y la cajita con
-    // el valor de la regla), al pasar y al clickear; mano abierta para arrastrar (cerrada
-    // mientras está apretado). Sin zoom, siempre la flecha.
+    // ¿El mouse está sobre algo que se clickea con zoom ("Show all" o las cajitas de la regla)?
     bool isOverShowAll() const { return isZoomed() && zoomLabelArea.contains (hoverPoint); }
     bool isOverClickable() const { return isZoomed() && (isOverShowAll() || isOnMarkerTag() || isOnHoverTag()); }   // solo con zoom
 
@@ -119,32 +116,14 @@ public:
         return hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY) && ! isOnMarkerTag() && ! isOverShowAll()
                && hoverX >= plot.getRight() - 78.0f && hoverX <= plot.getRight() - 6.0f;
     }
-    // Con zoom: mano abierta; mientras está apretado (agarrando la onda), la mano cerrada
-    // nativa de macOS; al soltar, otra vez la abierta.
+    // Puntero: la flecha siempre; el dedo solo con zoom sobre lo que se clickea ("Show all"
+    // y las cajitas de la regla). Arrastrar para moverse funciona igual, con la flecha
+    // (las manos abierta / cerrada no se veían bien en Logic).
     void updateCursor()
     {
-        closedHandShown = grabbing && isZoomed();
-        setMouseCursor (closedHandShown   ? closedHandCursor
-                        : isOverClickable() ? juce::MouseCursor::PointingHandCursor
-                        : isZoomed()        ? juce::MouseCursor::DraggingHandCursor
-                                            : juce::MouseCursor::NormalCursor);
+        setMouseCursor (isOverClickable() ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
         updateMouseCursor();                                // que se vea ya
     }
-    // Al soltar, macOS (o Logic) vuelve a poner la mano cerrada después de que JUCE puso la
-    // abierta, y quedaba cerrada hasta mover el mouse. Se vuelve a poner la que corresponde
-    // un instante después de soltar (sin esperar a que muevas el mouse).
-    void reassertCursorAfterRelease()
-    {
-        ++cursorReassertsForTests;
-        for (int delayMs : { 0, 40, 150 })
-            juce::Timer::callAfterDelay (delayMs, [safe = juce::Component::SafePointer<ScopeView> (this)]
-            {
-                if (safe != nullptr && ! safe->grabbing && safe->isMouseOver())
-                    safe->updateCursor();
-            });
-    }
-    int cursorReassertsForTests = 0;
-    bool isClosedHandShownForTests() const { return closedHandShown; }
     bool isGrabbingForTests() const { return grabbing; }
     int getLastSubdivisionsForTests() const { return lastSubdivisions; }
     juce::Rectangle<float> getHoverTagAreaForTests (float y) const
@@ -231,7 +210,7 @@ public:
         hoverPoint = e.position;
         hoverX = e.position.x;
         hoverY = plotArea().contains (e.position) ? e.position.y : -1.0f;
-        grabbing = isZoomed() && ! isOverClickable() && ! e.mods.isPopupMenu();   // agarrar: mano cerrada
+        grabbing = isZoomed() && ! isOverClickable() && ! e.mods.isPopupMenu();   // agarrar la onda para moverse
         updateCursor();
     }
 
@@ -251,13 +230,11 @@ public:
         if (std::exchange (swallowClick, false))
             return;
 
-        const bool wasGrabbing = std::exchange (grabbing, false);   // soltar: vuelve la mano abierta
+        grabbing = false;
         hoverPoint = e.position;
         hoverX = e.position.x;
         hoverY = plotArea().contains (e.position) ? e.position.y : -1.0f;
         updateCursor();
-        if (wasGrabbing)
-            reassertCursorAfterRelease();
         if (dragged || e.getNumberOfClicks() > 1 || e.mods.isPopupMenu())
             return;
 
@@ -1030,8 +1007,6 @@ private:
     float hoverY = -1.0f;                               // regla: altura del mouse (-1 = afuera)
     float hoverX = -1.0f;
     std::optional<float> markerDb, markerBeforeClick;   // regla: línea fija (en dB)
-    bool closedHandShown = false;                       // la mano cerrada está puesta
-    const juce::MouseCursor closedHandCursor = NativeCursor::closedHand();
     std::unique_ptr<juce::TextEditor> markerEditor;
     static inline const juce::Colour markerColour { 0xffd3d6db };   // gris claro
     std::optional<float> gainLineDb;                    // línea de la ganancia aplicada
@@ -1039,7 +1014,7 @@ private:
     juce::Rectangle<float> zoomLabelArea;               // "Show all" (con zoom)
     mutable std::map<juce::String, float> labelWidths;  // anchos de las etiquetas de la grilla (misma letra siempre)
     juce::Point<float> hoverPoint { -1.0f, -1.0f };     // dónde está el mouse (para "Show all")
-    bool grabbing = false;                              // apretado con zoom (mano cerrada)
+    bool grabbing = false;                              // apretado con zoom (arrastrando la onda)
     bool swallowClick = false;                          // el clic que cerró la caja de la regla
 
     // Clic fuera de la caja de la regla (en otra parte del plugin): la cierra.
