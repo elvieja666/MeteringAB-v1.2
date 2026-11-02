@@ -9,7 +9,7 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Versión mínima de macOS")
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Arquitecturas")
 
-project(MeteringAB VERSION 1.0.15 LANGUAGES C CXX)   # subir la versión hace que Logic vuelva a leer el nombre
+project(MeteringAB VERSION 1.0.16 LANGUAGES C CXX)   # subir la versión hace que Logic vuelva a leer el nombre
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -43,7 +43,7 @@ juce_add_binary_data(MeteringABFonts SOURCES
     Resources/Fonts/Inter-Regular.otf
     Resources/Fonts/Inter-Medium.otf
     Resources/Fonts/Inter-SemiBold.otf
-    Resources/Fonts/AkiraExpanded-Demo.otf)       # título (Akira Expanded, Typologic: demo, uso personal)
+    Resources/Fonts/AkiraExpanded-Demo.otf)       # título (Akira Expanded, Typologic: con licencia)
 set_target_properties(MeteringABFonts PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 target_sources(MeteringAB PRIVATE

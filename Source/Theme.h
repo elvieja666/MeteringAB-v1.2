@@ -53,7 +53,7 @@ namespace Theme
         }
     }
 
-    // Letra del título: Akira Expanded (demo de Typologic, solo uso personal).
+    // Letra del título: Akira Expanded (Typologic, con licencia).
     inline juce::Typeface::Ptr titleTypeface()
     {
         static juce::Typeface::Ptr t = juce::Typeface::createSystemTypefaceFor (BinaryData::AkiraExpandedDemo_otf, BinaryData::AkiraExpandedDemo_otfSize);
