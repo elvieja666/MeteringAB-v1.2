@@ -433,7 +433,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
 
     linkValueLabel.setEditable (true);
     linkValueLabel.setJustificationType (juce::Justification::centred);
-    linkValueLabel.setFont (Theme::font (14.0f, 500));
+    linkValueLabel.setFont (Theme::font (14.0f, 400));      // como Receive (after FX)
     linkValueLabel.setColour (juce::Label::textColourId, Theme::ink);
     linkValueLabel.onTextChange = [this]
     {
