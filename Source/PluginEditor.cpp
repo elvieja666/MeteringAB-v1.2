@@ -94,6 +94,9 @@ juce::Font MeteringABLookAndFeel::getTextButtonFont (juce::TextButton& button, i
     if (button.getProperties()["kind"].toString() == "plain")
         return Theme::font (15.0f, 300);                 // − y + de Link ID: como "Oscilloscope"
 
+    if (button.getProperties()["kind"].toString() == "chip")
+        return Theme::font (12.5f, 300);                 // Gain / Freeze / Options: como los títulos (Window, Latency...)
+
     return Theme::font (juce::jmin (14.0f, (float) buttonHeight * 0.5f), 400);
 }
 
@@ -263,7 +266,9 @@ void MeteringABLookAndFeel::drawComboBox (juce::Graphics& g, int w, int h, bool,
 
 juce::Font MeteringABLookAndFeel::getComboBoxFont (juce::ComboBox& box)
 {
-    return Theme::font (box.getProperties()["kind"].toString() == "chip" ? 12.0f : 14.0f, 400);   // el largo: como Gain / Freeze / Options
+    if (box.getProperties()["kind"].toString() == "chip")
+        return Theme::font (12.5f, 300);                 // el largo: como Gain / Freeze / Options y los títulos
+    return Theme::font (14.0f, 400);
 }
 
 void MeteringABLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
@@ -288,7 +293,7 @@ void MeteringABLookAndFeel::getIdealPopupMenuItemSize (const juce::String& text,
 
 juce::Font MeteringABLookAndFeel::getPopupMenuFont()
 {
-    return Theme::font (popupFontSize, 400);
+    return Theme::font (popupFontSize, popupFontWeight);
 }
 
 juce::Label* MeteringABLookAndFeel::createSliderTextBox (juce::Slider& slider)
@@ -592,7 +597,8 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     scopeOpen = (bool) apvts.state.getProperty ("scopeOpenNow", scopeOpenOnStart);
 
     zoomBox.getProperties().set ("kind", "chip");
-    chipLnf.popupFontSize = 12.0f;                 // su menú, con la letra de la píldora (12 regular)
+    chipLnf.popupFontSize = 12.5f;                 // su menú, con la letra de la píldora (12.5 light)
+    chipLnf.popupFontWeight = 300;
     chipLnf.popupItemWidth = windowValueWidth - 2 * chipLnf.getPopupMenuBorderSize();   // menús del ancho de una píldora (103)
     zoomBox.setLookAndFeel (&chipLnf);
 
@@ -742,7 +748,7 @@ void MeteringABPanel::showStyleMenu (juce::Component& anchor)
         return;
 
     auto menu = buildStyleMenu();
-    menu.setLookAndFeel (&chipLnf);                // letra como la de la píldora Options (12 regular)
+    menu.setLookAndFeel (&chipLnf);                // letra como la de la píldora Options (12.5 light)
     menu.showMenuAsync (styleMenuOptions (anchor),
                                           [safe = juce::Component::SafePointer<MeteringABPanel> (this)] (int result)
     {
@@ -1174,7 +1180,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
             g.fillRect (row.getX(), row.getBottom(), row.getWidth(), 1);
         }
         g.setColour (Theme::inkDim);
-        g.setFont (Theme::font (12.0f, 300));
+        g.setFont (Theme::font (12.5f, 300));            // como los títulos (Window, Latency, Listen)
         g.drawText (readouts[i].title, row.withTrimmedTop (6), juce::Justification::centredLeft);
         drawNumberWithUnit (g, readouts[i].number, readouts[i].unit, row, 27.0f, readouts[i].colour, 1);
     }

@@ -38,6 +38,7 @@ public:
     void positionComboBoxText (juce::ComboBox&, juce::Label&) override;
     juce::Font getPopupMenuFont() override;
     float popupFontSize = 14.0f;                      // menús: el tamaño de la letra de lo que los abre
+    int popupFontWeight = 400;
     // Menú de un selector: cada fila del alto de su píldora.
     juce::PopupMenu::Options getOptionsForComboBoxPopupMenu (juce::ComboBox&, juce::Label&) override;
     // > 0: cada fila de menú mide eso de ancho (menús de las píldoras: los submenús de Options
