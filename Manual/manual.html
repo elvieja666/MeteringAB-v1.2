@@ -95,7 +95,7 @@ td:first-child { width: 30%; font-weight: 500; }
       <pre>bash ~/Downloads/Unison/instalar.command</pre></li>
   </ol>
   <p>Se instala en tu usuario y no pide contraseña. Si tenías una versión anterior (<b>Metering A/B</b> o <b>Unison A/B</b>), el instalador la borra sola: es el mismo plugin y tus proyectos lo siguen abriendo con todos sus ajustes.</p>
-  <div class="note">Si Logic no lo muestra o sigue mostrando el nombre viejo: <span class="ui">Logic Pro &gt; Settings &gt; Plug-in Manager</span>, buscá Unison y tocá <b>Reset &amp; Rescan Selection</b>.</div>
+  <div class="note">Si tu DAW no lo muestra o sigue mostrando el nombre viejo, hacé que vuelva a buscar plugins (en Logic: <span class="ui">Settings &gt; Plug-in Manager</span> → <b>Reset &amp; Rescan Selection</b>). Los pasos para otros DAW están en <b>Problemas comunes</b>.</div>
 </section>
 
 <section class="page">
@@ -219,7 +219,13 @@ td:first-child { width: 30%; font-weight: 500; }
   <h3>Problemas comunes</h3>
   <table>
     <tr><th>Problema</th><th>Solución</th></tr>
-    <tr><td>Logic no muestra Unison</td><td>Plug-in Manager → Reset &amp; Rescan Selection. Revisá que el instalador haya dicho “Listo”.</td></tr>
+    <tr><td>El DAW no muestra Unison (o muestra el nombre viejo)</td><td>Revisá que el instalador haya dicho “Listo” y hacé que el DAW vuelva a buscar plugins:
+      <ul style="margin:3pt 0 0">
+        <li><b>Logic Pro</b> (Audio Unit): <span class="ui">Settings &gt; Plug-in Manager</span>, buscá Unison y tocá <b>Reset &amp; Rescan Selection</b>.</li>
+        <li><b>Ableton Live</b>: <span class="ui">Settings &gt; Plug-Ins</span> → <b>Rescan</b> (con Option apretado hace una búsqueda completa).</li>
+        <li><b>REAPER</b>: <span class="ui">Settings &gt; Plug-ins &gt; VST</span> → <b>Re-scan</b>.</li>
+        <li><b>Otros DAW</b>: buscá en las preferencias de plugins la opción <b>Rescan</b> o “buscar plugins”. Si tu DAW usa VST3, el plugin está en la carpeta VST3 de tu usuario.</li>
+      </ul></td></tr>
     <tr><td>“No Send on Link ID…”</td><td>El Send y el Receive tienen que tener el mismo Link ID, y el Send tiene que estar antes de los efectos.</td></tr>
     <tr><td>“More than one Send…”</td><td>Dos pistas usan el mismo Link ID: cambiá uno.</td></tr>
     <tr><td>PRE y POST suenan desfasados o “huecos”</td><td>Falta compensar latencia: tocá Measure con el tema sonando.</td></tr>
