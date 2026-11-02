@@ -1215,29 +1215,21 @@ void MeteringABPanel::paint (juce::Graphics& g)
         g.fillRect (sideW, 0, getWidth() - sideW, getHeight());
     }
 
-    // Título "UNISON A/B" en Ethereal Black, mayúsculas de titleCapHeight px, centradas (de arriba
-    // abajo) en el primer cuarto de la primera parte. La letra (demo) no trae la "/": se dibuja
-    // como un trazo inclinado del grosor de la letra.
+    // Título "UNISON A/B" en Akira Expanded, mayúsculas de titleCapHeight px, centradas (de
+    // arriba abajo) en el primer cuarto de la primera parte.
     {
         g.setColour (juce::Colour (0xff3a3d42));
         const float cap = titleCapHeight;
-        const auto font = juce::Font (juce::FontOptions (Theme::titleTypeface()).withHeight (cap / Theme::titleCapPerHeight));
-        g.setFont (font);
-        const float baseline = (float) sectionHeights[0] / 8.0f + cap * 0.5f;
-        float x = 20.0f;
-        auto word = [&] (const juce::String& s)
-        {
-            g.drawSingleLineText (s, juce::roundToInt (x), juce::roundToInt (baseline));
-            x += juce::GlyphArrangement::getStringWidth (font, s);
-        };
-        word ("UNISON A");
-        const float slashW = cap * 0.45f;
-        juce::Path slash;
-        slash.startNewSubPath (x + slashW * 0.1f, baseline + cap * 0.08f);
-        slash.lineTo (x + slashW * 0.9f, baseline - cap * 1.08f);
-        g.strokePath (slash, juce::PathStrokeType (cap * Theme::titleStemPerCap * 0.55f));
-        x += slashW;
-        word ("B");
+        juce::GlyphArrangement ga;
+        ga.addLineOfText (Theme::titleFont (cap), "UNISON A/B", 0.0f, 0.0f);
+        juce::Path text, firstLetter;
+        ga.createPath (text);
+        juce::GlyphArrangement u;
+        u.addLineOfText (Theme::titleFont (cap), "U", 0.0f, 0.0f);
+        u.createPath (firstLetter);                      // la "U" marca la altura de las mayúsculas
+        const auto ub = firstLetter.getBounds();
+        const float capTop = (float) sectionHeights[0] / 8.0f - ub.getHeight() * 0.5f;
+        g.fillPath (text, juce::AffineTransform::translation (20.0f - ub.getX(), capTop - ub.getY()));
     }
 
     // Pastilla del Link ID (− 1 +)

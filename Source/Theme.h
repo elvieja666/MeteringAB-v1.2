@@ -53,15 +53,29 @@ namespace Theme
         }
     }
 
-    // Letra del título: Ethereal Black (demo de Kereatype Studio, solo uso personal).
-    // Mayúsculas de 0,7 em; JUCE mide la letra como ascendente + descendente = 1,25 em.
+    // Letra del título: Akira Expanded (demo de Typologic, solo uso personal).
     inline juce::Typeface::Ptr titleTypeface()
     {
-        static juce::Typeface::Ptr t = juce::Typeface::createSystemTypefaceFor (BinaryData::EtherealDemoBlack_otf, BinaryData::EtherealDemoBlack_otfSize);
+        static juce::Typeface::Ptr t = juce::Typeface::createSystemTypefaceFor (BinaryData::AkiraExpandedDemo_otf, BinaryData::AkiraExpandedDemo_otfSize);
         return t;
     }
-    constexpr float titleCapPerHeight = 0.70f / 1.25f;
-    constexpr float titleStemPerCap   = 0.18f;          // grosor del trazo vertical / alto de mayúscula
+
+    // La letra del título con mayúsculas de capHeight px (se mide la "B": cada sistema
+    // calcula el alto de la letra un poco distinto).
+    inline juce::Font titleFont (float capHeight)
+    {
+        static const float capPerHeight = []
+        {
+            const auto probe = juce::Font (juce::FontOptions (titleTypeface()).withHeight (100.0f));
+            juce::GlyphArrangement ga;
+            ga.addLineOfText (probe, "B", 0.0f, 0.0f);
+            juce::Path p;
+            ga.createPath (p);                           // el dibujo de la letra (no su caja de renglón)
+            const float h = p.getBounds().getHeight();
+            return h > 1.0f ? h / 100.0f : 0.67f;
+        }();
+        return juce::Font (juce::FontOptions (titleTypeface()).withHeight (capHeight / capPerHeight));
+    }
 
     // Todos los textos un 22% más grandes que el diseño base (más legibles).
     constexpr float textScale = 1.22f;
