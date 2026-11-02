@@ -1270,7 +1270,7 @@ int main (int argc, char** argv)
             int grabbing = 0;
             std::function<void (juce::Component&)> visit = [&] (juce::Component& comp)
             {
-                if (dynamic_cast<juce::TextEditor*> (&comp) == nullptr && dynamic_cast<ScopeView*> (&comp) == nullptr
+                if (dynamic_cast<juce::TextEditor*> (&comp) == nullptr
                     && (comp.getWantsKeyboardFocus() || comp.getMouseClickGrabsKeyboardFocus()))
                     ++grabbing;
                 for (auto* ch : comp.getChildren())
@@ -1279,8 +1279,8 @@ int main (int argc, char** argv)
             visit (*ed);
             juce::KeyPress enter (juce::KeyPress::returnKey);
             check (grabbing == 0 && ! p->getMatchBypassButtonForTests().getWantsKeyboardFocus()
-                       && p->getScopeForTests().getWantsKeyboardFocus() && ! p->getScopeForTests().keyPressed (enter),
-                   "Teclado: ningún botón se queda con Enter/espacio; el osciloscopio toma el foco (para las manitos) sin usar Enter", grabbing);
+                       && ! p->getScopeForTests().getWantsKeyboardFocus() && ! p->getScopeForTests().keyPressed (enter),
+                   "Teclado: ningún botón ni el osciloscopio se queda con Enter/espacio", grabbing);
         }
         p->getMatchBypassButtonForTests().onClick();
         check (c.recv.apvts.getRawParameterValue (ParamIDs::matchBypass)->load() > 0.5f && p->getMatchBypassButtonForTests().getToggleState()
@@ -1669,14 +1669,14 @@ int main (int argc, char** argv)
             for (float x = pl.getX() + 8.0f; x < pl.getX() + 300.0f && showAll.x == 0; x += 2.0f)
                 if (sc.isShowAllAt ({ x, pl.getBottom() - 16.0f })) showAll = { x + 4.0f, pl.getBottom() - 16.0f };
             {
-                // Con el mouse encima: manito de clic (se entiende que se puede clickear).
+                // Con el mouse encima: la flecha (sin manito).
                 sc.mouseMove (mouse (showAll.x).withNewPosition (showAll));
-                const bool hand = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                const bool hand = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
                 const bool noRuler = ! sc.isHoverLineShownForTests();
                 const juce::Point<float> mid { pl.getCentreX(), pl.getCentreY() - 40.0f };
                 sc.mouseMove (mouse (mid.x).withNewPosition (mid));
                 const bool arrowOnWave = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
-                check (hand && noRuler && arrowOnWave, "Show all: con el mouse encima, manito de clic (y sin la regla); sobre la onda, la flecha", hand);
+                check (hand && noRuler && arrowOnWave, "Show all: con el mouse encima, la flecha (y sin la regla); sobre la onda, también", hand);
                 // Arrastrar para moverse: siempre con la flecha (sin manos abierta / cerrada).
                 const double startView = sc.getViewStart();
                 sc.mouseDown (mouse (mid.x).withNewPosition (mid));
@@ -1689,14 +1689,14 @@ int main (int argc, char** argv)
                 const bool arrowAfter = ! sc.isGrabbingForTests() && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
                 check (arrowOnPress && arrowWhileDragging && arrowAfter && panned,
                        "Zoom: arrastrar mueve la onda, siempre con la flecha", arrowOnPress * 1000 + arrowWhileDragging * 100 + arrowAfter * 10 + panned);
-                // Sobre la cajita de la regla: el dedo, al pasar y al clickear.
+                // Sobre la cajita de la regla: la flecha, al pasar y al clickear.
                 sc.setMarkerDb (-6.0f);
                 const auto tag = sc.getMarkerTagAreaForTests().getCentre();
                 sc.mouseMove (mouse (tag.x).withNewPosition (tag));
-                const bool fingerOver = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                const bool fingerOver = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
                 sc.mouseDown (mouse (tag.x).withNewPosition (tag));
                 const bool fingerPressed = ! sc.isGrabbingForTests()
-                                           && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                                           && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
                 sc.mouseUp (mouse (tag.x).withNewPosition (tag));
                 const bool tagRemoves = ! sc.isMarkerEditorOpen() && ! sc.getMarkerDb().has_value();
                 sc.mouseDoubleClick (mouse (tag.x).withNewPosition (tag));     // doble clic: vuelve y abre la caja
@@ -1708,7 +1708,7 @@ int main (int argc, char** argv)
                 sc.mouseMove (mouse (showAll.x).withNewPosition (showAll));
                 sc.mouseDown (mouse (showAll.x).withNewPosition (showAll));
                 const bool fingerOnShowAll = ! sc.isGrabbingForTests()
-                                             && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                                             && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
                 sc.mouseUp (mouse (showAll.x).withNewPosition (showAll));            // Show all: sin zoom
                 sc.setMarkerDb (-6.0f);
                 const auto tag2 = sc.getMarkerTagAreaForTests().getCentre();
@@ -1719,20 +1719,20 @@ int main (int argc, char** argv)
                 sc.setView (0.3, 0.1);
                 (void) sc.createComponentSnapshot (sc.getLocalBounds());
                 check (fingerOver && fingerPressed && fingerOnShowAll,
-                       "Zoom: el dedo sobre Show all y la cajita de la regla (al pasar y al apretar)", fingerOver * 100 + fingerPressed * 10 + fingerOnShowAll);
+                       "Zoom: la flecha también sobre Show all y la cajita de la regla (sin dedo)", fingerOver * 100 + fingerPressed * 10 + fingerOnShowAll);
                 {
-                    // Sobre la cajita gris oscura que sigue al mouse: también el dedo (al pasar y al apretar).
+                    // Sobre la cajita gris oscura que sigue al mouse: también la flecha.
                     const juce::Point<float> onHover { sc.getHoverTagAreaForTests (0).getCentreX(), pl.getCentreY() - 60.0f };
                     sc.mouseMove (mouse (onHover.x).withNewPosition (onHover));
-                    const bool fingerHover = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                    const bool fingerHover = sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
                     sc.mouseDown (mouse (onHover.x).withNewPosition (onHover));
                     const bool fingerHoverPressed = ! sc.isGrabbingForTests()
-                                                    && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::PointingHandCursor);
+                                                    && sc.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor);
                     sc.mouseUp (mouse (onHover.x).withNewPosition (onHover));
                     const bool placed = sc.getMarkerDb().has_value();
                     sc.setMarkerDb (std::nullopt);
                     check (fingerHover && fingerHoverPressed && placed,
-                           "Zoom: el dedo sobre la cajita gris que sigue al mouse (y el clic deja la regla)", fingerHover * 10 + fingerHoverPressed);
+                           "Zoom: la flecha sobre la cajita gris que sigue al mouse (y el clic deja la regla)", fingerHover * 10 + fingerHoverPressed);
                     (void) sc.createComponentSnapshot (sc.getLocalBounds());
                 }
                 sc.mouseMove (mouse (showAll.x).withNewPosition (showAll));

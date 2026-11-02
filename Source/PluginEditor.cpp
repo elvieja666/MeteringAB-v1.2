@@ -1482,22 +1482,13 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
 
     // Que ningún botón ni perilla se quede con el teclado al hacerle clic: así Enter,
     // espacio, etc. siguen yendo a Logic (antes, después de tocar un botón, Enter lo
-    // volvía a apretar). Toman el teclado solo las cajas de texto mientras escribís y el
-    // osciloscopio (que no usa ninguna tecla; ver disableKeyboardFocus).
+    // volvía a apretar). Toman el teclado solo las cajas de texto mientras escribís.
     disableKeyboardFocus (*this);
 }
 
 void MeteringABEditor::disableKeyboardFocus (juce::Component& c)
 {
-    // El osciloscopio sí toma el foco al hacerle clic: así la ventana del plugin queda activa y
-    // macOS muestra las manitos (abierta / cerrada); sin eso Logic volvía a poner la flecha.
-    // No usa ninguna tecla, así que Enter, espacio, etc. siguen yendo a Logic.
-    if (dynamic_cast<ScopeView*> (&c) != nullptr)
-    {
-        c.setWantsKeyboardFocus (true);
-        c.setMouseClickGrabsKeyboardFocus (true);
-    }
-    else if (dynamic_cast<juce::TextEditor*> (&c) == nullptr)
+    if (dynamic_cast<juce::TextEditor*> (&c) == nullptr)   // las cajas de texto sí (para escribir)
     {
         c.setWantsKeyboardFocus (false);
         c.setMouseClickGrabsKeyboardFocus (false);

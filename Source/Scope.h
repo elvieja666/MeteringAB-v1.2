@@ -116,13 +116,11 @@ public:
         return hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY) && ! isOnMarkerTag() && ! isOverShowAll()
                && hoverX >= plot.getRight() - 78.0f && hoverX <= plot.getRight() - 6.0f;
     }
-    // Puntero: la flecha siempre; el dedo solo con zoom sobre lo que se clickea ("Show all"
-    // y las cajitas de la regla). Arrastrar para moverse funciona igual, con la flecha
-    // (las manos abierta / cerrada no se veían bien en Logic).
+    // Puntero: siempre la flecha (sin manos ni dedo; en Logic no se veían bien).
     void updateCursor()
     {
-        setMouseCursor (isOverClickable() ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
-        updateMouseCursor();                                // que se vea ya
+        setMouseCursor (juce::MouseCursor::NormalCursor);
+        updateMouseCursor();
     }
     bool isGrabbingForTests() const { return grabbing; }
     int getLastSubdivisionsForTests() const { return lastSubdivisions; }
@@ -488,7 +486,7 @@ public:
             g.setColour (juce::Colour (0xffe8e6e3).withAlpha (0.75f));
             g.drawText (text, area.toNearestInt(), juce::Justification::centredLeft);
             const float w = juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), text);
-            // "Show all": se puede clickear (manito); con el mouse encima, más claro y subrayado.
+            // "Show all": se puede clickear; con el mouse encima, más claro y subrayado.
             const juce::String showAll ("Show all");
             const float sw = juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), showAll);
             zoomLabelArea = area.withTrimmedLeft (w).withWidth (sw + 2.0f).expanded (4.0f, 4.0f);
