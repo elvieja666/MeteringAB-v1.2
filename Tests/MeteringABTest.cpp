@@ -849,6 +849,27 @@ int main (int argc, char** argv)
             check (top.size() == 2 && inGrid.contains ("Show grid") && inGrid.contains ("Triplet grid") && inGrid[0] == "Auto",
                    "Options: Show grid y Triplet grid adentro de Grid (afuera solo Channels y Grid)", top.size());
         }
+        {
+            // Tocar una opción del menú no lo cierra: se aplica y el menú sigue abierto.
+            juce::PopupMenu::CustomComponent* tripletItem = nullptr;
+            for (juce::PopupMenu::MenuItemIterator it (optionsMenu, true); it.next();)
+                if (it.getItem().text == "Triplet grid")
+                    tripletItem = it.getItem().customComponent.get();
+            check (tripletItem != nullptr && ! tripletItem->isTriggeredAutomatically(),
+                   "Options: tocar Triplet grid no cierra el menú", tripletItem != nullptr ? 1 : 0);
+            if (tripletItem != nullptr)
+            {
+                tripletItem->setSize (103, 24);
+                const bool before = sc.getTripletGrid();
+                juce::MouseEvent ev (juce::Desktop::getInstance().getMainMouseSource(), { 10.0f, 10.0f }, {}, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                     tripletItem, tripletItem, juce::Time::getCurrentTime(), { 10.0f, 10.0f }, juce::Time::getCurrentTime(), 1, false);
+                tripletItem->mouseUp (ev);
+                check (sc.getTripletGrid() != before && (bool) p->getProcessorStateForTests().getProperty ("scopeGridTriplets") != before,
+                       "Options: Triplet grid se aplica al tocarlo (con el menú abierto)", 1);
+                tripletItem->mouseUp (ev);
+                check (sc.getTripletGrid() == before, "Options: tocarlo otra vez lo vuelve a apagar", 1);
+            }
+        }
         p->applyStyleMenuResult (410 + 3);                         // 1/16
         check ((int) p->getProcessorStateForTests().getProperty ("scopeGridDivision") == 16 && sc.getGridDivision() == 16 && subdivisionsShown() == 4,
                "Grid 1/16: 4 líneas por tiempo", sc.getLastSubdivisionsForTests());

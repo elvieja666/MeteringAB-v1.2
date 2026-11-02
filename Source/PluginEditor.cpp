@@ -674,27 +674,106 @@ static const std::array<std::pair<const char*, juce::uint32>, 9> waveColours {{
     { "Red",         0xffeb5757 }, { "Violet",      0xff9b8cff }, { "Lime",       0xffb5e655 },
 }};
 
-// Menú del botón Options: canales y grilla.
+// Fila del menú de Options que NO cierra el menú al tocarla: aplica la opción y se
+// redibuja (y también las demás filas del menú, para que los tildes y los textos
+// "Grid: ..." / "Channels: ..." muestren el estado nuevo al instante).
+namespace
+{
+struct LiveMenuItem : juce::PopupMenu::CustomComponent
+{
+    using Group = std::vector<juce::Component::SafePointer<juce::Component>>;
+
+    LiveMenuItem (std::shared_ptr<Group> g, juce::LookAndFeel& lf, int rowHeight, bool submenu,
+                  std::function<juce::String()> textFn, std::function<bool()> tickedFn, std::function<void()> onClick)
+        : CustomComponent (false), group (std::move (g)), lookAndFeel (lf), height (rowHeight), hasSubMenu (submenu),
+          text (std::move (textFn)), ticked (std::move (tickedFn)), action (std::move (onClick))
+    {
+        group->push_back (this);
+    }
+
+    void getIdealSize (int& idealWidth, int& idealHeight) override
+    {
+        lookAndFeel.getIdealPopupMenuItemSize (text(), false, height, idealWidth, idealHeight);
+    }
+
+    // JUCE achica las filas propias 2 px de cada lado: ocupar la fila entera, como las normales
+    // (así el texto arranca en el mismo lugar que en el menú de bars).
+    void resized() override
+    {
+        if (auto* row = getParentComponent(); row != nullptr && getBounds() != row->getLocalBounds())
+            setBounds (row->getLocalBounds());
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        getLookAndFeel().drawPopupMenuItem (g, getLocalBounds(), false, true, isItemHighlighted(),
+                                            ticked != nullptr && ticked(), hasSubMenu, text(), {}, nullptr, nullptr);
+    }
+
+    void mouseUp (const juce::MouseEvent& e) override
+    {
+        if (action == nullptr || ! getLocalBounds().contains (e.getPosition()))
+            return;
+        action();
+        for (auto& c : *group)
+            if (c != nullptr)
+                c->repaint();
+    }
+
+    std::shared_ptr<Group> group;
+    juce::LookAndFeel& lookAndFeel;
+    int height;
+    bool hasSubMenu;
+    std::function<juce::String()> text;
+    std::function<bool()> ticked;
+    std::function<void()> action;
+};
+}
+
+// Menú del botón Options: canales y grilla. Las opciones se aplican sin cerrar el menú.
 juce::PopupMenu MeteringABPanel::buildStyleMenu() const
 {
-    auto& state = processor.apvts.state;
+    auto* self = const_cast<MeteringABPanel*> (this);
+    juce::Component::SafePointer<MeteringABPanel> safe (self);
+    auto group = std::make_shared<LiveMenuItem::Group>();
+    const int rowHeight = optionsButton.getHeight() > 0 ? optionsButton.getHeight() : windowValueHeight;
+
+    auto channelsNow = [safe] { return safe != nullptr ? juce::jlimit (0, ScopeView::channelNames.size() - 1,
+                                                                       (int) safe->processor.apvts.state.getProperty ("scopeChannels", 0)) : 0; };
+    auto addItem = [&] (juce::PopupMenu& m, int id, std::function<juce::String()> text, std::function<bool()> ticked,
+                        std::unique_ptr<juce::PopupMenu> sub = nullptr)
+    {
+        juce::PopupMenu::Item item (text());
+        item.itemID = id;
+        const bool hasSub = sub != nullptr;
+        item.subMenu = std::move (sub);
+        item.isTicked = ticked != nullptr && ticked();
+        item.customComponent = new LiveMenuItem (group, self->chipLnf, rowHeight, hasSub, std::move (text), std::move (ticked),
+                                                 hasSub ? std::function<void()>() : [safe, id] { if (safe != nullptr) safe->applyStyleMenuResult (id); });
+        m.addItem (std::move (item));
+    };
+
     juce::PopupMenu menu;
 
-    juce::PopupMenu channelsMenu;
-    const int channels = (int) state.getProperty ("scopeChannels", 0);
+    auto channelsMenu = std::make_unique<juce::PopupMenu>();
     for (int i = 0; i < ScopeView::channelNames.size(); ++i)
-        channelsMenu.addItem (500 + i, ScopeView::channelNames[i], true, channels == i);
-    menu.addSubMenu ("Channels: " + ScopeView::channelNames[juce::jlimit (0, ScopeView::channelNames.size() - 1, channels)], channelsMenu);
+        addItem (*channelsMenu, 500 + i, [i] { return ScopeView::channelNames[i]; }, [channelsNow, i] { return channelsNow() == i; });
+    addItem (menu, 0, [channelsNow] { return "Channels: " + ScopeView::channelNames[channelsNow()]; }, nullptr, std::move (channelsMenu));
+
     // Grid: la resolución (Auto, 1/4 ... 1/64) y, abajo, mostrar la grilla y los tresillos.
-    juce::PopupMenu gridMenu;
-    const bool triplets = scope.getTripletGrid();
+    auto gridMenu = std::make_unique<juce::PopupMenu>();
+    auto triplets = [safe] { return safe != nullptr && safe->scope.getTripletGrid(); };
+    auto division = [safe] { return safe != nullptr ? safe->scope.getGridDivision() : 0; };
     for (size_t i = 0; i < ScopeView::gridDivisions.size(); ++i)
-        gridMenu.addItem (410 + (int) i, ScopeView::gridDivisionName (ScopeView::gridDivisions[i], triplets),
-                          true, scope.getGridDivision() == ScopeView::gridDivisions[i]);
-    gridMenu.addSeparator();
-    gridMenu.addItem (400, "Show grid", true, scope.getShowGrid());
-    gridMenu.addItem (401, "Triplet grid", true, triplets);
-    menu.addSubMenu ("Grid: " + ScopeView::gridDivisionName (scope.getGridDivision(), triplets), gridMenu);
+    {
+        const int d = ScopeView::gridDivisions[i];
+        addItem (*gridMenu, 410 + (int) i, [d, triplets] { return ScopeView::gridDivisionName (d, triplets()); },
+                 [d, division] { return division() == d; });
+    }
+    gridMenu->addSeparator();
+    addItem (*gridMenu, 400, [] { return juce::String ("Show grid"); }, [safe] { return safe != nullptr && safe->scope.getShowGrid(); });
+    addItem (*gridMenu, 401, [] { return juce::String ("Triplet grid"); }, triplets);
+    addItem (menu, 0, [division, triplets] { return "Grid: " + ScopeView::gridDivisionName (division(), triplets()); }, nullptr, std::move (gridMenu));
     return menu;
 }
 
