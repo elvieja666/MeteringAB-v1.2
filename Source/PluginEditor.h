@@ -209,6 +209,11 @@ public:
 private:
     juce::Component* styleMenuAnchor = nullptr;
     int styleMenuOpenedForTests = 0;
+    bool styleMenuOpen = false;                       // el menú de Options está abierto
+    juce::uint32 styleMenuClosedAtMs = 0;             // cuándo se cerró (para no reabrirlo con el mismo clic)
+public:
+    void markStyleMenuClosedForTests()          { styleMenuClosedAtMs = juce::Time::getMillisecondCounter(); }
+private:
     void applyScopeLook();                            // lee estilo y colores guardados
     void pickCustomColour (bool forPre);
     void updateScopeSection();

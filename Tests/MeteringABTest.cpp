@@ -1838,6 +1838,10 @@ int main (int argc, char** argv)
         panel->getOptionsButtonForTests().onClick();
         check (panel->getStyleMenuOpenedForTests() == 1 && panel->getOptionsButtonForTests().isVisible(),
                "Options: abre el menú de canales y grilla", panel->getStyleMenuOpenedForTests());
+        panel->markStyleMenuClosedForTests();            // el menú se acaba de cerrar con un clic sobre Options
+        panel->getOptionsButtonForTests().onClick();     // ese mismo clic le llega al botón
+        check (panel->getStyleMenuOpenedForTests() == 1,
+               "Options: el clic que cierra el menú no lo vuelve a abrir", panel->getStyleMenuOpenedForTests());
         std::set<int> ids;
         std::function<void (const juce::PopupMenu&)> walk = [&] (const juce::PopupMenu& m)
         {

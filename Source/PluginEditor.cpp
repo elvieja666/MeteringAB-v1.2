@@ -827,6 +827,16 @@ juce::PopupMenu::Options MeteringABPanel::styleMenuOptions (juce::Component& anc
 
 void MeteringABPanel::showStyleMenu (juce::Component& anchor)
 {
+    // Clic en Options con el menú abierto: lo cierra y no lo vuelve a abrir. (El clic que cierra el
+    // menú también le llegaba al botón, que lo abría otra vez enseguida.)
+    if (styleMenuOpen)
+    {
+        juce::PopupMenu::dismissAllActiveMenus();
+        return;
+    }
+    if (juce::Time::getMillisecondCounter() - styleMenuClosedAtMs < 300)
+        return;
+
     styleMenuAnchor = &anchor;
     ++styleMenuOpenedForTests;
 
@@ -835,11 +845,15 @@ void MeteringABPanel::showStyleMenu (juce::Component& anchor)
 
     auto menu = buildStyleMenu();
     menu.setLookAndFeel (&chipLnf);                // letra como la de la píldora Options (12.5 light)
+    styleMenuOpen = true;
     menu.showMenuAsync (styleMenuOptions (anchor),
                                           [safe = juce::Component::SafePointer<MeteringABPanel> (this)] (int result)
     {
-        if (safe != nullptr)
-            safe->applyStyleMenuResult (result);
+        if (safe == nullptr)
+            return;
+        safe->styleMenuOpen = false;
+        safe->styleMenuClosedAtMs = juce::Time::getMillisecondCounter();
+        safe->applyStyleMenuResult (result);
     });
 }
 
