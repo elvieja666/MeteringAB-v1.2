@@ -63,7 +63,7 @@ bash ~/Downloads/Unison-mac/desinstalar.command
    - **Primer slot:** Unison → modo **Send (antes de FX)**, Link ID **1**.
    - **En el medio:** tus efectos (compresor, EQ, saturador, lo que sea).
    - **Último slot:** otro Unison → modo **Receive (después de FX)**, Link ID **1**.
-3. Dale play. En el Receive tiene que decir en verde **Conectado al Send**.
+3. Dale play. En el Receive tiene que decir en azul **"Connected to the Send on Link ID 1."**
 
 ### Los controles (en el Receive)
 
@@ -117,6 +117,7 @@ Muestra la onda que estás escuchando: **PRE FX** (gris) o **POST FX** (azul), e
 
 ## Para curiosos: cómo está armado
 
+- `Manual/` · el manual en PDF que va en el zip (`Manual Unison.pdf`) y su fuente (`manual.html` + capturas). Para regenerarlo: `node Manual/topdf.js "$PWD/Manual/manual.html" "$PWD/Manual/Manual Unison.pdf"` (con Playwright).
 - `Source/PluginProcessor.cpp` · el procesamiento de audio (Send y Receive).
 - `Source/LoudnessMeter.h` · el medidor LUFS (filtro K de la norma ITU-R BS.1770).
 - `Source/SharedBus.h` · el "cable invisible" que conecta el Send con el Receive.

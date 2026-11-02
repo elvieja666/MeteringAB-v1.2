@@ -38,6 +38,7 @@ jobs:
           codesign --force --deep -s - "salida/Unison.component"
           codesign --force --deep -s - "salida/Unison.vst3"
           cp instalar.command desinstalar.command salida/
+          cp "Manual/Manual Unison.pdf" salida/
           cp Resources/Fonts/OFL.txt "salida/Licencia letra Inter (OFL).txt"
           chmod +x salida/instalar.command salida/desinstalar.command
           cd salida

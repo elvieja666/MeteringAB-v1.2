@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Unison · Manual</title>
+<style>
+@font-face { font-family: Akira; src: url("../Resources/Fonts/AkiraExpanded-Demo.otf"); }
+@font-face { font-family: InterM; src: url("../Resources/Fonts/Inter-Regular.otf"); font-weight: 400; }
+@font-face { font-family: InterM; src: url("../Resources/Fonts/Inter-Light.otf"); font-weight: 300; }
+@font-face { font-family: InterM; src: url("../Resources/Fonts/Inter-Medium.otf"); font-weight: 500; }
+@font-face { font-family: InterM; src: url("../Resources/Fonts/Inter-SemiBold.otf"); font-weight: 600; }
+@page { size: A4; margin: 18mm 18mm 20mm 18mm; }
+:root { --ink:#22252a; --dim:#6b7078; --line:#e2e4e8; --accent:#2f7fe0; --orange:#e2772e; --soft:#f3f4f6; }
+* { box-sizing: border-box; }
+body { font-family: InterM, sans-serif; font-weight: 400; color: var(--ink); font-size: 10.2pt; line-height: 1.5; margin: 0; }
+h1, .brand { font-family: Akira, sans-serif; font-weight: normal; letter-spacing: 0.02em; }
+h2 { font-weight: 600; font-size: 15pt; margin: 0 0 8pt; padding-top: 2pt; border-bottom: 1px solid var(--line); padding-bottom: 5pt; }
+h3 { font-weight: 600; font-size: 11pt; margin: 14pt 0 4pt; }
+p { margin: 0 0 7pt; }
+ul, ol { margin: 0 0 8pt; padding-left: 16pt; }
+li { margin-bottom: 3pt; }
+b { font-weight: 600; }
+.ui { font-weight: 500; background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; white-space: nowrap; }
+code { font-family: Menlo, monospace; font-size: 9pt; background: var(--soft); padding: 1px 4px; border-radius: 3px; }
+pre { font-family: Menlo, monospace; font-size: 9pt; background: #1d2026; color: #e8e8e8; padding: 8pt 10pt; border-radius: 6px; margin: 4pt 0 10pt; }
+.page { page-break-after: always; }
+.page:last-child { page-break-after: auto; }
+figure { margin: 6pt 0 12pt; }
+figure img { width: 100%; border-radius: 6px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 8.5pt; color: var(--dim); margin-top: 4pt; }
+.note { background: #eef5fe; border-left: 3px solid var(--accent); padding: 7pt 10pt; border-radius: 0 6px 6px 0; margin: 8pt 0 10pt; }
+.warn { background: #fdf2ea; border-left: 3px solid var(--orange); padding: 7pt 10pt; border-radius: 0 6px 6px 0; margin: 8pt 0 10pt; }
+table { width: 100%; border-collapse: collapse; margin: 4pt 0 10pt; font-size: 9.6pt; }
+td, th { text-align: left; vertical-align: top; padding: 5pt 6pt; border-bottom: 1px solid var(--line); }
+th { font-weight: 600; color: var(--dim); font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.04em; }
+td:first-child { width: 30%; font-weight: 500; }
+.two { display: flex; gap: 14pt; align-items: flex-start; }
+.two .col-img { width: 38%; flex: none; }
+.two .col-txt { flex: 1; }
+.cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; }
+.cover h1 { font-size: 54pt; margin: 0; color: var(--ink); }
+.cover .sub { font-size: 14pt; color: var(--dim); margin-top: 6pt; font-weight: 300; }
+.cover .ver { margin-top: 28pt; font-size: 9.5pt; color: var(--dim); }
+.cover img { margin-top: 26pt; width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+.steps { counter-reset: s; list-style: none; padding-left: 0; }
+.steps li { counter-increment: s; padding-left: 24pt; position: relative; margin-bottom: 6pt; }
+.steps li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 16pt; height: 16pt; border-radius: 50%; background: var(--ink); color: #fff; font-size: 8.5pt; font-weight: 600; text-align: center; line-height: 16pt; }
+.toc li { margin-bottom: 2pt; }
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <h1>UNISON</h1>
+  <div class="sub">Comparación A/B con volumen igualado, para Logic Pro</div>
+  <img src="receive-abierto.png" alt="">
+  <div class="ver">Manual de uso · versión 1.0.18 · Audio Unit y VST3 para Mac (Apple Silicon e Intel)</div>
+</section>
+
+<section class="page">
+  <h2>Qué es Unison</h2>
+  <p>Cuando procesás un sonido (compresor, EQ, saturador…), casi siempre cambia también su volumen. Y lo que suena más fuerte parece sonar mejor, aunque no lo sea. <b>Unison</b> te deja comparar el sonido <b>antes y después de tus efectos al mismo volumen</b>, para que juzgues solo lo que cambió.</p>
+  <p>Funciona con <b>dos instancias</b> del mismo plugin en la misma pista:</p>
+  <ul>
+    <li><b>Send</b>, en el primer slot: “mira” el audio original. No lo cambia para nada.</li>
+    <li><b>Receive</b>, en el último slot: recibe el original, mide los dos en <b>LUFS</b> e iguala el volumen del procesado. Desde ahí escuchás <b>PRE FX</b> (original) o <b>POST FX</b> (procesado) con un solo botón.</li>
+  </ul>
+  <p>Además trae un <b>osciloscopio sincronizado al tempo</b> para ver la onda, compás por compás.</p>
+
+  <h3>Contenido</h3>
+  <ol class="toc">
+    <li>Instalación</li>
+    <li>Puesta en marcha (en 1 minuto)</li>
+    <li>La columna de controles</li>
+    <li>El osciloscopio</li>
+    <li>Tamaño de la ventana</li>
+    <li>Consejos y problemas comunes</li>
+    <li>Desinstalar</li>
+  </ol>
+
+  <h2 style="margin-top:18pt">1. Instalación</h2>
+  <ol class="steps">
+    <li>Descomprimí <code>Unison-mac.zip</code>. Queda una carpeta <b>Unison-mac</b> con el plugin, el instalador y este manual.</li>
+    <li>Hacé doble clic en <code>instalar.command</code>. Si macOS no te deja abrirlo, abrí la <b>Terminal</b> y pegá:
+      <pre>bash ~/Downloads/Unison-mac/instalar.command</pre></li>
+    <li>Cuando dice <b>Listo</b>, abrí Logic. Lo encontrás en <span class="ui">Audio Units &gt; 0600musica &gt; Unison</span>.</li>
+  </ol>
+  <p>Se instala en tu usuario y no pide contraseña. Si tenías una versión anterior (<b>Metering A/B</b> o <b>Unison A/B</b>), el instalador la borra sola: es el mismo plugin y tus proyectos lo siguen abriendo con todos sus ajustes.</p>
+  <div class="note">Si Logic no lo muestra o sigue mostrando el nombre viejo: <span class="ui">Logic Pro &gt; Settings &gt; Plug-in Manager</span>, buscá Unison y tocá <b>Reset &amp; Rescan Selection</b>.</div>
+</section>
+
+<section class="page">
+  <h2>2. Puesta en marcha (en 1 minuto)</h2>
+  <ol class="steps">
+    <li>En la pista que querés comparar, en el <b>primer slot</b>, cargá Unison y elegí <span class="ui">Send (before FX)</span>. Dejá el <b>Link ID</b> en 1.</li>
+    <li>Debajo, tus efectos, los que quieras.</li>
+    <li>En el <b>último slot</b>, cargá otro Unison y elegí <span class="ui">Receive (after FX)</span>, con el mismo <b>Link ID</b> (1).</li>
+    <li>Dale play. En el Receive tiene que aparecer en azul <b>“Connected to the Send on Link ID 1.”</b></li>
+    <li>Si tus efectos agregan latencia (EQ de fase lineal, limitadores con lookahead, oversampling), tocá <span class="ui">Measure</span> con el tema sonando.</li>
+    <li>Tocá el botón grande para alternar entre <b>PRE FX</b> y <b>POST FX</b>. Los dos suenan al mismo volumen.</li>
+  </ol>
+
+  <figure>
+    <img src="send.png" alt="" style="width:62%">
+    <figcaption>El Send: solo muestra el modo, el Link ID y su estado. No toca el audio.</figcaption>
+  </figure>
+
+  <h3>Mensajes de estado (en el Receive)</h3>
+  <table>
+    <tr><th>Mensaje</th><th>Qué significa</th></tr>
+    <tr><td>Connected to the Send on Link ID N.</td><td>Todo bien: recibe el audio del Send.</td></tr>
+    <tr><td>Connected to Send on Link ID N · no audio yet</td><td>Encontró el Send, pero todavía no le llega audio (proyecto recién abierto, pista vacía o Logic parado). No es un error.</td></tr>
+    <tr><td>No Send on Link ID N.</td><td>No hay ningún Send con ese número. Revisá el Link ID de los dos.</td></tr>
+    <tr><td>More than one Send on Link ID N: change one.</td><td>Dos Send usan el mismo número. Cada pista tiene que tener el suyo.</td></tr>
+  </table>
+  <p>Podés usar Unison en varias pistas a la vez: cada par Send/Receive con su propio <b>Link ID</b> (de 1 a 16).</p>
+</section>
+
+<section class="page">
+  <h2>3. La columna de controles</h2>
+  <div class="two">
+    <div class="col-img"><img src="columna.png" alt="" style="width:100%;border-radius:6px;border:1px solid var(--line)"></div>
+    <div class="col-txt">
+      <h3 style="margin-top:0">Modo, Link ID y estado</h3>
+      <p><span class="ui">Receive / Send</span> elige el modo. <b>Link ID</b> conecta un Send con su Receive: con <b>−</b> y <b>+</b> o con un clic en el número para escribirlo.</p>
+      <h3>Los medidores</h3>
+      <ul>
+        <li><b>Original (Send)</b>: el volumen del audio antes de tus efectos, en LUFS.</li>
+        <li><b>Processed</b>: el volumen después de tus efectos.</li>
+        <li><b>Applied gain</b>: cuánto sube o baja Unison el procesado para igualarlo (hasta ±24 dB).</li>
+      </ul>
+      <p>Con Logic en pausa, los números bajan de a poco a −∞, pero la medición no se borra: al volver a dar play sigue desde ahí y la ganancia arranca estable. <b>Clic sobre los números</b> = borrar la medición y medir de cero.</p>
+      <h3>Window</h3>
+      <p>Cuánto tiempo promedia la medición. En <span class="ui">ms</span> elegís milisegundos (de 100 a 60000; por defecto 3000). En <span class="ui">Sync</span> elegís compases (de 1/4 bar a 8 bars) según el tempo del proyecto, y la lectura de un loop queda quieta. Abajo ves la equivalencia.</p>
+      <h3>Latency</h3>
+      <p>Compensa efectos que retrasan el audio. Con el tema sonando, tocá <span class="ui">Measure</span>: en unos segundos encuentra el retraso exacto, con decimales, y lo muestra en <b>samples</b> y en ms. Si el procesado no se parece lo suficiente al original (por ejemplo, una reverb 100% wet), te avisa en vez de poner un valor dudoso. Si cambiás los efectos, volvé a medir.</p>
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>3. La columna de controles <span style="color:var(--dim);font-weight:400">(continuación)</span></h2>
+  <div class="two">
+    <div class="col-img"><img src="bypass.png" alt="" style="width:100%;border-radius:6px;border:1px solid var(--line)"><div style="font-size:8.5pt;color:var(--dim);margin-top:4pt">Con Bypass prendido (naranja) y la ventana en Sync.</div></div>
+    <div class="col-txt">
+      <h3 style="margin-top:0">Listen: PRE FX / POST FX</h3>
+      <p>El botón grande alterna lo que escuchás:</p>
+      <ul>
+        <li><b>PRE FX</b> (gris): el original, antes de tus efectos.</li>
+        <li><b>POST FX</b> (azul): con tus efectos, al mismo volumen que el original.</li>
+      </ul>
+      <p>El cambio tiene un crossfade de 10 ms, así que no hace clicks. Es un parámetro de Logic, así que lo podés asignar a una tecla o a un control MIDI para comparar sin mirar la pantalla. El volumen se mide en <b>LUFS (filtro K, ITU-R BS.1770)</b>.</p>
+      <h3>Bypass</h3>
+      <p>Apaga el igualado: con Bypass prendido (naranja), POST FX suena con su volumen real. La ganancia se sigue midiendo y se ve en gris, y al lado de Listen dice “Match gain bypassed (real level)”. Se puede automatizar.</p>
+      <h3>Scope</h3>
+      <p>Abre y cierra el osciloscopio. Cerrado queda solo esta columna. Se acuerda de cómo lo dejaste.</p>
+      <h3>Valores exactos</h3>
+      <ul>
+        <li><b>Clic en un valor</b> (por ejemplo 3000 ms o el Link ID): escribís el número y Enter. Acepta coma o punto.</li>
+        <li><b>Shift + arrastrar</b> la perilla: ajuste fino.</li>
+        <li><b>Doble clic</b> en la perilla: vuelve al valor por defecto.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>4. El osciloscopio</h2>
+  <figure>
+    <img src="scope-barra.png" alt="">
+    <figcaption>La barra de arriba del osciloscopio: Gain, Freeze, Options y el largo.</figcaption>
+  </figure>
+  <p>Muestra la onda que estás escuchando: <b>PRE FX</b> en gris o <b>POST FX</b> en azul, ya nivelado al volumen del original. Al alternar, la onda nueva va apareciendo a medida que avanza el cabezal.</p>
+  <ul>
+    <li><b>Sincronizado al tempo:</b> el ancho es un largo musical (1/4 bar, 1/2 bar, 1 bar, 2 bars o 4 bars) que elegís en la píldora de la derecha. Arriba tiene la grilla de tiempos.</li>
+    <li><b>Barre de izquierda a derecha</b> siguiendo la canción; la línea blanca es el cabezal. Con Logic en pausa se queda quieto, y si movés el cursor, el cabezal lo sigue. Al dar play se limpia y dibuja desde ahí.</li>
+    <li><b>Escala en dB:</b> 0 arriba y abajo, −6, −12, −18 y −∞ en el centro.</li>
+  </ul>
+  <h3>La barra de arriba</h3>
+  <table>
+    <tr><th>Botón</th><th>Qué hace</th></tr>
+    <tr><td>Gain</td><td>Dibuja una línea punteada al nivel de la ganancia aplicada. Otro clic la saca.</td></tr>
+    <tr><td>Freeze</td><td>Congela el osciloscopio (ideal para hacer zoom con calma). Otro clic lo descongela.</td></tr>
+    <tr><td>Options</td><td><b>Channels:</b> L + R (sum), L only, R only o L and R split (L arriba, R abajo).<br><b>Grid:</b> la resolución de la grilla (Auto, que se achica con el zoom, o fija en 1/4 a 1/64), <b>Show grid</b> (mostrar las líneas) y <b>Triplet grid</b> (grilla en tresillos).</td></tr>
+    <tr><td>Largo (1 bar…)</td><td>Cuántos compases entran a lo ancho.</td></tr>
+  </table>
+  <div class="note">Los menús de <b>Options</b> y del <b>largo</b> no se cierran al elegir: cada opción se aplica al instante y podés probar varias seguidas. Se cierran con un clic afuera, con Esc o con otro clic sobre la píldora.</div>
+  <h3>Zoom</h3>
+  <p>Con la <b>rueda del mouse</b> o <b>pellizcando el trackpad</b>, centrado donde está el mouse, hasta ver la onda muestra por muestra. <b>Arrastrá</b> (o deslizá de costado en el trackpad) para moverte, y tocá <b>Show all</b> (abajo a la izquierda) para volver a ver todo. Funciona en vivo y congelado.</p>
+  <h3>Regla de nivel</h3>
+  <p>Al pasar el mouse aparece una línea horizontal con su valor en dB. <b>Clic</b>: la línea queda fija. Clic sobre ella o sobre su cartelito: la saca. <b>Doble clic</b>: escribís un valor exacto (por ejemplo −6) y Enter.</p>
+  <p>Sirve, por ejemplo, para ver cuánto achica un compresor los golpes: alterná PRE y POST y fijate cuánto bajan los picos.</p>
+</section>
+
+<section class="page">
+  <h2>5. Tamaño de la ventana</h2>
+  <ul>
+    <li>Arrastrá la <b>esquina de abajo a la derecha</b> para agrandar o achicar el plugin (de 40% a 150%). Todo crece en proporción, con el osciloscopio abierto o cerrado.</li>
+    <li><b>Option + clic</b> en esa esquina: vuelve al tamaño de fábrica.</li>
+    <li>El tamaño se guarda con el proyecto. El Send usa el mismo tamaño que el Receive.</li>
+  </ul>
+
+  <h2 style="margin-top:18pt">6. Consejos y problemas comunes</h2>
+  <h3>Consejos</h3>
+  <ul>
+    <li><b>Ventana recomendada:</b> Sync con 1 o 2 bars para comparar sobre un loop, o unos 3000 ms. Evitá ventanas de menos de 1 segundo: el igualado se movería con cada golpe.</li>
+    <li><b>Medí la latencia</b> cada vez que cambies los efectos de la cadena.</li>
+    <li>Asigná el botón <b>PRE/POST FX</b> a una tecla y compará con los ojos cerrados.</li>
+    <li>El Send no cambia el audio: lo podés dejar siempre puesto.</li>
+  </ul>
+  <h3>Problemas comunes</h3>
+  <table>
+    <tr><th>Problema</th><th>Solución</th></tr>
+    <tr><td>Logic no muestra Unison</td><td>Plug-in Manager → Reset &amp; Rescan Selection. Revisá que el instalador haya dicho “Listo”.</td></tr>
+    <tr><td>“No Send on Link ID…”</td><td>El Send y el Receive tienen que tener el mismo Link ID, y el Send tiene que estar antes de los efectos.</td></tr>
+    <tr><td>“More than one Send…”</td><td>Dos pistas usan el mismo Link ID: cambiá uno.</td></tr>
+    <tr><td>PRE y POST suenan desfasados o “huecos”</td><td>Falta compensar latencia: tocá Measure con el tema sonando.</td></tr>
+    <tr><td>Measure avisa que no pudo medir</td><td>El procesado es muy distinto del original (reverb 100% wet, efectos muy fuertes). Probá medir con el efecto más suave (por ejemplo, la reverb menos wet) y después volvé a subirlo.</td></tr>
+    <tr><td>Applied gain muestra “—”</td><td>Todavía no hay audio medido: dale play.</td></tr>
+  </table>
+
+  <h2 style="margin-top:18pt">7. Desinstalar</h2>
+  <p>Con Logic cerrado, hacé doble clic en <code>desinstalar.command</code> o pegá en la Terminal:</p>
+  <pre>bash ~/Downloads/Unison-mac/desinstalar.command</pre>
+  <p>Borra Unison (y también las versiones viejas, Metering A/B y Unison A/B) de las carpetas de plugins de tu usuario. Tus proyectos no se tocan.</p>
+  <p style="margin-top:16pt;color:var(--dim);font-size:8.5pt">Unison usa la letra Inter (licencia libre SIL OFL) y Akira Expanded (Typologic).</p>
+</section>
+
+</body>
+</html>
