@@ -24,6 +24,34 @@ public:
 //   plain   = solo texto (− y + de Link ID)
 //   bypass  = pastilla de Match Gain Bypass (prendida = naranja)
 //   scopetoggle = pastilla de Scope con el triángulo (abierto = azul)
+// Selector cuyo menú se cierra con un clic sobre él y no se vuelve a abrir con ese mismo clic.
+class ToggleComboBox : public juce::ComboBox, private juce::Timer
+{
+public:
+    void showPopup() override
+    {
+        if (juce::Time::getMillisecondCounter() - closedAtMs < 300)   // el clic que acaba de cerrarlo
+        {
+            hidePopup();
+            return;
+        }
+        juce::ComboBox::showPopup();
+        startTimer (30);                              // para saber cuándo se cierra
+    }
+    void markClosedForTests()                         { closedAtMs = juce::Time::getMillisecondCounter(); }
+
+private:
+    void timerCallback() override
+    {
+        if (! isPopupActive())
+        {
+            closedAtMs = juce::Time::getMillisecondCounter();
+            stopTimer();
+        }
+    }
+    juce::uint32 closedAtMs = 0;
+};
+
 class MeteringABLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -110,7 +138,7 @@ public:
     void refreshNow() { timerCallback(); }
     const ScopeView& getScopeForTests() const { return scope; }
     ScopeView& getScopeForTests()             { return scope; }
-    juce::ComboBox& getZoomBoxForTests()      { return zoomBox; }
+    ToggleComboBox& getZoomBoxForTests()      { return zoomBox; }
     juce::ComboBox& getModeBoxForTests()      { return modeBox; }
     juce::PopupMenu::Options styleMenuOptions (juce::Component& anchor) const;   // menú de Options: filas del alto de la píldora
     juce::LookAndFeel& getChipLookAndFeelForTests() { return chipLnf; }
@@ -192,7 +220,7 @@ private:
     juce::TooltipWindow tooltipWindow { this, 700 };
     ScopeView scope { processor };
     juce::Label scopeLabel;
-    juce::ComboBox zoomBox;
+    ToggleComboBox zoomBox;
     bool matchBypassShown = false;                    // Match Gain Bypass prendido (ganancia en gris)
     juce::TextButton optionsButton { "Options" };     // menú: canales (L / R / suma) y grilla
     juce::TextButton freezeButton { "Freeze" };       // congelar el osciloscopio (para hacer zoom quieto)

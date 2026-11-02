@@ -1842,6 +1842,12 @@ int main (int argc, char** argv)
         panel->getOptionsButtonForTests().onClick();     // ese mismo clic le llega al botón
         check (panel->getStyleMenuOpenedForTests() == 1,
                "Options: el clic que cierra el menú no lo vuelve a abrir", panel->getStyleMenuOpenedForTests());
+        {
+            auto& zb = panel->getZoomBoxForTests();
+            zb.markClosedForTests();                     // el menú de bars se acaba de cerrar con un clic sobre la píldora
+            zb.showPopup();                              // ese mismo clic
+            check (! zb.isPopupActive(), "Bars: el clic que cierra el menú no lo vuelve a abrir", zb.isPopupActive() ? 1 : 0);
+        }
         std::set<int> ids;
         std::function<void (const juce::PopupMenu&)> walk = [&] (const juce::PopupMenu& m)
         {
