@@ -1215,8 +1215,8 @@ void MeteringABPanel::paint (juce::Graphics& g)
         g.fillRect (sideW, 0, getWidth() - sideW, getHeight());
     }
 
-    // Título "UNISON A/B" en Akira Expanded, mayúsculas de titleCapHeight px, centradas (de
-    // arriba abajo) en el primer cuarto de la primera parte.
+    // Título "UNISON A/B" en Akira Expanded, mayúsculas de titleCapHeight px, a la misma
+    // distancia del borde de arriba que de la píldora Receive / Send.
     {
         g.setColour (juce::Colour (0xff3a3d42));
         const float cap = titleCapHeight;
@@ -1228,7 +1228,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
         u.addLineOfText (Theme::titleFont (cap), "U", 0.0f, 0.0f);
         u.createPath (firstLetter);                      // la "U" marca la altura de las mayúsculas
         const auto ub = firstLetter.getBounds();
-        const float capTop = (float) sectionHeights[0] / 8.0f - ub.getHeight() * 0.5f;
+        const float capTop = ((float) modeBox.getY() - ub.getHeight()) * 0.5f;   // mismo espacio arriba (borde) y abajo (píldora Receive)
         g.fillPath (text, juce::AffineTransform::translation (20.0f - ub.getX(), capTop - ub.getY()));
     }
 
