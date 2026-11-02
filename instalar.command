@@ -1,6 +1,6 @@
 #!/bin/bash
-# Instalador de Unison para Mac. Dejalo en la misma carpeta que "Unison.component" y
-# "Unison.vst3" (la carpeta que sale del zip) y hace doble clic. Se instala en tu usuario.
+# Instalador de UNISON para Mac. Dejalo en la misma carpeta que "UNISON.component" y
+# "UNISON.vst3" (la carpeta que sale del zip) y hace doble clic. Se instala en tu usuario.
 cd "$(dirname "$0")" || exit 1
 
 VST3_DIR="$HOME/Library/Audio/Plug-Ins/VST3"
@@ -30,16 +30,16 @@ while IFS= read -r -d '' p; do
   xattr -cr "$destino/$nombre"                                      # saca el bloqueo de macOS (descargado de internet)
   codesign --force --deep --sign - "$destino/$nombre" 2>/dev/null   # firma local, para que macOS lo deje cargar
   instalados=$((instalados+1))
-done < <(find . -maxdepth 3 \( -name "Unison.vst3" -o -name "Unison.component" \) -print0)
+done < <(find . -maxdepth 3 \( -name "UNISON.vst3" -o -name "UNISON.component" \) -print0)
 
 if [ "$instalados" -eq 0 ]; then
-  echo "No encontre Unison.component ni Unison.vst3 al lado de este archivo."
+  echo "No encontre UNISON.component ni UNISON.vst3 al lado de este archivo."
 else
   # que Logic vuelva a leer los plugins
   killall -9 AudioComponentRegistrar 2>/dev/null
   echo ""
-  echo "Listo, Unison instalado ($instalados archivos)."
-  echo "Abri Logic y buscalo en Audio Units > 0600musica > Unison."
+  echo "Listo, UNISON instalado ($instalados archivos)."
+  echo "Abri Logic y buscalo en Audio Units > 0600musica > UNISON."
   echo "Si no aparece: Logic Pro > Settings > Plug-in Manager > Reset & Rescan All."
   echo "Arquitectura de esta Mac: $(uname -m)"
 fi

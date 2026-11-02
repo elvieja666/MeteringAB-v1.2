@@ -1,9 +1,9 @@
 # ---------------------------------------------------------------------------
-#  GitHub compila Unison en una Mac en la nube cada vez que subís
+#  GitHub compila UNISON en una Mac en la nube cada vez que subís
 #  cambios (o cuando tocás "Run workflow" en la pestaña Actions).
 #  El plugin terminado aparece en la sección "Releases" del repositorio.
 # ---------------------------------------------------------------------------
-name: Compilar Unison
+name: Compilar UNISON
 
 on:
   push:
@@ -33,15 +33,15 @@ jobs:
           set -e
           ART="build/MeteringAB_artefacts/Release"
           mkdir -p salida
-          cp -R "$ART/AU/Unison.component" salida/
-          cp -R "$ART/VST3/Unison.vst3" salida/
-          codesign --force --deep -s - "salida/Unison.component"
-          codesign --force --deep -s - "salida/Unison.vst3"
+          cp -R "$ART/AU/UNISON.component" salida/
+          cp -R "$ART/VST3/UNISON.vst3" salida/
+          codesign --force --deep -s - "salida/UNISON.component"
+          codesign --force --deep -s - "salida/UNISON.vst3"
           cp instalar.command desinstalar.command salida/
-          cp "Manual/Manual Unison.pdf" salida/
+          cp "Manual/Manual UNISON.pdf" salida/
           chmod +x salida/instalar.command salida/desinstalar.command
           cd salida
-          ditto -c -k --sequesterRsrc . ../Unison.zip
+          ditto -c -k --sequesterRsrc . ../UNISON.zip
 
       - name: Validar el Audio Unit (igual que Logic)
         continue-on-error: true
@@ -55,13 +55,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete ultima --cleanup-tag -y || true
-          gh release create ultima Unison.zip \
-            --title "Unison (última versión)" \
-            --notes "Bajá Unison.zip y seguí el paso A3 del LEEME para instalarlo." \
+          gh release create ultima UNISON.zip \
+            --title "UNISON (última versión)" \
+            --notes "Bajá UNISON.zip y seguí el paso A3 del LEEME para instalarlo." \
             --target "$GITHUB_SHA"
 
       - name: Guardar también como artefacto
         uses: actions/upload-artifact@v4
         with:
-          name: Unison
-          path: Unison.zip
+          name: UNISON
+          path: UNISON.zip

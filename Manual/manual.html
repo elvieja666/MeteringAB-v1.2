@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Unison · Manual</title>
+<title>UNISON · Manual</title>
 <style>
 @font-face { font-family: Akira; src: url("../Resources/Fonts/AkiraExpanded-Demo.otf"); }
 @font-face { font-family: InterM; src: url("../Resources/Fonts/Inter-Regular.otf"); font-weight: 400; }
@@ -58,12 +58,12 @@ td:first-child { width: 30%; font-weight: 500; }
   <h1>UNISON</h1>
   <div class="sub">Comparación A/B con volumen igualado</div>
   <img src="receive-abierto.png" alt="">
-  <div class="ver">Manual de uso · versión 1.0.18 · Audio Unit y VST3 para Mac (Apple Silicon e Intel)</div>
+  <div class="ver">Manual de uso · versión 1.0.19 · Audio Unit y VST3 para Mac (Apple Silicon e Intel)</div>
 </section>
 
 <section class="page">
-  <h2>Qué es Unison</h2>
-  <p>Cuando procesás un sonido (compresor, EQ, saturador…), casi siempre cambia también su volumen. Y lo que suena más fuerte parece sonar mejor, aunque no lo sea. <b>Unison</b> te deja comparar el sonido <b>antes y después de tus efectos al mismo volumen</b>, para que juzgues solo lo que cambió.</p>
+  <h2>Qué es UNISON</h2>
+  <p>Cuando procesás un sonido (compresor, EQ, saturador…), casi siempre cambia también su volumen. Y lo que suena más fuerte parece sonar mejor, aunque no lo sea. <b>UNISON</b> te deja comparar el sonido <b>antes y después de tus efectos al mismo volumen</b>, para que juzgues solo lo que cambió.</p>
   <p>Funciona con <b>dos instancias</b> del mismo plugin en la misma pista:</p>
   <ul>
     <li><b>Send</b>, en el primer slot: “mira” el audio original. No lo cambia para nada.</li>
@@ -84,7 +84,7 @@ td:first-child { width: 30%; font-weight: 500; }
 
   <h2 style="margin-top:18pt">1. Instalación</h2>
   <ol class="steps">
-    <li>Descomprimí <code>Unison.zip</code>. Queda una carpeta <b>Unison</b> con el plugin, el instalador y este manual.</li>
+    <li>Descomprimí <code>UNISON.zip</code>. Queda una carpeta <b>UNISON</b> con el plugin, el instalador y este manual.</li>
     <li>Hacé doble clic en <code>instalar.command</code>.
       <p style="margin:4pt 0 4pt">Si macOS muestra un cartel que dice que no puede verificarlo y te ofrece <b>Move to Trash</b> (tirarlo a la papelera), tocá <b>Done</b> y:</p>
       <ol style="margin:0 0 6pt">
@@ -93,20 +93,20 @@ td:first-child { width: 30%; font-weight: 500; }
         <li>Volvé a hacer doble clic en <code>instalar.command</code> y, si pregunta otra vez, tocá <b>Open</b>.</li>
       </ol>
       También podés saltear el cartel abriendo la <b>Terminal</b> y pegando:
-      <pre>bash ~/Downloads/Unison/instalar.command</pre></li>
+      <pre>bash ~/Downloads/UNISON/instalar.command</pre></li>
   </ol>
 </section>
 
 <section class="page">
   <h2>2. Puesta en marcha (en 1 minuto)</h2>
   <ol class="steps">
-    <li>En la pista que querés comparar, en el <b>primer slot</b>, cargá Unison y elegí <span class="ui">Send (before FX)</span>. Dejá el <b>Link ID</b> en 1.
+    <li>En la pista que querés comparar, en el <b>primer slot</b>, cargá UNISON y elegí <span class="ui">Send (before FX)</span>. Dejá el <b>Link ID</b> en 1.
       <figure style="margin:6pt 0 4pt">
         <img src="send.png" alt="" style="width:70%">
         <figcaption>El Send: solo muestra el modo, el Link ID y su estado. No toca el audio.</figcaption>
       </figure></li>
     <li>Debajo, tus efectos, los que quieras.</li>
-    <li>En el <b>último slot</b>, cargá otro Unison y elegí <span class="ui">Receive (after FX)</span>, con el mismo <b>Link ID</b> (1).</li>
+    <li>En el <b>último slot</b>, cargá otro UNISON y elegí <span class="ui">Receive (after FX)</span>, con el mismo <b>Link ID</b> (1).</li>
     <li>Dale play. En el Receive tiene que aparecer en azul <b>“Connected to the Send on Link ID 1.”</b></li>
     <li>Si tus efectos agregan latencia (EQ de fase lineal, limitadores con lookahead, oversampling), tocá <span class="ui">Measure</span> con el tema sonando.</li>
     <li>Tocá el botón grande para alternar entre <b>PRE FX</b> y <b>POST FX</b>. Los dos suenan al mismo volumen.</li>
@@ -120,7 +120,7 @@ td:first-child { width: 30%; font-weight: 500; }
     <tr><td>No Send on Link ID N.</td><td>No hay ningún Send con ese número. Revisá el Link ID de los dos.</td></tr>
     <tr><td>More than one Send on Link ID N: change one.</td><td>Dos Send usan el mismo número. Cada pista tiene que tener el suyo.</td></tr>
   </table>
-  <p>Podés usar Unison en varias pistas a la vez: cada par Send/Receive con su propio <b>Link ID</b> (de 1 a 16).</p>
+  <p>Podés usar UNISON en varias pistas a la vez: cada par Send/Receive con su propio <b>Link ID</b> (de 1 a 16).</p>
 </section>
 
 <section class="page">
@@ -134,7 +134,7 @@ td:first-child { width: 30%; font-weight: 500; }
       <ul>
         <li><b>Original (Send)</b>: el volumen del audio antes de tus efectos, en LUFS.</li>
         <li><b>Processed</b>: el volumen después de tus efectos.</li>
-        <li><b>Applied gain</b>: cuánto sube o baja Unison el procesado para igualarlo (hasta ±24 dB).</li>
+        <li><b>Applied gain</b>: cuánto sube o baja UNISON el procesado para igualarlo (hasta ±24 dB).</li>
       </ul>
       <p>Con el DAW en pausa, los números bajan de a poco a −∞, pero la medición no se borra: al volver a dar play sigue desde ahí y la ganancia arranca estable. <b>Clic sobre los números</b> = borrar la medición y medir de cero.</p>
       <h3>Window</h3>
@@ -218,9 +218,9 @@ td:first-child { width: 30%; font-weight: 500; }
   <h3>Problemas comunes</h3>
   <table>
     <tr><th>Problema</th><th>Solución</th></tr>
-    <tr><td>El DAW no muestra Unison (o muestra el nombre viejo)</td><td>Revisá que el instalador haya dicho “Listo” y hacé que el DAW vuelva a buscar plugins:
+    <tr><td>El DAW no muestra UNISON (o muestra el nombre viejo)</td><td>Revisá que el instalador haya dicho “Listo” y hacé que el DAW vuelva a buscar plugins:
       <ul style="margin:3pt 0 0">
-        <li><b>Logic Pro</b> (Audio Unit): <span class="ui">Settings &gt; Plug-in Manager</span>, buscá Unison y tocá <b>Reset &amp; Rescan Selection</b>.</li>
+        <li><b>Logic Pro</b> (Audio Unit): <span class="ui">Settings &gt; Plug-in Manager</span>, buscá UNISON y tocá <b>Reset &amp; Rescan Selection</b>.</li>
         <li><b>Ableton Live</b>: <span class="ui">Settings &gt; Plug-Ins</span> → <b>Rescan</b> (con Option apretado hace una búsqueda completa).</li>
         <li><b>REAPER</b>: <span class="ui">Settings &gt; Plug-ins &gt; VST</span> → <b>Re-scan</b>.</li>
         <li><b>Otros DAW</b>: buscá en las preferencias de plugins la opción <b>Rescan</b> o “buscar plugins”. Si tu DAW usa VST3, el plugin está en la carpeta VST3 de tu usuario.</li>
@@ -235,7 +235,7 @@ td:first-child { width: 30%; font-weight: 500; }
   <div style="break-inside: avoid; page-break-inside: avoid">
   <h2 style="margin-top:18pt">7. Desinstalar</h2>
   <p>Con el DAW cerrado, hacé doble clic en <code>desinstalar.command</code> o pegá en la Terminal:</p>
-  <pre>bash ~/Downloads/Unison/desinstalar.command</pre>
+  <pre>bash ~/Downloads/UNISON/desinstalar.command</pre>
   <p>Si macOS muestra el cartel de “Move to Trash”, hacé lo mismo que con el instalador: <span class="ui">System Settings &gt; Privacy &amp; Security</span> → <b>Open Anyway</b>.</p>
   </div>
 </section>

@@ -1,8 +1,8 @@
-# Unison
+# UNISON
 
 *(Antes se llamaba Metering A/B y después Unison A/B. Es el mismo plugin: los proyectos de Logic que lo usaban lo siguen abriendo, y el instalador borra solo las versiones viejas.)*
 
-Plugin de matcheo de loudness Send/Receive para Logic. El volumen se iguala siempre automáticamente. Ponés un Unison antes de tu cadena de efectos y otro después: el segundo iguala automáticamente el volumen, así comparás el sonido con y sin efectos sin que te engañe el "más fuerte suena mejor". Todas las perillas aceptan valores exactos escritos con el teclado.
+Plugin de matcheo de loudness Send/Receive para Logic. El volumen se iguala siempre automáticamente. Ponés un UNISON antes de tu cadena de efectos y otro después: el segundo iguala automáticamente el volumen, así comparás el sonido con y sin efectos sin que te engañe el "más fuerte suena mejor". Todas las perillas aceptan valores exactos escritos con el teclado.
 
 ---
 
@@ -26,17 +26,17 @@ El plugin se compila en GitHub, en una Mac en la nube: vos no instalás nada de 
 ## 2. Esperar la compilación
 
 1. Arriba en tu repositorio tocá la pestaña **Actions**.
-2. Vas a ver "Compilar Unison" con un círculo amarillo girando: está compilando y corriendo las pruebas automáticas. Tarda unos 10 a 15 minutos.
+2. Vas a ver "Compilar UNISON" con un círculo amarillo girando: está compilando y corriendo las pruebas automáticas. Tarda unos 10 a 15 minutos.
 3. Cuando aparece un tilde verde ✅, está listo. Si aparece una cruz roja ❌, tocala, sacá una captura y mandámela.
 
 ## 3. Bajar e instalar el plugin
 
-1. Volvé a la página principal del repositorio. A la derecha, en **Releases**, tocá **Unison (última versión)**.
-2. Bajá **Unison.zip**. Si Safari no lo descomprime solo, hacé doble clic: queda una carpeta **Unison** en Descargas.
+1. Volvé a la página principal del repositorio. A la derecha, en **Releases**, tocá **UNISON (última versión)**.
+2. Bajá **UNISON.zip**. Si Safari no lo descomprime solo, hacé doble clic: queda una carpeta **UNISON** en Descargas.
 3. Abrí la **Terminal** (Cmd + Espacio, escribí "Terminal"), pegá esto y apretá Enter:
 
 ```
-bash ~/Downloads/Unison/instalar.command
+bash ~/Downloads/UNISON/instalar.command
 ```
 
 Cuando dice **Listo**, pasá a **Usarlo en Logic**, más abajo. (También podés hacer doble clic en `instalar.command`.)
@@ -44,7 +44,7 @@ Cuando dice **Listo**, pasá a **Usarlo en Logic**, más abajo. (También podés
 Se instala en tu usuario (no pide contraseña). Para **desinstalarlo**, con Logic cerrado:
 
 ```
-bash ~/Downloads/Unison/desinstalar.command
+bash ~/Downloads/UNISON/desinstalar.command
 ```
 
 ## Cuando haya una versión nueva
@@ -58,11 +58,11 @@ bash ~/Downloads/Unison/desinstalar.command
 ## Usarlo en Logic
 
 1. Abrí Logic. Si te pregunta por plugins nuevos, dejá que los valide.
-   Si no aparece: menú **Logic Pro > Configuración (Settings) > Plug-in Manager**, buscá Unison y tocá **Reset & Rescan Selection**.
+   Si no aparece: menú **Logic Pro > Configuración (Settings) > Plug-in Manager**, buscá UNISON y tocá **Reset & Rescan Selection**.
 2. En la pista donde querés comparar:
-   - **Primer slot:** Unison → modo **Send (antes de FX)**, Link ID **1**.
+   - **Primer slot:** UNISON → modo **Send (antes de FX)**, Link ID **1**.
    - **En el medio:** tus efectos (compresor, EQ, saturador, lo que sea).
-   - **Último slot:** otro Unison → modo **Receive (después de FX)**, Link ID **1**.
+   - **Último slot:** otro UNISON → modo **Receive (después de FX)**, Link ID **1**.
 3. Dale play. En el Receive tiene que decir en azul **"Connected to the Send on Link ID 1."**
 
 ### Los controles (en el Receive)
@@ -108,7 +108,7 @@ Muestra la onda que estás escuchando: **PRE FX** (gris) o **POST FX** (azul), e
 
 ### Tips
 
-- **Cada pista con su propio Link ID** (1 a 16). Si dos Send usan el mismo número, Unison te avisa en rojo.
+- **Cada pista con su propio Link ID** (1 a 16). Si dos Send usan el mismo número, UNISON te avisa en rojo.
 - **Latencia:** usá el botón **Measure** con el tema sonando. Si cambiás de efectos, volvé a medir.
 - El Send no cambia el audio para nada; solo lo "mira".
 - **Ventana recomendada:** Sync con 1 o 2 bars para comparar sobre un loop; en ms, unos 3000 ms. Evitá ventanas muy cortas (menos de 1 segundo): la corrección se movería con cada golpe y alteraría la comparación.
@@ -117,7 +117,7 @@ Muestra la onda que estás escuchando: **PRE FX** (gris) o **POST FX** (azul), e
 
 ## Para curiosos: cómo está armado
 
-- `Manual/` · el manual en PDF que va en el zip (`Manual Unison.pdf`) y su fuente (`manual.html` + capturas). Para regenerarlo: `node Manual/topdf.js "$PWD/Manual/manual.html" "$PWD/Manual/Manual Unison.pdf"` (con Playwright).
+- `Manual/` · el manual en PDF que va en el zip (`Manual UNISON.pdf`) y su fuente (`manual.html` + capturas). Para regenerarlo: `node Manual/topdf.js "$PWD/Manual/manual.html" "$PWD/Manual/Manual UNISON.pdf"` (con Playwright).
 - `Source/PluginProcessor.cpp` · el procesamiento de audio (Send y Receive).
 - `Source/LoudnessMeter.h` · el medidor LUFS (filtro K de la norma ITU-R BS.1770).
 - `Source/SharedBus.h` · el "cable invisible" que conecta el Send con el Receive.
