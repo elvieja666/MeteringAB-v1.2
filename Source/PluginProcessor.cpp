@@ -463,6 +463,7 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
 
         gainSmoother.setCurrentAndTargetValue (1.0f);
         scopeWasPlaying = false;                        // el próximo play arranca de cero
+        scopeNextLoopPos = -1;
         scopeIsRunning.store (false, std::memory_order_relaxed);
         displayPre  = -120.0f;
         displayPost = paused ? -120.0f : (float) postMeter.getDecibels();
@@ -600,6 +601,20 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
 
     scopeWasPlaying = scopeRunning;
     scopeLastBlockPpq = hostHasPpq ? hostPpq : 0.0;
+
+    // Continuidad: Logic da la posición de cada bloque con decimales y, al pasarla a una muestra
+    // exacta, a veces cae una de más o de menos que donde terminó el bloque anterior. Eso salteaba
+    // un casillero del detalle (quedaba con el valor de otra vuelta o en cero: una raya vertical
+    // suelta en el zoom). Si el bloque arranca a 1 o 2 muestras de donde terminó el anterior,
+    // sigue exactamente desde ahí; un salto más grande (ciclo, mover el cursor) se respeta.
+    if (scopeRunning && scopeNextLoopPos >= 0 && scopeNextLoopSamples == loopSamples)
+    {
+        auto d = loopPos - scopeNextLoopPos;
+        if (d > loopSamples / 2)       d -= loopSamples;
+        else if (d < -(loopSamples / 2)) d += loopSamples;
+        if (d != 0 && std::abs (d) <= 2)
+            loopPos = scopeNextLoopPos;
+    }
     double songQuarters = hostHasPpq ? hostPpq : scopePlayStartQuarters;   // posición del audio que llega
 
     // Modo ciclo: si Logic vuelve al principio del ciclo en el medio de este bloque, desde esa
@@ -733,6 +748,8 @@ void MeteringABProcessor::processReceive (juce::AudioBuffer<float>& buffer, Link
     }
 
     scopePhaseQuarters = scopeQuarters;
+    scopeNextLoopPos = scopeRunning ? loopPos : -1;
+    scopeNextLoopSamples = loopSamples;
     scopeIsRunning.store (scopeRunning, std::memory_order_relaxed);
     scopeCurrentBin.store (juce::jlimit (0, scopeBins - 1, (int) (scopeQuarters / loopQuarters * scopeBins)), std::memory_order_relaxed);
 
@@ -786,6 +803,7 @@ void MeteringABProcessor::clearScope()
 
     lastScopeBin = -1;
     lastRawSlot = -1;
+    scopeNextLoopPos = -1;
 
     // El detalle de muestra (zoom) NO se borra acá: eran hasta 3 millones de valores en
     // el audio, en cada play. La pantalla ignora los casilleros de columnas sin datos

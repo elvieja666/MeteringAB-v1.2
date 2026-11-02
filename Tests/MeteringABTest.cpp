@@ -82,6 +82,8 @@ struct Chain
     bool saturate = false, pulsing = false;                    // para las capturas del osciloscopio
     long long sampleCount = 0;
     long long loopLen = 0;                                     // > 0: un loop de Logic (modo ciclo) de este largo en muestras
+    double ppqJitterSamples = 0.0;                             // > 0: Logic informa la posición con decimales "de más" (± muestras)
+    juce::Random jitterRng { 11 };
     float lpState[2] = { 0.0f, 0.0f };
 
     int block = 512;                                           // tamaño de bloque del "host"
@@ -124,6 +126,8 @@ struct Chain
             }
             dry.makeCopyOf (buf);
             head.ppq = (double) (loopLen > 0 ? (sampleCount - block) % loopLen : sampleCount - block) * 120.0 / 60.0 / 48000.0;
+            if (ppqJitterSamples > 0.0)
+                head.ppq = juce::jmax (0.0, head.ppq + (jitterRng.nextDouble() * 2.0 - 1.0) * ppqJitterSamples * 120.0 / 60.0 / 48000.0);
             send.processBlock (buf, midi);
             // "Efecto": ganancia + latencia
             for (int i = 0; i < block; ++i)
@@ -1217,6 +1221,25 @@ int main (int argc, char** argv)
             diff += a1[k] != a2[k] ? 1 : 0;
         check (! a1.empty() && a1.size() == a2.size() && diff == 0,
                "Osciloscopio en un loop: cada vuelta se dibuja igual, muestra por muestra (casilleros distintos)", diff);
+    }
+    {
+        // Logic informa la posición de cada bloque con decimales que, redondeados, caen a veces una
+        // muestra antes o después: el detalle (zoom) no tiene que quedar con casilleros salteados
+        // (rayas verticales sueltas), igual que sin ese "ruido" en la posición.
+        Chain clean (13, -3.0f, 0), noisy (14, -3.0f, 0);
+        for (auto* c : { &clean, &noisy }) { c->block = 448; c->loopLen = 4 * 24000; }
+        noisy.ppqJitterSamples = 0.9;
+        clean.run (8.2); noisy.run (8.2);
+        int diff = 0, holes = 0;
+        const int slots = clean.recv.scopeRawSlots.load();
+        for (int k = 0; k < slots; ++k)
+        {
+            const auto a = clean.recv.scopeRaw[0][(size_t) k].load(), b = noisy.recv.scopeRaw[0][(size_t) k].load();
+            diff += a != b ? 1 : 0;
+            holes += (b == 0u && a != 0u) ? 1 : 0;
+        }
+        check (slots == noisy.recv.scopeRawSlots.load() && diff == 0,
+               "Osciloscopio: con la posición de Logic redondeada de más o de menos, ningún casillero salteado (rayas sueltas)", diff * 1000 + holes);
     }
     {
         // Ciclo de Logic más corto que el osciloscopio (1 negra, osciloscopio de 1 compás) y que

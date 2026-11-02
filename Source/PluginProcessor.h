@@ -188,6 +188,8 @@ private:
     double scopePhaseQuarters = 0.0;                  // dónde va el barrido (en negras)
     int    lastScopeBin = -1, lastScopeLength = -1, lastRawSlot = -1;
     bool   scopeWasPlaying = false;                   // para detectar cuándo se da play
+    juce::int64 scopeNextLoopPos = -1;                // muestra del loop donde terminó el bloque anterior (-1 = no sigue)
+    juce::int64 scopeNextLoopSamples = 0;
     bool   scopeGateOpen = true;                      // false solo durante el tramo previo al play
     double scopeLastBlockPpq = 0.0;                   // para detectar saltos hacia atrás (ciclo)
     double scopePlayStartQuarters = 0.0;              // dónde se dio play (en negras)
