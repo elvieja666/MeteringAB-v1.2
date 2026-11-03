@@ -771,16 +771,22 @@ int main (int argc, char** argv)
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
         auto* outer = dynamic_cast<MeteringABEditor*> (ed.get());
-        check (ed->isResizable() && std::abs (outer->getHeight() - 1.05f * 497.0f) < 1.5f
+        check ((dynamic_cast<MeteringABEditor*> (ed.get())->getCornerForTests() != nullptr) && std::abs (outer->getHeight() - 1.05f * 497.0f) < 1.5f
                    && std::abs (panelOf (ed)->getScopeForTests().getHeight() * outer->getUiScale() - (float) MeteringABPanel::scopeHeight * MeteringABEditor::defaultScale) < 1.0f,
                "Escalable: por defecto el plugin mide 522 px de alto (el osciloscopio en proporción)", outer->getHeight());
+        {
+            auto* c = outer->getCornerForTests();
+            check (c != nullptr && c->getWidth() == 24 && c->getHeight() == 24
+                       && c->getRight() == ed->getWidth() && c->getBottom() == ed->getHeight(),
+                   "Esquina para escalar: 24 x 24 px, abajo a la derecha", c != nullptr ? c->getWidth() : 0);
+        }
         outer->setUiScale (1.5f);
         check (ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * 1.5) && ed->getHeight() == juce::roundToInt (MeteringABPanel::receiveHeight * 1.5),
                "Escalable: al 150% todo crece en proporción (alto px)", ed->getHeight());
         check (std::abs (outer->getPanel().getTransform().mat00 - 1.5f) < 1.0e-4f, "Escalable: el contenido se dibuja al 150%", outer->getPanel().getTransform().mat00);
         {
             // Option + clic en la esquina de escalar: vuelve al tamaño por defecto.
-            auto* corner = outer->resizableCorner.get();
+            auto* corner = outer->getCornerForTests();
             auto click = [&] (juce::ModifierKeys mods)
             {
                 juce::MouseEvent ev (juce::Desktop::getInstance().getMainMouseSource(), { 3.0f, 3.0f }, mods, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -795,10 +801,10 @@ int main (int argc, char** argv)
         outer->setUiScale (1.5f);
         setParam (a, ParamIDs::mode, 0); panelOf (ed)->refreshNow();
         check (ed->getWidth() == juce::roundToInt (MeteringABPanel::sendWidth * 1.5) && ed->getHeight() == juce::roundToInt (MeteringABEditor::sendHeight * 1.5)
-               && ! ed->isResizable(),
+               && ! (dynamic_cast<MeteringABEditor*> (ed.get())->getCornerForTests() != nullptr),
                "Send: la misma escala que el Receive, sin esquina para escalar (alto px)", ed->getHeight());
         setParam (a, ParamIDs::mode, 1); panelOf (ed)->refreshNow();
-        check (ed->isResizable() && ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * 1.5),
+        check ((dynamic_cast<MeteringABEditor*> (ed.get())->getCornerForTests() != nullptr) && ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * 1.5),
                "Volver a Receive: recupera su escala y la esquina", ed->getWidth());
         ed->setSize (MeteringABPanel::receiveWidth, MeteringABPanel::receiveHeight);   // como arrastrar la esquina
         check (std::abs (outer->getUiScale() - 1.0f) < 1.0e-3f, "Escalable: arrastrar la esquina cambia la escala", outer->getUiScale());
@@ -968,13 +974,13 @@ int main (int argc, char** argv)
         check (! p->isScopeOpenForTests() && ! p->getScopeForTests().isVisible() && p->getWidth() == MeteringABPanel::sideWidth
                && ! p->getScopeToggleForTests().getToggleState(),
                "Scope: un plugin nuevo se abre con el osciloscopio cerrado (solo la columna gris)", p->getWidth());
-        check (ed->isResizable(), "Scope cerrado: también con la esquina para escalar", ed->isResizable() ? 1 : 0);
+        check ((dynamic_cast<MeteringABEditor*> (ed.get())->getCornerForTests() != nullptr), "Scope cerrado: también con la esquina para escalar", (dynamic_cast<MeteringABEditor*> (ed.get())->getCornerForTests() != nullptr) ? 1 : 0);
         {
             auto* outer = dynamic_cast<MeteringABEditor*> (ed.get());
             const float before = outer->getUiScale();
             ed->setSize (juce::roundToInt (MeteringABPanel::sideWidth * 1.2f), juce::roundToInt (MeteringABPanel::receiveHeight * 1.2f));   // arrastrar la esquina
             check (std::abs (outer->getUiScale() - 1.2f) < 2.0e-3f, "Scope cerrado: arrastrar la esquina cambia la escala", outer->getUiScale());
-            auto* corner = outer->resizableCorner.get();
+            auto* corner = outer->getCornerForTests();
             juce::MouseEvent ev (juce::Desktop::getInstance().getMainMouseSource(), { 3.0f, 3.0f }, juce::ModifierKeys (juce::ModifierKeys::altModifier),
                                  1.0f, 0.0f, 0.0f, 0.0f, 0.0f, corner, corner, juce::Time::getCurrentTime(), { 3.0f, 3.0f }, juce::Time::getCurrentTime(), 1, false);
             if (corner != nullptr) outer->mouseUp (ev);
@@ -986,7 +992,7 @@ int main (int argc, char** argv)
         p->getScopeToggleForTests().onClick();
         check (p->isScopeOpenForTests() && p->getScopeForTests().isVisible() && p->getWidth() == MeteringABPanel::receiveWidth,
                "Scope: al abrirlo vuelve el osciloscopio (ancho)", p->getWidth());
-        check (ed->isResizable(), "Scope abierto: con la esquina para escalar", ed->isResizable() ? 1 : 0);
+        check ((dynamic_cast<MeteringABEditor*> (ed.get())->getCornerForTests() != nullptr), "Scope abierto: con la esquina para escalar", (dynamic_cast<MeteringABEditor*> (ed.get())->getCornerForTests() != nullptr) ? 1 : 0);
         {
             std::unique_ptr<juce::AudioProcessorEditor> ed2 (a.createEditor());
             check (panelOf (ed2)->isScopeOpenForTests() && panelOf (ed2)->getWidth() == MeteringABPanel::receiveWidth,
@@ -1001,7 +1007,7 @@ int main (int argc, char** argv)
         p->getScopeToggleForTests().onClick();
         check (! p->isScopeOpenForTests() && p->getWidth() == MeteringABPanel::sideWidth,
                "Scope: al cerrarlo queda solo la columna gris (ancho)", p->getWidth());
-        check (ed->isResizable() && ed->getWidth() == juce::roundToInt ((float) MeteringABPanel::sideWidth * dynamic_cast<MeteringABEditor*> (ed.get())->getUiScale()),
+        check ((dynamic_cast<MeteringABEditor*> (ed.get())->getCornerForTests() != nullptr) && ed->getWidth() == juce::roundToInt ((float) MeteringABPanel::sideWidth * dynamic_cast<MeteringABEditor*> (ed.get())->getUiScale()),
                "Scope cerrado: con esquina y con la misma escala", ed->getWidth());
         {
             std::unique_ptr<juce::AudioProcessorEditor> ed4 (a.createEditor());

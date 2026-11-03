@@ -1550,7 +1550,7 @@ MeteringABEditor::MeteringABEditor (MeteringABProcessor& p)
     scale = juce::jlimit (minScale, maxScale, (float) (double) meteringProcessor.apvts.state.getProperty ("uiScaleV6", (double) defaultScale));
 
     // Esquina para arrastrar; mantiene la proporción del plugin.
-    setResizable (true, true);
+    setResizable (true, false);                       // la esquina la pone fitToPanel (24 x 24)
     setConstrainer (&constrainer);
     fitToPanel();
 
@@ -1574,8 +1574,8 @@ void MeteringABEditor::disableKeyboardFocus (juce::Component& c)
 
 MeteringABEditor::~MeteringABEditor()
 {
-    if (resizableCorner != nullptr)
-        resizableCorner->setLookAndFeel (nullptr);     // la esquina es de la clase base: vive más que cornerLookAndFeel
+    if (corner != nullptr)
+        corner->setLookAndFeel (nullptr);
 }
 
 void MeteringABEditor::paint (juce::Graphics& g)
@@ -1592,12 +1592,18 @@ void MeteringABEditor::fitToPanel()
     // El Receive se escala (con el osciloscopio abierto o cerrado). El Send usa la misma
     // escala, pero sin la esquina para escalar.
     const bool canResize = ! send;
-    setResizable (canResize, canResize);
-    if (resizableCorner != nullptr)                  // Option + clic en la esquina: tamaño por defecto
+    setResizable (canResize, false);                 // el host lo puede escalar; la esquina es la nuestra
+    if (canResize && corner == nullptr)
     {
-        resizableCorner->removeMouseListener (this);
-        resizableCorner->addMouseListener (this, false);
-        resizableCorner->setLookAndFeel (&cornerLookAndFeel);   // sin las rayitas diagonales
+        corner = std::make_unique<juce::ResizableCornerComponent> (this, &constrainer);
+        corner->setLookAndFeel (&cornerLookAndFeel);   // sin las rayitas diagonales
+        corner->addMouseListener (this, false);         // Option + clic en la esquina: tamaño por defecto
+        addAndMakeVisible (*corner);
+    }
+    else if (! canResize && corner != nullptr)
+    {
+        corner->setLookAndFeel (nullptr);
+        corner.reset();
     }
     shownScale = scale;
 
@@ -1625,6 +1631,11 @@ void MeteringABEditor::resized()
 
     panel.setTransform (juce::AffineTransform::scale (shownScale));
 
+    if (corner != nullptr)
+    {
+        corner->setBounds (getWidth() - cornerSize, getHeight() - cornerSize, cornerSize, cornerSize);
+        corner->toFront (false);
+    }
 }
 
 void MeteringABEditor::setUiScale (float newScale)
@@ -1643,6 +1654,6 @@ void MeteringABEditor::childBoundsChanged (juce::Component* child)
 // Option + clic en la esquina de escalar (abajo a la derecha): vuelve al tamaño por defecto.
 void MeteringABEditor::mouseUp (const juce::MouseEvent& e)
 {
-    if (e.mods.isAltDown() && resizableCorner != nullptr && e.eventComponent == resizableCorner.get())
+    if (e.mods.isAltDown() && corner != nullptr && e.eventComponent == corner.get())
         setUiScale (defaultScale);
 }

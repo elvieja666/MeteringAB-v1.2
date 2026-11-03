@@ -317,6 +317,12 @@ private:
         void drawCornerResizer (juce::Graphics&, int, int, bool, bool) override {}
     };
     InvisibleCornerLookAndFeel cornerLookAndFeel;
+    // La esquina para escalar es propia (la de JUCE mide fijo 18 x 18): 24 x 24 px de pantalla.
+    static constexpr int cornerSize = 24;
+    std::unique_ptr<juce::ResizableCornerComponent> corner;
+public:
+    juce::Component* getCornerForTests() const       { return corner.get(); }
+private:
     float scale = 1.0f;                               // escala del Receive (la que elegís con la esquina)
     float shownScale = 1.0f;                          // la que se usa ahora (Send: la misma que el Receive)
     bool fitting = false;
