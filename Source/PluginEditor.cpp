@@ -598,7 +598,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     addAndMakeVisible (optionsButton);
 
     freezeButton.setClickingTogglesState (false);
-    freezeButton.getProperties().set ("chipColour", (juce::int64) Theme::accentBright.getARGB());
+    freezeButton.getProperties().set ("chipColour", (juce::int64) 0xffeceef1);   // prendido: gris claro, como Gain
     freezeButton.onClick = [this]
     {
         scope.setFrozen (! scope.isFrozen());
