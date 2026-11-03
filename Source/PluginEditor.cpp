@@ -159,17 +159,37 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
     Theme::drawRaised (g, raisedShape (r), radius, over, down || button.getToggleState());
 }
 
-// Flechita ⌄ de las píldoras que abren un menú (el largo y Options), en el mismo lugar en las dos.
-static void drawMenuArrow (juce::Graphics& g, juce::Rectangle<int> pill, juce::Colour colour)
+// Flechita ⌄ de los selectores (centrada en cx).
+static void drawArrowAt (juce::Graphics& g, float cx, float cy, juce::Colour colour)
 {
-    const float radius = (float) pill.getHeight() * 0.5f;
-    const float cx = (float) pill.getRight() - radius - 4.0f, cy = (float) pill.getCentreY();
     juce::Path arrow;
     arrow.startNewSubPath (cx - 4.5f, cy - 2.0f);
     arrow.lineTo (cx, cy + 2.5f);
     arrow.lineTo (cx + 4.5f, cy - 2.0f);
     g.setColour (colour);
     g.strokePath (arrow, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+}
+
+// Flechita contra el borde derecho (selector Receive / Send).
+static void drawMenuArrow (juce::Graphics& g, juce::Rectangle<int> pill, juce::Colour colour)
+{
+    const float radius = (float) pill.getHeight() * 0.5f;
+    drawArrowAt (g, (float) pill.getRight() - radius - 4.0f, (float) pill.getCentreY(), colour);
+}
+
+// Píldoras del osciloscopio que abren un menú (Options y el largo): texto + espacio + flechita,
+// todo junto centrado en la píldora.
+static void drawMenuPillText (juce::Graphics& g, juce::Rectangle<int> pill, const juce::String& text,
+                              const juce::Font& font, juce::Colour colour)
+{
+    constexpr float gap = 6.0f, arrowW = 9.0f;
+    const float textW = juce::GlyphArrangement::getStringWidth (font, text);
+    const float x0 = (float) pill.getCentreX() - (textW + gap + arrowW) * 0.5f;
+    g.setColour (colour);
+    g.setFont (font);
+    g.drawText (text, juce::Rectangle<float> (x0, (float) pill.getY(), textW + 2.0f, (float) pill.getHeight()),
+                juce::Justification::centredLeft, false);
+    drawArrowAt (g, x0 + textW + gap + arrowW * 0.5f, (float) pill.getCentreY(), colour);
 }
 
 void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& button, bool, bool)
@@ -201,7 +221,10 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
         colour = colour.withMultipliedAlpha (0.5f);
 
     if (button.getProperties().contains ("menuArrow"))     // Options: abre un menú, como el largo
-        drawMenuArrow (g, button.getLocalBounds(), Theme::chipText);
+    {
+        drawMenuPillText (g, button.getLocalBounds(), button.getButtonText(), getTextButtonFont (button, button.getHeight()), colour);
+        return;
+    }
 
     g.setColour (colour);
     g.setFont (getTextButtonFont (button, button.getHeight()));
@@ -250,7 +273,10 @@ void MeteringABLookAndFeel::drawComboBox (juce::Graphics& g, int w, int h, bool,
         g.fillRoundedRectangle (r, radius);
     }
 
-    drawMenuArrow (g, { 0, 0, w, h }, dark ? Theme::chipText : Theme::ink);
+    if (dark)       // el largo: texto + flechita centrados juntos (la etiqueta del selector queda invisible)
+        drawMenuPillText (g, { 0, 0, w, h }, box.getText(), getComboBoxFont (box), Theme::chipText);
+    else
+        drawMenuArrow (g, { 0, 0, w, h }, Theme::ink);
 }
 
 juce::Font MeteringABLookAndFeel::getComboBoxFont (juce::ComboBox& box)
@@ -262,20 +288,19 @@ juce::Font MeteringABLookAndFeel::getComboBoxFont (juce::ComboBox& box)
 
 void MeteringABLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
 {
+    label.setFont (getComboBoxFont (box));
+
     if (box.getProperties()["kind"].toString() == "chip")
     {
-        // Píldora del osciloscopio (el largo): texto centrado en toda la píldora, como Options.
+        // Píldora del osciloscopio (el largo): el texto lo dibuja drawComboBox, junto con la flechita.
         label.setBounds (0, 1, box.getWidth(), box.getHeight() - 2);
-        label.setBorderSize ({});
-        label.setJustificationType (juce::Justification::centred);
+        label.setColour (juce::Label::textColourId, juce::Colours::transparentBlack);
+        return;
     }
-    else
-    {
-        const int pad = box.getHeight() / 2 + 2;
-        label.setBounds (pad - 4, 1, box.getWidth() - pad - 26, box.getHeight() - 2);
-    }
-    label.setFont (getComboBoxFont (box));
-    label.setColour (juce::Label::textColourId, box.getProperties()["kind"].toString() == "chip" ? Theme::chipText : Theme::ink);
+
+    const int pad = box.getHeight() / 2 + 2;
+    label.setBounds (pad - 4, 1, box.getWidth() - pad - 26, box.getHeight() - 2);
+    label.setColour (juce::Label::textColourId, Theme::ink);
 }
 
 juce::PopupMenu::Options MeteringABLookAndFeel::getOptionsForComboBoxPopupMenu (juce::ComboBox& box, juce::Label& label)
