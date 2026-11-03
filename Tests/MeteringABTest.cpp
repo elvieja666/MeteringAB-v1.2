@@ -1822,6 +1822,19 @@ int main (int argc, char** argv)
             check (! sc.getMarkerDb().has_value(), "Regla: clic sobre la línea la saca", 1);
             sc.setMarkerDb (-3.0f);
             sc.showMarkerEditor();
+            {
+                // Se escribe sobre el mismo cartelito: sin caja aparte (fondo y borde transparentes, mismo lugar).
+                auto* te = sc.getMarkerEditorForTests();
+                check (te != nullptr && te->findColour (juce::TextEditor::backgroundColourId).isTransparent()
+                           && te->findColour (juce::TextEditor::focusedOutlineColourId).isTransparent()
+                           && te->getBounds() == sc.getMarkerTagAreaForTests().toNearestInt(),
+                       "Regla: el valor se escribe sobre el mismo cartelito (sin caja aparte)", te != nullptr ? 1 : 0);
+                if (const char* shot = std::getenv ("MARKER_SHOT"))
+                {
+                    auto img = sc.createComponentSnapshot (sc.getMarkerTagAreaForTests().toNearestInt().expanded (120, 30), true, 3.0f);
+                    juce::File f ((juce::String (shot))); f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+                }
+            }
             sc.typeMarkerForTests ("-12.5");
             check (sc.getMarkerDb().has_value() && std::abs (*sc.getMarkerDb() + 12.5f) < 0.01f, "Regla: doble clic y escribir -12.5 dB", sc.getMarkerDb().value_or (0));
             sc.showMarkerEditor();

@@ -270,19 +270,29 @@ public:
 
         markerEditor = std::make_unique<juce::TextEditor>();
         auto& ed = *markerEditor;
-        ed.setFont (Theme::font (12.0f, 500));
+        // Se escribe sobre el mismo cartelito (sin caja aparte): fondo y borde transparentes,
+        // la letra y el color del cartelito.
+        const auto clear = juce::Colours::transparentBlack;
+        const auto ink = juce::Colour (0xff0b0c0e);
+        ed.setFont (Theme::font (11.0f, 600));
         ed.setJustification (juce::Justification::centred);
-        ed.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff1b1e23));
-        ed.setColour (juce::TextEditor::textColourId, markerColour);
-        ed.setColour (juce::TextEditor::outlineColourId, markerColour.withAlpha (0.6f));
-        ed.setColour (juce::TextEditor::focusedOutlineColourId, markerColour);
+        ed.setIndents (0, 0);
+        ed.setBorder ({});
+        ed.setColour (juce::TextEditor::backgroundColourId, clear);
+        ed.setColour (juce::TextEditor::outlineColourId, clear);
+        ed.setColour (juce::TextEditor::focusedOutlineColourId, clear);
+        ed.setColour (juce::TextEditor::shadowColourId, clear);
+        ed.setColour (juce::TextEditor::textColourId, ink);
+        ed.setColour (juce::TextEditor::highlightColourId, ink.withAlpha (0.18f));
+        ed.setColour (juce::TextEditor::highlightedTextColourId, ink);
+        ed.setColour (juce::CaretComponent::caretColourId, ink);
         ed.setText (juce::String (*markerDb, 1), false);
         ed.selectAll();
         ed.onReturnKey = [this] { commitMarkerEditor (true); };
         ed.onEscapeKey = [this] { commitMarkerEditor (false); };
         ed.onFocusLost = [this] { commitMarkerEditor (true); };
         addAndMakeVisible (ed);
-        ed.setBounds (markerTagArea().toNearestInt().expanded (6, 3));
+        ed.setBounds (markerTagArea().toNearestInt());
         ed.grabKeyboardFocus();
         // Clic en cualquier otro lado (el gráfico, un botón...): se cierra la caja.
         juce::Desktop::getInstance().addGlobalMouseListener (&outsideClick);
@@ -290,6 +300,7 @@ public:
     }
 
     bool isMarkerEditorOpen() const { return markerEditor != nullptr && markerEditor->isVisible(); }
+    juce::TextEditor* getMarkerEditorForTests() const { return markerEditor.get(); }
     void clickElsewhereForTests (juce::Component& other)       // clic en otra parte del plugin
     {
         const juce::MouseEvent e (juce::Desktop::getInstance().getMainMouseSource(), {}, {}, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -688,8 +699,8 @@ private:
             g.setColour (markerColour.withAlpha (0.9f));         // gris claro (lleno; la de Gain es punteada)
             for (float y : ys)
                 g.fillRect (plot.getX(), y - 0.5f, plot.getWidth(), 1.2f);
-            if (markerEditor == nullptr || ! markerEditor->isVisible())
-                tag (ys.front(), dbText (*markerDb), markerColour, juce::Colour (0xff0b0c0e));
+            const bool editing = markerEditor != nullptr && markerEditor->isVisible();
+            tag (ys.front(), editing ? juce::String() : dbText (*markerDb), markerColour, juce::Colour (0xff0b0c0e));   // escribiendo: el cartelito sin texto, debajo de la caja
         }
 
         if (hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY) && ! isOnMarkerTag() && ! isOverShowAll())
