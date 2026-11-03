@@ -864,6 +864,12 @@ int main (int argc, char** argv)
                 juce::File f (juce::String (std::getenv ("EDIT_SHOT")));
                 f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
             }
+            if (l != box && std::getenv ("EDIT_SHOT_LINK") != nullptr)   // cómo se ve escribiendo el Link ID
+            {
+                auto img = p->createComponentSnapshot (l->getBounds().expanded (110, 14), true, 3.0f);
+                juce::File f (juce::String (std::getenv ("EDIT_SHOT_LINK")));
+                f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+            }
             l->hideEditor (true);
         }
         check (box != nullptr && ok == 2, "Window y Link ID: se escribe sobre la píldora (sin caja aparte, centrado)", ok);
