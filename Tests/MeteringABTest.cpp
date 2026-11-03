@@ -853,7 +853,20 @@ int main (int argc, char** argv)
         for (auto* l : { box, &p->getLinkValueLabelForTests() })
         {
             if (l == nullptr) continue;
+            if (const char* dir = std::getenv ("EDIT_SHIFT"))      // antes / durante: ¿se corre el texto?
+            {
+                auto before = l->createComponentSnapshot (l->getLocalBounds(), true, 4.0f);
+                juce::File f (juce::String (dir) + (l == box ? "/w0.png" : "/l0.png")); f.deleteFile();
+                juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (before, os);
+            }
             l->showEditor();
+            if (const char* dir = std::getenv ("EDIT_SHIFT"))
+            {
+                if (auto* te = l->getCurrentTextEditor()) te->setHighlightedRegion ({});
+                auto during = l->createComponentSnapshot (l->getLocalBounds(), true, 4.0f);
+                juce::File f (juce::String (dir) + (l == box ? "/w1.png" : "/l1.png")); f.deleteFile();
+                juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (during, os);
+            }
             if (auto* te = l->getCurrentTextEditor())
                 ok += (te->findColour (juce::TextEditor::backgroundColourId).isTransparent()
                        && te->findColour (juce::TextEditor::focusedOutlineColourId).isTransparent()
@@ -1821,7 +1834,20 @@ int main (int argc, char** argv)
             sc.mouseDown (mouse (at.x).withNewPosition (at)); sc.mouseUp (mouse (at.x).withNewPosition (at));
             check (! sc.getMarkerDb().has_value(), "Regla: clic sobre la línea la saca", 1);
             sc.setMarkerDb (-3.0f);
+            const char* shiftDir = std::getenv ("EDIT_SHIFT");
+            auto tagShot = [&] (const char* name)
+            {
+                auto img = sc.createComponentSnapshot (sc.getMarkerTagAreaForTests().toNearestInt(), true, 4.0f);
+                juce::File f (juce::String (shiftDir) + name); f.deleteFile();
+                juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+            };
+            if (shiftDir != nullptr) tagShot ("/m0.png");
             sc.showMarkerEditor();
+            if (shiftDir != nullptr)
+            {
+                if (auto* te = sc.getMarkerEditorForTests()) te->setHighlightedRegion ({});
+                tagShot ("/m1.png");
+            }
             {
                 // Se escribe sobre el mismo cartelito: sin caja aparte (fondo y borde transparentes, mismo lugar).
                 auto* te = sc.getMarkerEditorForTests();

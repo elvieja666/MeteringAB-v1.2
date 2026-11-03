@@ -276,7 +276,7 @@ public:
         const auto ink = juce::Colour (0xff0b0c0e);
         ed.setFont (Theme::font (11.0f, 600));
         ed.setJustification (juce::Justification::centred);
-        ed.setIndents (0, 0);
+        ed.setIndents (2, 0);           // el editor de JUCE centra 1 px más a la izquierda que el texto dibujado
         ed.setBorder ({});
         ed.setColour (juce::TextEditor::backgroundColourId, clear);
         ed.setColour (juce::TextEditor::outlineColourId, clear);

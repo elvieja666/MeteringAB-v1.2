@@ -339,7 +339,7 @@ juce::TextEditor* PillValueLabel::createEditorComponent()
     ed->setColour (juce::TextEditor::highlightColourId, Theme::accent.withAlpha (0.25f));
     ed->setColour (juce::CaretComponent::caretColourId, Theme::inkStrong);
     ed->setJustification (juce::Justification::centred);
-    ed->setIndents (0, 0);
+    ed->setIndents (2, 0);              // el editor de JUCE centra 1 px más a la izquierda que el texto dibujado
     ed->setBorder ({});
     return ed;
 }
