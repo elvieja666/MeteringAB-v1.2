@@ -571,6 +571,16 @@ int main (int argc, char** argv)
                     f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
                 }
                 outer->setUiScale (1.0f);
+                // Receive con el osciloscopio cerrado, a tamaño original (100%: 350 x 650) y en Retina (x2).
+                auto* p = panelOf (ed);
+                if (p->isScopeOpenForTests()) p->getScopeToggleForTests().onClick();
+                for (float px : { 1.0f, 2.0f })
+                {
+                    auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, px);
+                    juce::File f (juce::String (argv[1]) + (px < 1.5f ? "/receive-cerrado-100.png" : "/receive-cerrado-100@2x.png"));
+                    f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+                }
+                p->getScopeToggleForTests().onClick();
             }
 
             if (shot == 3)   // ventana en modo Sync (compases)
