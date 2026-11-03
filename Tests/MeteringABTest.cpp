@@ -842,6 +842,33 @@ int main (int argc, char** argv)
         }
     }
     {
+        // Escribir el valor de Window (o el Link ID): se escribe sobre la misma píldora, sin caja aparte.
+        MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());
+        auto* p = panelOf (ed);
+        juce::Label* box = nullptr;
+        for (auto* c : p->getWindowSliderForTests().getChildren())
+            if (auto* l = dynamic_cast<juce::Label*> (c)) box = l;
+        int ok = 0;
+        for (auto* l : { box, &p->getLinkValueLabelForTests() })
+        {
+            if (l == nullptr) continue;
+            l->showEditor();
+            if (auto* te = l->getCurrentTextEditor())
+                ok += (te->findColour (juce::TextEditor::backgroundColourId).isTransparent()
+                       && te->findColour (juce::TextEditor::focusedOutlineColourId).isTransparent()
+                       && te->getJustificationType().testFlags (juce::Justification::horizontallyCentred)) ? 1 : 0;
+            if (l == box && std::getenv ("EDIT_SHOT") != nullptr)   // EDIT_SHOT=archivo.png: cómo se ve escribiendo
+            {
+                auto img = p->createComponentSnapshot (p->getWindowBubblesForTests().second.expanded (30, 40), true, 3.0f);
+                juce::File f (juce::String (std::getenv ("EDIT_SHOT")));
+                f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+            }
+            l->hideEditor (true);
+        }
+        check (box != nullptr && ok == 2, "Window y Link ID: se escribe sobre la píldora (sin caja aparte, centrado)", ok);
+    }
+    {
         // Options > Grid: resolución fija de la grilla (Auto, 1/4 ... 1/64), se guarda con el proyecto.
         MeteringABProcessor a; setParam (a, ParamIDs::mode, 1);
         std::unique_ptr<juce::AudioProcessorEditor> ed (a.createEditor());

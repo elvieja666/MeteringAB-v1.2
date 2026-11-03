@@ -327,9 +327,30 @@ juce::Font MeteringABLookAndFeel::getPopupMenuFont()
     return Theme::font (popupFontSize, popupFontWeight);
 }
 
+juce::TextEditor* PillValueLabel::createEditorComponent()
+{
+    auto* ed = juce::Label::createEditorComponent();
+    const auto clear = juce::Colours::transparentBlack;
+    ed->setColour (juce::TextEditor::backgroundColourId, clear);
+    ed->setColour (juce::TextEditor::outlineColourId, clear);
+    ed->setColour (juce::TextEditor::focusedOutlineColourId, clear);
+    ed->setColour (juce::TextEditor::shadowColourId, clear);
+    ed->setColour (juce::TextEditor::textColourId, findColour (juce::Label::textColourId));
+    ed->setColour (juce::TextEditor::highlightColourId, Theme::accent.withAlpha (0.25f));
+    ed->setColour (juce::CaretComponent::caretColourId, Theme::inkStrong);
+    ed->setJustification (juce::Justification::centred);
+    ed->setIndents (0, 0);
+    ed->setBorder ({});
+    return ed;
+}
+
 juce::Label* MeteringABLookAndFeel::createSliderTextBox (juce::Slider& slider)
 {
-    auto* label = LookAndFeel_V4::createSliderTextBox (slider);
+    // Igual que el de JUCE, pero se escribe sobre la misma píldora (PillValueLabel).
+    auto* base = LookAndFeel_V4::createSliderTextBox (slider);
+    auto* label = new PillValueLabel();
+    label->setMinimumHorizontalScale (base->getMinimumHorizontalScale());
+    delete base;
     label->getProperties().set ("well", true);
     label->setFont (Theme::font (14.0f, 400));                  // como Measure, Bypass y Scope
     label->setColour (juce::Label::textColourId, Theme::inkStrong);
@@ -343,11 +364,14 @@ juce::Label* MeteringABLookAndFeel::createSliderTextBox (juce::Slider& slider)
 
 void MeteringABLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
 {
-    if (label.getProperties()["well"] && ! label.isBeingEdited())
+    if (label.getProperties()["well"])
     {
-        // Casillero hundido con el valor (se puede hacer clic para escribir).
+        // Casillero hundido con el valor (se puede hacer clic para escribir; mientras escribís,
+        // la píldora sigue igual y el texto se escribe encima).
         auto r = label.getLocalBounds().toFloat();             // del mismo tamaño que ms|Sync
         Theme::drawWell (g, r, r.getHeight() * 0.5f);
+        if (label.isBeingEdited())
+            return;
         g.setColour (label.findColour (juce::Label::textColourId));
         g.setFont (getLabelFont (label));
         g.drawFittedText (label.getText(), label.getLocalBounds(), juce::Justification::centred, 1);

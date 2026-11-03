@@ -10,6 +10,21 @@
 //   - Shift + arrastrar = ajuste fino.
 //   - Doble clic en la perilla = vuelve al valor por defecto.
 // ---------------------------------------------------------------------------
+// Valor que se escribe sobre la misma píldora: al editarlo no aparece una caja aparte, el texto se
+// escribe centrado ahí mismo (fondo y borde transparentes, la píldora se sigue viendo).
+class PillValueLabel : public juce::Label
+{
+public:
+    PillValueLabel()
+    {
+        setJustificationType (juce::Justification::centred);
+        setBorderSize ({});
+    }
+
+protected:
+    juce::TextEditor* createEditorComponent() override;
+};
+
 class PreciseSlider : public juce::Slider
 {
 public:
@@ -158,6 +173,8 @@ public:
         const auto layout = windowSlider.getLookAndFeel().getSliderLayout (windowSlider);
         return { syncButtons[0].getBounds().getUnion (syncButtons[1].getBounds()), layout.textBoxBounds + windowSlider.getPosition() };
     }
+    PreciseSlider& getWindowSliderForTests()  { return windowSlider; }
+    juce::Label& getLinkValueLabelForTests()  { return linkValueLabel; }
     juce::Rectangle<int> getWindowKnobForTests()             // dónde se dibuja la perilla de Window (en el panel)
     {
         const auto layout = windowSlider.getLookAndFeel().getSliderLayout (windowSlider);
@@ -201,7 +218,7 @@ private:
     juce::Label windowInfoLabel;                      // equivalencia ms <-> compases
     juce::Label statusLabel;
     juce::TextButton linkMinus { juce::String::fromUTF8 ("\xe2\x88\x92") }, linkPlus { "+" };   // − / +
-    juce::Label linkValueLabel;
+    PillValueLabel linkValueLabel;
     juce::String latencyNumberText;                   // número de latencia (se dibuja en paint)
     juce::Rectangle<int> latencyNumberArea;
 
