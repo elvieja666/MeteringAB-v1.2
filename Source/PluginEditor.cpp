@@ -159,6 +159,19 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
     Theme::drawRaised (g, raisedShape (r), radius, over, down || button.getToggleState());
 }
 
+// Flechita ⌄ de las píldoras que abren un menú (el largo y Options), en el mismo lugar en las dos.
+static void drawMenuArrow (juce::Graphics& g, juce::Rectangle<int> pill, juce::Colour colour)
+{
+    const float radius = (float) pill.getHeight() * 0.5f;
+    const float cx = (float) pill.getRight() - radius - 4.0f, cy = (float) pill.getCentreY();
+    juce::Path arrow;
+    arrow.startNewSubPath (cx - 4.5f, cy - 2.0f);
+    arrow.lineTo (cx, cy + 2.5f);
+    arrow.lineTo (cx + 4.5f, cy - 2.0f);
+    g.setColour (colour);
+    g.strokePath (arrow, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+}
+
 void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& button, bool, bool)
 {
     const auto kind = button.getProperties()["kind"].toString();
@@ -186,6 +199,9 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
 
     if (! button.isEnabled())
         colour = colour.withMultipliedAlpha (0.5f);
+
+    if (button.getProperties().contains ("menuArrow"))     // Options: abre un menú, como el largo
+        drawMenuArrow (g, button.getLocalBounds(), Theme::chipText);
 
     g.setColour (colour);
     g.setFont (getTextButtonFont (button, button.getHeight()));
@@ -234,14 +250,7 @@ void MeteringABLookAndFeel::drawComboBox (juce::Graphics& g, int w, int h, bool,
         g.fillRoundedRectangle (r, radius);
     }
 
-    // Flechita ⌄
-    const float cx = (float) w - radius - 4.0f, cy = (float) h * 0.5f;
-    juce::Path arrow;
-    arrow.startNewSubPath (cx - 4.5f, cy - 2.0f);
-    arrow.lineTo (cx, cy + 2.5f);
-    arrow.lineTo (cx + 4.5f, cy - 2.0f);
-    g.setColour (dark ? Theme::chipText : Theme::ink);
-    g.strokePath (arrow, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    drawMenuArrow (g, { 0, 0, w, h }, dark ? Theme::chipText : Theme::ink);
 }
 
 juce::Font MeteringABLookAndFeel::getComboBoxFont (juce::ComboBox& box)
@@ -253,8 +262,18 @@ juce::Font MeteringABLookAndFeel::getComboBoxFont (juce::ComboBox& box)
 
 void MeteringABLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
 {
-    const int pad = box.getHeight() / 2 + 2;
-    label.setBounds (pad - 4, 1, box.getWidth() - pad - 26, box.getHeight() - 2);
+    if (box.getProperties()["kind"].toString() == "chip")
+    {
+        // Píldora del osciloscopio (el largo): texto centrado en toda la píldora, como Options.
+        label.setBounds (0, 1, box.getWidth(), box.getHeight() - 2);
+        label.setBorderSize ({});
+        label.setJustificationType (juce::Justification::centred);
+    }
+    else
+    {
+        const int pad = box.getHeight() / 2 + 2;
+        label.setBounds (pad - 4, 1, box.getWidth() - pad - 26, box.getHeight() - 2);
+    }
     label.setFont (getComboBoxFont (box));
     label.setColour (juce::Label::textColourId, box.getProperties()["kind"].toString() == "chip" ? Theme::chipText : Theme::ink);
 }
@@ -549,6 +568,7 @@ MeteringABPanel::MeteringABPanel (MeteringABProcessor& p)
     // Freeze: congela lo que se ve (para mirarlo y hacerle zoom tranquilo).
     // Options: canales (L / R / suma) y grilla.
     optionsButton.setClickingTogglesState (false);
+    optionsButton.getProperties().set ("menuArrow", true);   // flechita ⌄, como la píldora del largo
     optionsButton.onClick = [this] { showStyleMenu (optionsButton); };
     addAndMakeVisible (optionsButton);
 
