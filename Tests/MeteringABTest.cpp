@@ -1829,13 +1829,14 @@ int main (int argc, char** argv)
                            && te->findColour (juce::TextEditor::focusedOutlineColourId).isTransparent()
                            && te->getBounds() == sc.getMarkerTagAreaForTests().toNearestInt(),
                        "Regla: el valor se escribe sobre el mismo cartelito (sin caja aparte)", te != nullptr ? 1 : 0);
+                check (te != nullptr && te->getText() == "-3.0 dB", "Regla: al abrir la caja se ve el valor con \"dB\" (como el cartelito)", te != nullptr ? te->getText().length() : 0);
                 if (const char* shot = std::getenv ("MARKER_SHOT"))
                 {
                     auto img = sc.createComponentSnapshot (sc.getMarkerTagAreaForTests().toNearestInt().expanded (120, 30), true, 3.0f);
                     juce::File f ((juce::String (shot))); f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
                 }
             }
-            sc.typeMarkerForTests ("-12.5");
+            sc.typeMarkerForTests ("-12.5");   // sin "dB": se sobreentiende
             check (sc.getMarkerDb().has_value() && std::abs (*sc.getMarkerDb() + 12.5f) < 0.01f, "Regla: doble clic y escribir -12.5 dB", sc.getMarkerDb().value_or (0));
             sc.showMarkerEditor();
             sc.typeAndEscapeMarkerForTests ("-20");

@@ -286,7 +286,7 @@ public:
         ed.setColour (juce::TextEditor::highlightColourId, ink.withAlpha (0.18f));
         ed.setColour (juce::TextEditor::highlightedTextColourId, ink);
         ed.setColour (juce::CaretComponent::caretColourId, ink);
-        ed.setText (juce::String (*markerDb, 1), false);
+        ed.setText (dbText (*markerDb), false);       // "-6.5 dB", como el cartelito; al escribir, el "dB" no hace falta
         ed.selectAll();
         ed.onReturnKey = [this] { commitMarkerEditor (true); };
         ed.onEscapeKey = [this] { commitMarkerEditor (false); };
