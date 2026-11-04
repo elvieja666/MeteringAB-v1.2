@@ -286,10 +286,11 @@ public:
     static constexpr int mainHeight = MeteringABPanel::receiveHeight;
     static constexpr int sendHeight = MeteringABPanel::sendHeight;
     static constexpr int baseWidth  = MeteringABPanel::receiveWidth;
-    static constexpr float minScale = 0.4f, maxScale = 1.5f;
     // Por defecto el osciloscopio mide 781 x 359: la referencia (1041 x 478) un 25% más
     // chica. Todo lo demás (la columna gris) se escala junto, en proporción (≈ 950 x 393).
     static constexpr float defaultScale = 1.05f * 497.0f / (float) MeteringABPanel::receiveHeight;   // 497 px de alto, + 5%
+    // Se puede agrandar desde el tamaño de fábrica (no achicar por debajo de él) hasta el 150%.
+    static constexpr float minScale = defaultScale, maxScale = 1.5f;
 
     explicit MeteringABEditor (MeteringABProcessor&);
     ~MeteringABEditor() override;

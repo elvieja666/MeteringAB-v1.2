@@ -810,6 +810,10 @@ int main (int argc, char** argv)
         check (std::abs (outer->getUiScale() - 1.0f) < 1.0e-3f, "Escalable: arrastrar la esquina cambia la escala", outer->getUiScale());
         outer->setUiScale (5.0f);
         check (std::abs (outer->getUiScale() - MeteringABEditor::maxScale) < 1.0e-4f, "Escalable: no pasa del 150%", outer->getUiScale());
+        outer->setUiScale (0.5f);
+        check (std::abs (outer->getUiScale() - MeteringABEditor::defaultScale) < 1.0e-4f, "Escalable: no se achica por debajo del tamaño de fábrica", outer->getUiScale());
+        ed->setSize (MeteringABPanel::receiveWidth / 2, MeteringABPanel::receiveHeight / 2);   // como arrastrar la esquina hacia adentro
+        check (outer->getUiScale() >= MeteringABEditor::defaultScale - 1.0e-4f, "Escalable: arrastrar hacia adentro no lo achica", outer->getUiScale());
         outer->setUiScale (1.0f);
         std::unique_ptr<juce::AudioProcessorEditor> ed2 (a.createEditor());
         check (ed2->getWidth() == MeteringABPanel::receiveWidth, "Escalable: al reabrir el plugin recuerda el tamaño (ancho px)", ed2->getWidth());
