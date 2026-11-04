@@ -319,32 +319,19 @@ private:
     };
     InvisibleCornerLookAndFeel cornerLookAndFeel;
     // La esquina para escalar es propia (la de JUCE mide fijo 18 x 18): 24 x 24 px de pantalla.
-    // Responde en todo el cuadrado (la de JUCE solo en el triángulo de abajo a la derecha, y por
-    // eso la flechita doble a veces aparecía y a veces no) y pone la flechita apenas entra el mouse.
-    // Mientras el mouse está encima, la vuelve a poner 20 veces por segundo: si la ventana activa
-    // es otra de Logic, Logic a veces pone su cursor encima del nuestro.
-    struct CornerResizer : juce::ResizableCornerComponent, private juce::Timer
+    // Responde en todo el cuadrado y no cambia el puntero (sin la flechita doble: siempre la flecha).
+    struct CornerResizer : juce::ResizableCornerComponent
     {
-        using juce::ResizableCornerComponent::ResizableCornerComponent;
-        bool hitTest (int, int) override                          { return true; }
-        void mouseEnter (const juce::MouseEvent&) override        { updateMouseCursor(); startTimerHz (20); }
-        void mouseMove (const juce::MouseEvent&) override         { updateMouseCursor(); }
-        void mouseExit (const juce::MouseEvent&) override         { stopTimer(); }
-        bool isInsistingForTests() const                          { return isTimerRunning(); }
-    private:
-        void timerCallback() override
+        CornerResizer (juce::Component* c, juce::ComponentBoundsConstrainer* k) : juce::ResizableCornerComponent (c, k)
         {
-            if (isMouseOverOrDragging (true))
-                updateMouseCursor();
-            else
-                stopTimer();                                  // por si no llegó el aviso de salida
+            setMouseCursor (juce::MouseCursor::NormalCursor);
         }
+        bool hitTest (int, int) override                          { return true; }
     };
     static constexpr int cornerSize = 24;
     std::unique_ptr<CornerResizer> corner;
 public:
     juce::Component* getCornerForTests() const       { return corner.get(); }
-    bool isCornerInsistingForTests() const            { return corner != nullptr && corner->isInsistingForTests(); }
 private:
     float scale = 1.0f;                               // escala del Receive (la que elegís con la esquina)
     float shownScale = 1.0f;                          // la que se usa ahora (Send: la misma que el Receive)

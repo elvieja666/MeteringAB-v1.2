@@ -780,18 +780,8 @@ int main (int argc, char** argv)
                        && c->getRight() == ed->getWidth() && c->getBottom() == ed->getHeight(),
                    "Esquina para escalar: 24 x 24 px, abajo a la derecha", c != nullptr ? c->getWidth() : 0);
             check (c != nullptr && c->hitTest (1, 1) && c->hitTest (12, 12) && c->hitTest (23, 23)
-                       && c->getMouseCursor() == juce::MouseCursor (juce::MouseCursor::BottomRightCornerResizeCursor),
-                   "Esquina para escalar: la flechita doble en todo el cuadrado (también arriba a la izquierda)", 1);
-            if (c != nullptr)
-            {
-                juce::MouseEvent ev (juce::Desktop::getInstance().getMainMouseSource(), { 5.0f, 5.0f }, {}, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                                     c, c, juce::Time::getCurrentTime(), { 5.0f, 5.0f }, juce::Time::getCurrentTime(), 0, false);
-                c->mouseEnter (ev);
-                const bool insists = outer->isCornerInsistingForTests();
-                c->mouseExit (ev);
-                check (insists && ! outer->isCornerInsistingForTests(),
-                       "Esquina para escalar: con el mouse encima insiste con la flechita; al salir, para", insists ? 1 : 0);
-            }
+                       && c->getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor),
+                   "Esquina para escalar: responde en todo el cuadrado, sin flechita doble (la flecha normal)", 1);
         }
         outer->setUiScale (1.5f);
         check (ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * 1.5) && ed->getHeight() == juce::roundToInt (MeteringABPanel::receiveHeight * 1.5),
