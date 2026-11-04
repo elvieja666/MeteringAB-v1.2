@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   mac:
-    runs-on: macos-26   # Mac ARM de GitHub (macOS 26); igual compila universal (arm64+x86_64)
+    runs-on: macos-15   # Mac ARM de GitHub; igual compila universal (arm64+x86_64)
     steps:
       - name: Bajar el código
         uses: actions/checkout@v4
