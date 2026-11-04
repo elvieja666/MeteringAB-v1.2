@@ -779,6 +779,9 @@ int main (int argc, char** argv)
             check (c != nullptr && c->getWidth() == 24 && c->getHeight() == 24
                        && c->getRight() == ed->getWidth() && c->getBottom() == ed->getHeight(),
                    "Esquina para escalar: 24 x 24 px, abajo a la derecha", c != nullptr ? c->getWidth() : 0);
+            check (c != nullptr && c->hitTest (1, 1) && c->hitTest (12, 12) && c->hitTest (23, 23)
+                       && c->getMouseCursor() == juce::MouseCursor (juce::MouseCursor::BottomRightCornerResizeCursor),
+                   "Esquina para escalar: la flechita doble en todo el cuadrado (también arriba a la izquierda)", 1);
         }
         outer->setUiScale (1.5f);
         check (ed->getWidth() == juce::roundToInt (MeteringABPanel::receiveWidth * 1.5) && ed->getHeight() == juce::roundToInt (MeteringABPanel::receiveHeight * 1.5),

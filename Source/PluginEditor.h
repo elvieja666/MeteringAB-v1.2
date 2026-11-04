@@ -319,8 +319,17 @@ private:
     };
     InvisibleCornerLookAndFeel cornerLookAndFeel;
     // La esquina para escalar es propia (la de JUCE mide fijo 18 x 18): 24 x 24 px de pantalla.
+    // Responde en todo el cuadrado (la de JUCE solo en el triángulo de abajo a la derecha, y por
+    // eso la flechita doble a veces aparecía y a veces no) y pone la flechita apenas entra el mouse.
+    struct CornerResizer : juce::ResizableCornerComponent
+    {
+        using juce::ResizableCornerComponent::ResizableCornerComponent;
+        bool hitTest (int, int) override                          { return true; }
+        void mouseEnter (const juce::MouseEvent&) override        { updateMouseCursor(); }
+        void mouseMove (const juce::MouseEvent&) override         { updateMouseCursor(); }
+    };
     static constexpr int cornerSize = 24;
-    std::unique_ptr<juce::ResizableCornerComponent> corner;
+    std::unique_ptr<CornerResizer> corner;
 public:
     juce::Component* getCornerForTests() const       { return corner.get(); }
 private:

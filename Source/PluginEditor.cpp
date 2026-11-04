@@ -1595,7 +1595,7 @@ void MeteringABEditor::fitToPanel()
     setResizable (canResize, false);                 // el host lo puede escalar; la esquina es la nuestra
     if (canResize && corner == nullptr)
     {
-        corner = std::make_unique<juce::ResizableCornerComponent> (this, &constrainer);
+        corner = std::make_unique<CornerResizer> (this, &constrainer);
         corner->setLookAndFeel (&cornerLookAndFeel);   // sin las rayitas diagonales
         corner->addMouseListener (this, false);         // Option + clic en la esquina: tamaño por defecto
         addAndMakeVisible (*corner);
