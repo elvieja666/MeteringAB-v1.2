@@ -101,7 +101,6 @@ public:
     {
         viewSpan = juce::jlimit (minViewSpan(), 1.0, span);
         viewStart = juce::jlimit (0.0, 1.0 - viewSpan, start);
-        updateCursor();
         repaint();
     }
 
@@ -115,12 +114,6 @@ public:
         const auto plot = plotArea();
         return hoverY >= plot.getY() && hoverY <= plot.getBottom() && ! isOnMarker (hoverY) && ! isOnMarkerTag() && ! isOverShowAll()
                && hoverX >= plot.getRight() - 78.0f && hoverX <= plot.getRight() - 6.0f;
-    }
-    // Puntero: siempre la flecha (sin manos ni dedo; en Logic no se veían bien).
-    void updateCursor()
-    {
-        setMouseCursor (juce::MouseCursor::NormalCursor);
-        updateMouseCursor();
     }
     bool isGrabbingForTests() const { return grabbing; }
     int getLastSubdivisionsForTests() const { return lastSubdivisions; }
@@ -162,7 +155,6 @@ public:
         if (db.has_value())
             db = juce::jlimit (-60.0f, 0.0f, -std::abs (*db));
         markerDb = db;
-        updateCursor();                                 // la cajita apareció o se fue
         repaint();
     }
 
@@ -179,7 +171,6 @@ public:
         hoverY = plotArea().contains (e.position) ? e.position.y : -1.0f;
         hoverX = e.position.x;
         hoverPoint = e.position;
-        updateCursor();
         repaint();
     }
 
@@ -187,7 +178,6 @@ public:
     {
         hoverY = -1.0f;
         hoverPoint = { -1.0f, -1.0f };
-        updateCursor();
         repaint();
     }
 
@@ -209,7 +199,6 @@ public:
         hoverX = e.position.x;
         hoverY = plotArea().contains (e.position) ? e.position.y : -1.0f;
         grabbing = isZoomed() && ! isOverClickable() && ! e.mods.isPopupMenu();   // agarrar la onda para moverse
-        updateCursor();
     }
 
     void mouseDrag (const juce::MouseEvent& e) override
@@ -232,7 +221,6 @@ public:
         hoverPoint = e.position;
         hoverX = e.position.x;
         hoverY = plotArea().contains (e.position) ? e.position.y : -1.0f;
-        updateCursor();
         if (dragged || e.getNumberOfClicks() > 1 || e.mods.isPopupMenu())
             return;
 
