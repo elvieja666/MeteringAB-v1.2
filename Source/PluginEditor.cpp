@@ -104,7 +104,7 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
     if (kind == "chip")                              // pastilla oscura del osciloscopio
     {
         r = r.reduced (0.5f);
-        const float radius = r.getHeight() * 0.5f;
+        const float radius = Theme::pillRadius (r.getHeight());
         const bool on = button.getToggleState();
         const auto colour = juce::Colour ((juce::uint32) (juce::int64) button.getProperties().getWithDefault ("chipColour", (juce::int64) Theme::accentBright.getARGB()));
 
@@ -118,7 +118,7 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
     if (kind == "scopetoggle")                       // Scope: pastilla con triángulo (abierto = encendido)
     {
         r = r.reduced (0.5f);
-        const float radius = r.getHeight() * 0.5f;
+        const float radius = Theme::pillRadius (r.getHeight());
         const bool on = button.getToggleState();
         g.setColour (on ? Theme::raisedTop : Theme::pill.brighter (over ? 0.03f : 0.0f));
         g.fillRoundedRectangle (r, radius);
@@ -128,7 +128,7 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
             g.drawRoundedRectangle (r, radius, 1.0f);
         }
         // Triángulo a la derecha: ◀ cerrar (abierto) / ▶ abrir (cerrado).
-        const float cx = r.getRight() - radius - 2.0f, cy = r.getCentreY(), t = 4.5f;
+        const float cx = r.getRight() - r.getHeight() * 0.5f - 2.0f, cy = r.getCentreY(), t = 4.5f;
         juce::Path p;
         if (on) p.addTriangle (cx + t * 0.6f, cy - t, cx + t * 0.6f, cy + t, cx - t * 0.8f, cy);
         else    p.addTriangle (cx - t * 0.6f, cy - t, cx - t * 0.6f, cy + t, cx + t * 0.8f, cy);
@@ -140,7 +140,7 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
     if (kind == "bypass")                            // Match Gain Bypass: pastilla; prendido = naranja
     {
         r = r.reduced (0.5f);
-        const float radius = r.getHeight() * 0.5f;
+        const float radius = Theme::pillRadius (r.getHeight());
         const bool on = button.getToggleState();
         g.setColour (on ? Theme::warn : Theme::pill.brighter (over ? 0.03f : 0.0f));
         g.fillRoundedRectangle (r, radius);
@@ -150,13 +150,13 @@ void MeteringABLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
     if (kind == "segment")                           // ms | Sync: la elegida en relieve
     {
         if (button.getToggleState())
-            Theme::drawRaised (g, r.reduced (2.0f), (r.getHeight() - 4.0f) * 0.5f, false, false);
+            Theme::drawRaised (g, r.reduced (2.0f), Theme::pillRadius (r.getHeight() - 4.0f), false, false);
         return;
     }
 
     // raised (por defecto)
-    const float radius = button.getProperties().contains ("big") ? 18.0f : (r.getHeight() - 6.0f) * 0.5f;
-    Theme::drawRaised (g, raisedShape (r), radius, over, down || button.getToggleState());
+    const auto shape = raisedShape (r);
+    Theme::drawRaised (g, shape, Theme::pillRadius (shape.getHeight()), over, down || button.getToggleState());
 }
 
 // Flechita ⌄ de los selectores (centrada en cx).
@@ -257,7 +257,7 @@ void MeteringABLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton&
 void MeteringABLookAndFeel::drawComboBox (juce::Graphics& g, int w, int h, bool, int, int, int, int, juce::ComboBox& box)
 {
     auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) w, (float) h).reduced (0.5f);
-    const float radius = r.getHeight() * 0.5f;
+    const float radius = Theme::pillRadius (r.getHeight());
     const bool dark = box.getProperties()["kind"].toString() == "chip";
 
     if (dark)
@@ -369,7 +369,7 @@ void MeteringABLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
         // Casillero hundido con el valor (se puede hacer clic para escribir; mientras escribís,
         // la píldora sigue igual y el texto se escribe encima).
         auto r = label.getLocalBounds().toFloat();             // del mismo tamaño que ms|Sync
-        Theme::drawWell (g, r, r.getHeight() * 0.5f);
+        Theme::drawWell (g, r, Theme::pillRadius (r.getHeight()));
         if (label.isBeingEdited())
             return;
         g.setColour (label.findColour (juce::Label::textColourId));
@@ -1292,7 +1292,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
     {
         const auto r = linkMinus.getBounds().getUnion (linkPlus.getBounds()).toFloat();
         g.setColour (Theme::pill);
-        g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
+        g.fillRoundedRectangle (r, Theme::pillRadius (r.getHeight()));
     }
 
     // Puntito de color al lado del estado
@@ -1342,7 +1342,7 @@ void MeteringABPanel::paint (juce::Graphics& g)
     {
         const auto r = syncButtons[0].getBounds().getUnion (syncButtons[1].getBounds()).toFloat();
         g.setColour (Theme::pill);
-        g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
+        g.fillRoundedRectangle (r, Theme::pillRadius (r.getHeight()));
     }
 
     // Latencia medida: número grande + "muestras"

@@ -85,6 +85,10 @@ namespace Theme
         return juce::Font (juce::FontOptions (typeface (weight)).withHeight (height * textScale).withKerningFactor (kerning));
     }
 
+    // Curva de las esquinas de todas las píldoras: la misma proporción que el botón grande
+    // PRE/POST (18 px de radio sobre 74 px de alto).
+    inline float pillRadius (float height) { return height * (18.0f / 74.0f); }
+
     // Recuadro hundido (fondo claro con sombra interior arriba).
     inline void drawWell (juce::Graphics& g, juce::Rectangle<float> r, float radius)
     {
